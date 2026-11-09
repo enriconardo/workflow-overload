@@ -7,7 +7,7 @@ Turns the request into an understood problem and a tier the human confirms, with
 3. **Ask.** Targeted questions on requirements, edge cases, errors and trade-offs, from the map. One message, the most important first. No code.
 4. **Triage.** Propose S or L with one line of reasons; the human confirms or changes it.
    - **S** when all of these hold:
-     - nothing a consumer sees changes (public API, observable behavior even if undocumented, such as defaults and error types, dependency ranges), or the change is docs, config or tooling only;
+     - nothing a consumer sees changes (public API, observable behavior even if undocumented, such as defaults and error types, dependency ranges), or the change is docs, config or tooling only. A bug fix that brings the behavior back to what the docs or the evident intent say counts as no change; one that has to decide what the behavior should be is L;
      - one package or area, within one chunk: about 6–7 files touched or 10–15 test cases;
      - no data migration, nothing on security (authentication, permissions, secrets);
      - no high uncertainty: clear requirements, known code and dependencies. A dependency upgrade that changes behavior is L.
