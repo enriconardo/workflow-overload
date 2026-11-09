@@ -42,7 +42,7 @@ Versions, APIs, a dependency's behavior. Run the `workflow-overload:prober` agen
 
 Run the `workflow-overload:spec-reviewer` agent with the spec's path and the explorer map's path (write the map to a file outside the repository first), and the config's `rules`. Never a summary of the discussion. Increment `spec_review_rounds` in the journal.
 
-For each objection: accept it and fix the spec, or reject it with a reason, which goes under *Open findings*. A new question about external facts goes back to 2; a question only the human can answer goes to them now. At most three rounds, then `phases/escalate.md`.
+For each objection: accept it and fix the spec, or reject it with a reason, which goes under *Open findings*. A new question about external facts goes back to 2; a question only the human can answer goes to them now. The loop ends when the reviewer's last round raises no objection you accept. Each accepted objection fixes the spec and calls for another round. At most three rounds, then `phases/escalate.md`; past the third, every round ends there again while an objection stays open.
 
 ## 4. Threshold
 
