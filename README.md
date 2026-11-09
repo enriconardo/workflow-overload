@@ -28,7 +28,7 @@ Scripts need `bash`, `git` and `python3` (3.8 or later, standard library only).
 | `/overload <request>` | Opens a task: brainstorming, then the S path. |
 | `/overload` | Resumes the task of the current branch from its journal, after an interruption or a `/clear`. |
 
-Without `/overload`, a session works as it would without the plugin: the entry skill cannot be invoked by the model, the agents declare themselves internal, and the hooks stay silent on a branch without a journal.
+Inside a task the scripts that open the branch, update the journal, verify and commit run without a permission prompt; `integrate.sh` asks each time, on top of your go at the checkpoint. Without `/overload`, a session works as it would without the plugin: the entry skill cannot be invoked by the model, the agents declare themselves internal, and the hooks stay silent on a branch without a journal.
 
 ## The S path
 

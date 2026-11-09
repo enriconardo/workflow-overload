@@ -11,6 +11,7 @@ A probe plugin named `overload` (since renamed `workflow-overload`: `/overload` 
 | Does the skill reach the plugin's scripts from another repository? | Yes. `${CLAUDE_PLUGIN_ROOT}` and `${CLAUDE_SKILL_DIR}` are substituted with absolute paths in the skill's text; the script runs with the project as its working directory. |
 | Inside a script? | `CLAUDE_PLUGIN_ROOT` is **not** set in the model's Bash. A script finds its files from `BASH_SOURCE`. Hooks do get the variable. |
 | `` !`command` `` in a skill | Works: its output lands in the skill's text before the model reads it. |
+| Permissions | The `` !`command` `` of a skill needs Bash permission like any command: without it the skill fails to load ("requires approval"). The skill's `allowed-tools` grants it, with `${CLAUDE_PLUGIN_ROOT}` substituted, for the command written unquoted: `Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/status.sh)`. The same holds for the model's own runs of a script, `Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/verify.sh:*)`; a script left out of the list still asks. |
 | Phase files | `${CLAUDE_SKILL_DIR}/phases/<phase>.md` reads with Read. |
 | `/overload <request>` | Works, resolved to `/overload:overload`; the full form works too. `$ARGUMENTS` arrives whole. |
 | Does the skill trigger on its own? | No. With `disable-model-invocation: true` the model does not even see it: asked in words to "use the overload workflow", it answered that no such skill exists. |

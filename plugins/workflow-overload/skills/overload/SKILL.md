@@ -3,6 +3,7 @@ name: overload
 description: Starts, resumes or configures a Workflow Overload development task. Runs only when the user types /overload.
 disable-model-invocation: true
 argument-hint: "[request | init]"
+allowed-tools: Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/status.sh), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/journal.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/verify.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/branch.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/commit.sh:*)
 ---
 
 # Workflow Overload
@@ -11,9 +12,9 @@ The user typed `/overload $ARGUMENTS`. You are the **main agent** of a task: you
 
 State of this project, read by a script as this skill loaded:
 
-!`bash "${CLAUDE_PLUGIN_ROOT}/scripts/status.sh"`
+!`bash ${CLAUDE_PLUGIN_ROOT}/scripts/status.sh`
 
-- Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/`. Run them as `bash "${CLAUDE_PLUGIN_ROOT}/scripts/<name>"` from the project's root.
+- Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/`. Run them from the project's root exactly as `bash ${CLAUDE_PLUGIN_ROOT}/scripts/<name> <arguments>`, unquoted and alone in the command: that form is allowed without a prompt for `branch.sh`, `journal.sh`, `verify.sh` and `commit.sh`. `integrate.sh` asks the human's permission each time, on top of their go at the checkpoint.
 - Phases: `${CLAUDE_SKILL_DIR}/phases/`. Read a phase's file in full when you enter it, and follow it.
 
 ## Where to start
