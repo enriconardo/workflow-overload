@@ -19,7 +19,7 @@ State of this project, read by a script as this skill loaded:
 
 ## Where to start
 
-1. Arguments `init`: read `phases/init.md`.
+1. Arguments starting with `init`: read `phases/init.md`; any text after `init` is the human's guidance for it.
 2. No config, or a config of another version: say so in one line and offer `/overload init`. Stop there.
 3. A journal on this branch:
    - no arguments: read `phases/resume.md`;

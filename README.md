@@ -24,7 +24,7 @@ Scripts need `bash`, `git` and `python3` (3.8 or later, standard library only).
 
 | Command | What it does |
 | --- | --- |
-| `/overload init` | Reads the project, proposes `.workflow/config`, tests it (verify green on main) and commits it through a first S task. |
+| `/overload init [guidance]` | Reads the project, following your guidance if you give any ("take the commands from package.json"), proposes `.workflow/config`, tests it (verify green on main) and commits it on your go. |
 | `/overload <request>` | Opens a task: brainstorming, then the S or the L path. |
 | `/overload` | Resumes the task of the current branch from its journal, after an interruption or a `/clear`. |
 
@@ -61,7 +61,7 @@ For everything else:
 ```
 version      = 1
 exec         = ./dev.sh exec        # prefix of commands that touch dependencies
-verify       = pnpm verify          # green or red, on what changed and its dependents
+verify       = pnpm verify          # green or red, on what changed and its dependents; empty: nothing checked
 main         = main
 branch       = <type>/<scope>/<description>
 types        = feature, fix, hotfix, refactor, test, docs, chore
@@ -72,7 +72,7 @@ integrate    = merge
 rules        = CLAUDE.md, docs/adr/
 backlog      = .workflow/backlog.md
 specs        = .workflow/specs
-test_files   = pnpm vitest run --reporter=junit {files}   # prints JUnit XML: the red check reads it
+test_files   = pnpm vitest run --reporter=junit {files}   # prints JUnit XML: the red check reads it; empty: skipped
 tests_glob   = **/__tests__/**
 red_types    = AssertionError, NotImplemented
 probe_env    = docker run --rm node:24-bookworm
