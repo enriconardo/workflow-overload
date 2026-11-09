@@ -76,7 +76,7 @@ test_red_check_accepts_assertions_and_not_implemented() {
   write_test a.test.ts "case one assert" "case two notimpl"
   bash "$SCRIPTS/suite.sh" record >/dev/null
   out="$(bash "$SCRIPTS/red-check.sh")"
-  [[ "$out" == *"valid red"* ]] || fail "$out"
+  [[ "$out" == *"valid red, every new test fails"* ]] || fail "$out"
 }
 
 test_red_check_refuses_load_errors_passes_skips_and_type_errors() {

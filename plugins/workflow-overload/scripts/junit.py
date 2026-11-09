@@ -164,7 +164,7 @@ def main():
     if problems:
         print("red check: NOT a valid red, %d problem(s). Back to the test-author." % len(problems))
         return 1
-    print("red check: valid red, every other new test fails for an allowed reason (%s)." % ", ".join(sorted(types)))
+    print("red check: valid red, every %snew test fails for an allowed reason (%s)." % ("other " if green else "", ", ".join(sorted(types))))
     if args.green:
         with open(args.green, "w", encoding="utf-8") as handle:
             handle.write("".join(label + "\n" for label in green))
