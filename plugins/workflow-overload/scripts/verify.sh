@@ -11,7 +11,8 @@ set -euo pipefail
 # The full output goes to a file; the terminal gets its last lines on red
 # (80 by default) and a single line on green, so that the caller needs no
 # pipe. On a task's branch, a red run adds to the journal's red streak and
-# the third one in a row says to stop and ask the human.
+# the third one in a row says to stop and ask the human. With an empty
+# `verify` in the config, nothing runs and the tree is recorded as unchecked.
 
 # shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -25,12 +26,21 @@ if [[ "${1:-}" == --lines ]]; then
 fi
 
 command="$(cfg verify)"
-[[ -n "$command" ]] || die "the config has no 'verify' command."
-
 state="$(state_dir)"
 output="$state/verify-output.txt"
 branch="$(current_branch)"
 tree="$(work_tree_hash)"
+
+# A project with no check of its own: the tree is recorded, so that commits
+# still take only the tree the step looked at, and the run log says that
+# nothing was checked.
+if [[ -z "$command" ]]; then
+  printf '%s\t%s\t%s\t%s\t%s\n' "$(now)" "${branch:-HEAD}" "$tree" none 0 >>"$state/runs.log"
+  printf '%s %s %s\n' "$tree" "${branch:-HEAD}" "$(now)" >"$(verified_file)"
+  echo "verify: the config has no 'verify' command, nothing checked; tree ${tree:0:12} recorded."
+  exit 0
+fi
+
 started="$(date +%s)"
 
 set +e

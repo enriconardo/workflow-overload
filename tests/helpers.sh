@@ -71,3 +71,36 @@ set_config() {
   printf '%s = %s\n' "$1" "$2" >>"$WORK/config"
   mv "$WORK/config" .workflow/config
 }
+
+# A runner that prints JUnit XML as vitest does, from the files' own lines:
+# `case <name> <assert|notimpl|pass|skip|typeerror>`, or `load` for a file
+# that fails to load.
+fake_runner() {
+  cat >"$REPO/runner.py" <<'PY'
+import sys
+from xml.sax.saxutils import quoteattr as q
+print("some log line the runner prints")
+print('<?xml version="1.0" encoding="UTF-8" ?>\n<testsuites>')
+for path in sys.argv[1:]:
+    lines = open(path).read().split("\n")
+    print('<testsuite name=%s>' % q(path))
+    if "load" in lines:
+        print('<testcase classname=%s name=%s><failure message="Cannot find module" type="Error"/></testcase>' % (q(path), q(path)))
+    for line in lines:
+        if line.startswith("case "):
+            _, name, kind = line.split(" ")
+            body = {"assert": '<failure message="expected 1 to be 2" type="AssertionError"/>',
+                    "notimpl": '<failure message="" type="NotImplemented"/>',
+                    "typeerror": '<failure message="x is not a function" type="TypeError"/>',
+                    "skip": "<skipped/>", "pass": ""}[kind]
+            print('<testcase classname=%s name=%s>%s</testcase>' % (q(path), q(name), body))
+    print("</testsuite>")
+print("</testsuites>")
+PY
+  set_config test_files 'python3 runner.py {files}'
+  git add -A && git commit -qm "chore(repo): fake runner"
+}
+
+open_l_task() {
+  bash "$SCRIPTS/branch.sh" L feature "${1:-greet}" "${2:-default-name}" "$(intent)" >/dev/null
+}

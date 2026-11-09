@@ -9,7 +9,7 @@ The human decides when a step cannot close by itself:
 
 Increment `escalations` in the journal. Then explain the problem in a few lines, with what you tried, and offer three choices with your recommendation:
 
-- **retry**: one more round, with the human's guidance;
+- **retry**: one more round, with the human's guidance. It grants that round only: if it ends without converging, come back here, and so after every later round;
 - **skip**: go on accepting the problem, which goes in the commit's body and among the backlog candidates;
 - **stop**: the task is suspended; the branch and its journal stay, and `/overload` resumes it.
 

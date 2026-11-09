@@ -65,6 +65,13 @@ test_journal_set_inc_log() {
   expect_eq "$(sed -n '/^## /q; /^lessons:/p' .workflow/journal.md)" "lessons: 2"
 }
 
+test_branch_keeps_the_intent_inside_its_section() {
+  printf '## Problem\nThe README is short.\n# Goal\nSay more.\n' >"$WORK/headed.md"
+  bash "$SCRIPTS/branch.sh" S docs readme describe-project "$WORK/headed.md" >/dev/null
+  expect_eq "$(grep -c '^## ' .workflow/journal.md)" "5" "only the journal's own sections"
+  grep -qx '#### Problem' .workflow/journal.md || fail "heading not demoted"
+}
+
 test_verify_green_records_the_tree_and_red_does_not() {
   open_task
   echo "More." >>README.md
@@ -76,6 +83,19 @@ test_verify_green_records_the_tree_and_red_does_not() {
   is_verified && fail "a red run left the tree verified"
   expect_eq "$(bash "$SCRIPTS/journal.sh" get verify_red_streak)" "1"
   grep -c $'\tred\t' "$(git rev-parse --git-path overload)/runs.log" | grep -qx 1 || fail "red run not logged"
+}
+
+test_verify_without_a_command_records_the_tree_unchecked() {
+  set_config verify ''
+  git add -A && git commit -qm "chore(repo): no verify"
+  open_task
+  echo "More." >>README.md
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"no 'verify' command"*"nothing checked"* ]] || fail "$out"
+  source_lib
+  is_verified || fail "tree not recorded"
+  grep -q $'\tnone\t' "$(git rev-parse --git-path overload)/runs.log" || fail "run not logged as none"
+  bash "$SCRIPTS/commit.sh" "$(message 'docs(readme): say more')" >/dev/null
 }
 
 test_verify_red_is_red_through_a_pipe_in_the_command() {
@@ -158,7 +178,7 @@ assert len(rows) == 1, rows
 r = rows[0]
 assert r["branch"] == "docs/readme/describe-project", r
 assert r["journal"]["tier"] == "S", r
-assert r["verify"] == {"runs": 1, "red": 0, "seconds": r["verify"]["seconds"]}, r
+assert r["verify"]["runs"] == 1 and r["verify"]["red"] == 0 and r["verify"]["red_checks"] == 0, r
 assert r["commits"] == 1 and r["files"] == 2, r
 PY
   [[ -z "$(git status --porcelain)" ]] || fail "dirty after integrate"

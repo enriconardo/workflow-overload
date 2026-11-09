@@ -2,7 +2,7 @@
 
 A development workflow for [Claude Code](https://claude.com/claude-code), packaged as the plugin `workflow-overload`. It takes a request to a verified merge, spends agents and checks in proportion to the task, and starts only when you type `/overload`.
 
-> **Status: 0.1, the S path.** Brainstorming, triage, the S path, its review, lessons, checkpoint and integration work. The L path (spec, spec review, chunks written test-first by a test author that never reads the code) is next: until then an L task stops at the triage.
+> **Status: 0.2.** Brainstorming, triage, the S path and the L path work: spec, probe, spec review, split, checkpoint 1, chunks written test-first by a test author that never reads the code under change, red check, implementer, step review, then the final review, lessons, checkpoint 2 and integration.
 
 ## Principles
 
@@ -24,11 +24,11 @@ Scripts need `bash`, `git` and `python3` (3.8 or later, standard library only).
 
 | Command | What it does |
 | --- | --- |
-| `/overload init` | Reads the project, proposes `.workflow/config`, tests it (verify green on main) and commits it through a first S task. |
-| `/overload <request>` | Opens a task: brainstorming, then the S path. |
+| `/overload init [guidance]` | Reads the project, following your guidance if you give any ("take the commands from package.json"), proposes `.workflow/config`, tests it (verify green on main) and commits it on your go. |
+| `/overload <request>` | Opens a task: brainstorming, then the S or the L path. |
 | `/overload` | Resumes the task of the current branch from its journal, after an interruption or a `/clear`. |
 
-Inside a task the scripts that open the branch, update the journal, verify and commit run without a permission prompt; `integrate.sh` asks each time, on top of your go at the checkpoint. Without `/overload`, a session works as it would without the plugin: the entry skill cannot be invoked by the model, the agents declare themselves internal, and the hooks stay silent on a branch without a journal.
+Inside a task the scripts that open the branch, update the journal, verify, commit and handle the suite run without a permission prompt; `integrate.sh` asks each time, on top of your go at the checkpoint. Without `/overload`, a session works as it would without the plugin: the entry skill cannot be invoked by the model, the agents declare themselves internal, and the hooks stay silent on a branch without a journal.
 
 ## The S path
 
@@ -42,6 +42,18 @@ For changes nothing outside sees (or docs, config, tooling), in one area, with c
 6. **Checkpoint**: you give the go and pick the lessons and backlog items to keep.
 7. **Integrate**: `integrate.sh` merges with `--no-ff` without the journal, adds a line of measures to `.workflow/metrics.jsonl`, re-verifies the merge's result when main moved, and leaves main untouched on a conflict or a red verify.
 
+## The L path
+
+For everything else:
+
+1. **Spec**, written by the main agent, which held the discussion; a decision record for a decision that outlives the task.
+2. **Probe** (`prober`), only for external facts the spec rests on, in a throwaway environment.
+3. **Spec review** (`spec-reviewer`): correctness, and a critique of the premises: was the problem seen, what is the strongest alternative, what is missing. It gets the spec and the code map, never a summary of the discussion.
+4. **Split** (`spec-splitter`), above about 6–7 files or 10–15 test cases: the fewest chunks, each green alone, each test-first or not.
+5. **Checkpoint 1**: you approve the plan; a `/clear` and `/overload` then resume from the journal with a small context.
+6. **Per chunk**: tests first (`step-test-author`, which never reads the code under change, and records its suite with `suite.sh`), the **red check** (`red-check.sh`: every new test fails on an assertion or a stub's `NotImplemented`, not on an import error, while those already in HEAD may pass; a new one that passes already goes to the step reviewer, who checks it fails under a mutant, read from the runner's JUnit XML), the code (`step-implementer`, which cannot touch the recorded tests: `commit.sh` refuses), verify, the step review, a commit that ticks the chunk.
+7. **Close** as on the S path, with the spec as the reference of the final review.
+
 ## Configuration
 
 `.workflow/config` holds everything project-specific, as `key = value` lines that scripts read without executing:
@@ -49,7 +61,7 @@ For changes nothing outside sees (or docs, config, tooling), in one area, with c
 ```
 version      = 1
 exec         = ./dev.sh exec        # prefix of commands that touch dependencies
-verify       = pnpm verify          # green or red, on what changed and its dependents
+verify       = pnpm verify          # green or red, on what changed and its dependents; empty: nothing checked
 main         = main
 branch       = <type>/<scope>/<description>
 types        = feature, fix, hotfix, refactor, test, docs, chore
@@ -59,6 +71,11 @@ subject_max  = 72
 integrate    = merge
 rules        = CLAUDE.md, docs/adr/
 backlog      = .workflow/backlog.md
+specs        = .workflow/specs
+test_files   = pnpm vitest run --reporter=junit {files}   # prints JUnit XML: the red check reads it; empty: skipped
+tests_glob   = **/__tests__/**
+red_types    = AssertionError, NotImplemented
+probe_env    = docker run --rm node:24-bookworm
 ```
 
 Any key can be overridden for a session by `OVERLOAD_<KEY>`, even to empty: a cloud session without Docker sets `OVERLOAD_EXEC=`. The project's code conventions and lessons stay in its own CLAUDE.md files; the workflow's rules stay in the plugin.
@@ -71,7 +88,9 @@ Any key can be overridden for a session by `OVERLOAD_<KEY>`, even to empty: a cl
 | `.workflow/backlog.md` | main | the items the human approved at a checkpoint |
 | `.workflow/metrics.jsonl` | main | one line per integrated task: rounds, verify runs, commits, files, tokens per role |
 | `.workflow/journal.md` | the task's branch | phase, intent, candidates, open findings; dropped at the merge |
-| `.git/overload/` | the clone | the verified tree and the log of verify runs |
+| `.workflow/specs/` | main | the L specs, ticked chunk by chunk |
+| `.git/overload/` | the clone | the verified tree and the log of verify runs and red checks |
+| `refs/overload/suite/<branch>/<n>` | the clone | the test-author's recorded suites, outside every branch; deleted at the merge |
 
 ## Measures
 

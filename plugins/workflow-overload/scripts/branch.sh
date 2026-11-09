@@ -87,7 +87,8 @@ mkdir -p "$(dirname "$JOURNAL_FILE")"
   echo
   echo "## Intent"
   echo
-  cat "$intent"
+  # Its headings go below the journal's sections, which the scripts read.
+  sed -E 's/^(#+ )/##\1/' "$intent"
   echo
   echo "## Open findings"
   echo
