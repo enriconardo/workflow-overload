@@ -77,6 +77,39 @@ test_red_check_refuses_load_errors_passes_skips_and_type_errors() {
   [[ "$out" == *"b.test.ts > red: red, AssertionError"* ]] || fail "red ok: $out"
 }
 
+test_red_check_judges_only_the_tests_new_to_a_file() {
+  fake_runner
+  write_test a.test.ts "case old pass"
+  git add -A && git commit -qm "test(greet): an existing test"
+  open_l_task
+  write_test a.test.ts "case old pass" "case new assert"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/red-check.sh")"
+  [[ "$out" == *"a.test.ts > old: passes, already in HEAD"* && "$out" == *"valid red"* ]] || fail "$out"
+  expect_eq "$(git show HEAD:__tests__/a.test.ts)" "case old pass" "HEAD untouched"
+  expect_eq "$(cat __tests__/a.test.ts)" $'case old pass\ncase new assert' "the working file restored"
+
+  write_test a.test.ts "case old typeerror" "case new pass"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  set +e
+  out="$(bash "$SCRIPTS/red-check.sh" 2>&1)"
+  status=$?
+  set -e
+  expect_eq "$status" 1
+  [[ "$out" == *"a.test.ts > new: PASSES"* ]] || fail "new pass: $out"
+  [[ "$out" == *"a.test.ts > old: red for the wrong reason, TypeError"* ]] || fail "old type: $out"
+}
+
+test_red_check_refuses_a_suite_where_nothing_fails() {
+  fake_runner
+  write_test a.test.ts "case old pass"
+  git add -A && git commit -qm "test(greet): an existing test"
+  open_l_task
+  write_test a.test.ts "case old pass" ""
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  expect_fail "no recorded test fails" bash "$SCRIPTS/red-check.sh"
+}
+
 test_red_check_without_xml_says_so() {
   set_config test_files 'echo nothing {files}'
   git add -A && git commit -qm "chore(repo): no xml"

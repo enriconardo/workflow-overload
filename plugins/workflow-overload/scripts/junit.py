@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Judges whether a run of the recorded suite is red for the right reason.
 
-  junit.py --types "AssertionError, NotImplemented" <output-file> <test-file>...
+  junit.py --types "AssertionError, NotImplemented" [--existing <names-file>] <output-file> <test-file>...
+  junit.py --list <output-file> <test-file>...
 
 <output-file> holds what the test command printed: the JUnit XML is the
 part from the first `<?xml` or `<testsuites` to the last `</testsuites>`, so
@@ -14,9 +15,15 @@ The rules, from the probe of 2026-11-09 on vitest:
 
 1. every test file appears in the XML, and none of its testcases is a load
    error: a testcase named after the file itself, or an <error> element;
-2. every testcase fails: a passing or skipped one is no valid red;
+2. every new testcase fails: a passing or skipped one is no valid red;
 3. each failure's `type` is among --types; a TypeError, for instance, means
-   a missing export in Node, a stub that was never written.
+   a missing export in Node, a stub that was never written;
+4. at least one testcase fails.
+
+A testcase listed in --existing (lines `<test-file>\t<name>`, as --list
+prints them for a run of the files as they are in HEAD) was there before the
+chunk: it may pass, or fail by rule 3 when the chunk changes the behavior it
+tests.
 
 Exit 0 when the run is a valid red, 1 when it is not, 2 when the output
 holds no JUnit XML. Python 3.8+, standard library only.
@@ -52,11 +59,10 @@ def same_file(a, b):
     return a == b or a.endswith("/" + b) or b.endswith("/" + a)
 
 
-def judge(xml_text, files, types):
+def collect(xml_text, files):
     root = ET.fromstring(xml_text)
     suites = [root] if root.tag == "testsuite" else root.iter("testsuite")
     found = {f: [] for f in files}
-    problems = []
     for suite in suites:
         name = suite.get("name") or ""
         owner = next((f for f in files if same_file(f, name)), None)
@@ -70,6 +76,13 @@ def judge(xml_text, files, types):
                     found[owner].append(case)
             continue
         found[owner].extend(cases)
+    return found
+
+
+def judge(xml_text, files, types, existing=frozenset()):
+    found = collect(xml_text, files)
+    problems = []
+    red = 0
     lines = []
     for f in files:
         cases = found[f]
@@ -88,6 +101,8 @@ def judge(xml_text, files, types):
                 node = error if error is not None else failure
                 message = (node.get("message") if node is not None else "") or ""
                 lines.append("%s: LOAD ERROR, %s" % (label, message.splitlines()[0][:160] if message else "no message"))
+            elif (f, name) in existing and failure is None:
+                lines.append("%s: %s, already in HEAD" % (label, "skipped" if skipped is not None else "passes"))
             elif skipped is not None:
                 problems.append(label)
                 lines.append("%s: skipped, not red" % label)
@@ -97,17 +112,30 @@ def judge(xml_text, files, types):
             else:
                 kind = failure.get("type") or ""
                 if kind in types:
+                    red += 1
                     lines.append("%s: red, %s" % (label, kind))
                 else:
                     problems.append(label)
                     message = (failure.get("message") or "").splitlines()
                     lines.append("%s: red for the wrong reason, %s%s" % (label, kind or "no type", (": " + message[0][:160]) if message else ""))
+    if not problems and not red:
+        problems.append("suite")
+        lines.append("no recorded test fails: the suite tests nothing the chunk adds")
     return problems, lines
+
+
+def read_existing(path):
+    if not path:
+        return frozenset()
+    with open(path, encoding="utf-8") as handle:
+        return frozenset(tuple(line.rstrip("\n").split("\t", 1)) for line in handle if "\t" in line)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--types", default="AssertionError, NotImplemented")
+    parser.add_argument("--existing", help="the testcases already in HEAD, as --list prints them")
+    parser.add_argument("--list", action="store_true", help="print each testcase as <test-file>\\t<name>")
     parser.add_argument("output")
     parser.add_argument("files", nargs="+")
     args = parser.parse_args()
@@ -118,7 +146,12 @@ def main():
         print("red check: the test command printed no JUnit XML; check the config's test_files.")
         return 2
     try:
-        problems, lines = judge(xml_text, args.files, types)
+        if args.list:
+            for f, cases in collect(xml_text, args.files).items():
+                for case in cases:
+                    print("%s\t%s" % (f, case.get("name") or ""))
+            return 0
+        problems, lines = judge(xml_text, args.files, types, read_existing(args.existing))
     except ET.ParseError as error:
         print("red check: the JUnit XML does not parse (%s)." % error)
         return 2

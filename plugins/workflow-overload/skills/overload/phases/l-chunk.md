@@ -10,7 +10,7 @@ Run the `workflow-overload:step-test-author` agent with the spec's path, the chu
 
 ### 2. Red check — `l/chunk-<n>/red`, test-first chunks only
 
-`bash <scripts>/red-check.sh`. Valid red: every recorded test fails on an assertion or a stub's `NotImplemented`. Otherwise the report goes back to the test-author as it came, for a new record and a new red check; three rounds at most, then `phases/escalate.md`.
+`bash <scripts>/red-check.sh`. Valid red: every new test fails on an assertion or a stub's `NotImplemented`; a test already in HEAD may pass. Otherwise the report goes back to the test-author as it came, for a new record and a new red check; three rounds at most, then `phases/escalate.md`.
 
 ### 3. Implementation — `l/chunk-<n>/implement`
 
