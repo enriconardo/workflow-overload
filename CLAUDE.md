@@ -39,5 +39,5 @@ CI runs them on every push. A change to a script starts with a test in `tests/sc
 ## Branches and commits
 
 - Branch: `<type>/<scope>/<description>`, types `feature, fix, refactor, test, docs, chore`, scope `scripts`, `skill`, `agents`, `hooks`, `metrics` or `repo`.
-- Commit: `<type>(<scope>): <summary>`, imperative, lowercase, at most 72 characters; a body when the why is not obvious.
+- Commit: `[<scope>] <type>: <summary>`, the scope as for branches, the type one of `feat, fix, refactor, perf, test, docs, build, ci, chore`; summary imperative, lowercase, no trailing period, at most 72 characters in all; a body when the why is not obvious.
 - Integration by pull request to `main`. A release bumps `version` in `plugin.json`.
