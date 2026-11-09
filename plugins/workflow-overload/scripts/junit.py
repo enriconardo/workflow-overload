@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Judges whether a run of the recorded suite is red for the right reason.
 
-  junit.py --types "AssertionError, NotImplemented" [--existing <names-file>] <output-file> <test-file>...
+  junit.py --types "AssertionError, NotImplemented" [--existing <names-file>] [--green <file>] <output-file> <test-file>...
   junit.py --list <output-file> <test-file>...
 
 <output-file> holds what the test command printed: the JUnit XML is the
@@ -15,7 +15,9 @@ The rules, from the probe of 2026-11-09 on vitest:
 
 1. every test file appears in the XML, and none of its testcases is a load
    error: a testcase named after the file itself, or an <error> element;
-2. every new testcase fails: a passing or skipped one is no valid red;
+2. no new testcase is skipped. One that passes already is no valid red by
+   itself: it goes to the step reviewer, who checks that it fails when the
+   behavior it covers breaks (--green writes them to a file);
 3. each failure's `type` is among --types; a TypeError, for instance, means
    a missing export in Node, a stub that was never written;
 4. at least one testcase fails.
@@ -82,6 +84,7 @@ def collect(xml_text, files):
 def judge(xml_text, files, types, existing=frozenset()):
     found = collect(xml_text, files)
     problems = []
+    green = []
     red = 0
     lines = []
     for f in files:
@@ -107,8 +110,8 @@ def judge(xml_text, files, types, existing=frozenset()):
                 problems.append(label)
                 lines.append("%s: skipped, not red" % label)
             elif failure is None:
-                problems.append(label)
-                lines.append("%s: PASSES on the stubs: it tests nothing the chunk adds" % label)
+                green.append(label)
+                lines.append("%s: passes already, before the chunk's code" % label)
             else:
                 kind = failure.get("type") or ""
                 if kind in types:
@@ -121,7 +124,7 @@ def judge(xml_text, files, types, existing=frozenset()):
     if not problems and not red:
         problems.append("suite")
         lines.append("no recorded test fails: the suite tests nothing the chunk adds")
-    return problems, lines
+    return problems, lines, green
 
 
 def read_existing(path):
@@ -135,6 +138,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--types", default="AssertionError, NotImplemented")
     parser.add_argument("--existing", help="the testcases already in HEAD, as --list prints them")
+    parser.add_argument("--green", help="a file for the new testcases that pass already, one per line")
     parser.add_argument("--list", action="store_true", help="print each testcase as <test-file>\\t<name>")
     parser.add_argument("output")
     parser.add_argument("files", nargs="+")
@@ -151,7 +155,7 @@ def main():
                 for case in cases:
                     print("%s\t%s" % (f, case.get("name") or ""))
             return 0
-        problems, lines = judge(xml_text, args.files, types, read_existing(args.existing))
+        problems, lines, green = judge(xml_text, args.files, types, read_existing(args.existing))
     except ET.ParseError as error:
         print("red check: the JUnit XML does not parse (%s)." % error)
         return 2
@@ -160,7 +164,13 @@ def main():
     if problems:
         print("red check: NOT a valid red, %d problem(s). Back to the test-author." % len(problems))
         return 1
-    print("red check: valid red, every recorded test fails for an allowed reason (%s)." % ", ".join(sorted(types)))
+    print("red check: valid red, every other new test fails for an allowed reason (%s)." % ", ".join(sorted(types)))
+    if args.green:
+        with open(args.green, "w", encoding="utf-8") as handle:
+            handle.write("".join(label + "\n" for label in green))
+    if green:
+        print("red check: %d new test%s already, before the chunk's code: give %s to the step reviewer for a mutation check (%s)."
+              % (len(green), " passes" if len(green) == 1 else "s pass", "it" if len(green) == 1 else "them", args.green or "listed above"))
     return 0
 
 

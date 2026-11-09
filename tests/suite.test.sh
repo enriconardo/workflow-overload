@@ -93,7 +93,7 @@ test_red_check_refuses_load_errors_passes_skips_and_type_errors() {
   set -e
   expect_eq "$status" 1
   [[ "$out" == *"a.test.ts"*"LOAD ERROR"* ]] || fail "load: $out"
-  [[ "$out" == *"b.test.ts > green: PASSES"* ]] || fail "pass: $out"
+  [[ "$out" == *"b.test.ts > green: passes already"* ]] || fail "pass: $out"
   [[ "$out" == *"c.test.ts > s: skipped"* ]] || fail "skip: $out"
   [[ "$out" == *"d.test.ts > t: red for the wrong reason, TypeError"* ]] || fail "type: $out"
   [[ "$out" == *"b.test.ts > red: red, AssertionError"* ]] || fail "red ok: $out"
@@ -118,8 +118,18 @@ test_red_check_judges_only_the_tests_new_to_a_file() {
   status=$?
   set -e
   expect_eq "$status" 1
-  [[ "$out" == *"a.test.ts > new: PASSES"* ]] || fail "new pass: $out"
+  [[ "$out" == *"a.test.ts > new: passes already"* ]] || fail "new pass: $out"
   [[ "$out" == *"a.test.ts > old: red for the wrong reason, TypeError"* ]] || fail "old type: $out"
+}
+
+test_red_check_hands_new_green_tests_to_the_step_reviewer() {
+  fake_runner
+  open_l_task
+  write_test a.test.ts "case red assert" "case green pass"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/red-check.sh")"
+  [[ "$out" == *"valid red"*"1 new test passes already"*"mutation check"* ]] || fail "$out"
+  expect_eq "$(cat "$(git rev-parse --git-path overload)/red-check-green.txt")" "__tests__/a.test.ts > green"
 }
 
 test_red_check_refuses_a_suite_where_nothing_fails() {

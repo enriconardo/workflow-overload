@@ -10,7 +10,7 @@ Run the `workflow-overload:step-test-author` agent with the spec's path, the chu
 
 ### 2. Red check — `l/chunk-<n>/red`, test-first chunks only
 
-`bash <scripts>/red-check.sh`. Valid red: every new test fails on an assertion or a stub's `NotImplemented`; a test already in HEAD may pass. When it says it was skipped (no `test_files` in the config), log that and go on. Otherwise the report goes back to the test-author as it came, for a new record and a new red check; three rounds at most, then `phases/escalate.md`.
+`bash <scripts>/red-check.sh`. Valid red: every new test fails on an assertion or a stub's `NotImplemented`, or passes already; a test already in HEAD may pass. A new test that passes already (the code of an earlier chunk covers it) is listed in `red-check-green.txt` under the state folder the script names, for the step review. When it says it was skipped (no `test_files` in the config), log that and go on. Otherwise the report goes back to the test-author as it came, for a new record and a new red check; three rounds at most, then `phases/escalate.md`.
 
 ### 3. Implementation — `l/chunk-<n>/implement`
 
@@ -22,9 +22,9 @@ When it reports a test it thinks wrong, decide on the spec (*A test reported wro
 
 `bash <scripts>/verify.sh`. Red: back to the implementer with the output; the script stops you at the third red in a row.
 
-### 5. Step review — `l/chunk-<n>/review`, when the spec has more than one chunk
+### 5. Step review — `l/chunk-<n>/review`, when the spec has more than one chunk or the red check listed tests that pass already
 
-Run the `workflow-overload:step-reviewer` agent with the spec's path, the chunk's number, the recorded test files, and the range: the working tree against `HEAD`. It checks that the code does what the chunk asks, and that the tests cover it. Code findings go back to the implementer (to 3); a test finding is handled as a test reported wrong. Three rounds at most.
+Run the `workflow-overload:step-reviewer` agent with the spec's path, the chunk's number, the recorded test files, the range (the working tree against `HEAD`), and the red check's list of tests that passed already, if any. It checks that the code does what the chunk asks, and that the tests cover it. Code findings go back to the implementer (to 3); a test finding is handled as a test reported wrong. Three rounds at most.
 
 ### 6. Commit — `l/chunk-<n>/commit`
 

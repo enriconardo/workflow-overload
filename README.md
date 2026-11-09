@@ -51,7 +51,7 @@ For everything else:
 3. **Spec review** (`spec-reviewer`): correctness, and a critique of the premises: was the problem seen, what is the strongest alternative, what is missing. It gets the spec and the code map, never a summary of the discussion.
 4. **Split** (`spec-splitter`), above about 6–7 files or 10–15 test cases: the fewest chunks, each green alone, each test-first or not.
 5. **Checkpoint 1**: you approve the plan; a `/clear` and `/overload` then resume from the journal with a small context.
-6. **Per chunk**: tests first (`step-test-author`, which never reads the code under change, and records its suite with `suite.sh`), the **red check** (`red-check.sh`: every new test fails on an assertion or a stub's `NotImplemented`, not on an import error, while those already in HEAD may pass, read from the runner's JUnit XML), the code (`step-implementer`, which cannot touch the recorded tests: `commit.sh` refuses), verify, the step review, a commit that ticks the chunk.
+6. **Per chunk**: tests first (`step-test-author`, which never reads the code under change, and records its suite with `suite.sh`), the **red check** (`red-check.sh`: every new test fails on an assertion or a stub's `NotImplemented`, not on an import error, while those already in HEAD may pass; a new one that passes already goes to the step reviewer, who checks it fails under a mutant, read from the runner's JUnit XML), the code (`step-implementer`, which cannot touch the recorded tests: `commit.sh` refuses), verify, the step review, a commit that ticks the chunk.
 7. **Close** as on the S path, with the spec as the reference of the final review.
 
 ## Configuration

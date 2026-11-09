@@ -78,7 +78,8 @@ fi
 run_files "${files[@]}" >"$output" 2>&1
 
 status=0
-python3 "$OVERLOAD_SCRIPTS/junit.py" --types "$(cfg red_types)" --existing "$existing" "$output" "${files[@]}" || status=$?
+rm -f "$state/red-check-green.txt"
+python3 "$OVERLOAD_SCRIPTS/junit.py" --types "$(cfg red_types)" --existing "$existing" --green "$state/red-check-green.txt" "$output" "${files[@]}" || status=$?
 printf '%s\t%s\t%s\t%s\n' "$(now)" "$(current_branch)" "red-check" "$([[ $status == 0 ]] && echo valid || echo invalid)" >>"$state/runs.log"
 ((status == 2)) && echo "The runner's output is in $output."
 exit "$status"

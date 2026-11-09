@@ -9,13 +9,14 @@ You review one chunk that others wrote: the code by the implementer, the tests b
 
 ## Input
 
-The spec's path and the chunk's number; the recorded test files; the range, the working tree against `HEAD` (`git diff HEAD` and the untracked files of `git status`); the last verify's result.
+The spec's path and the chunk's number; the recorded test files; the range, the working tree against `HEAD` (`git diff HEAD` and the untracked files of `git status`); the last verify's result; the tests that passed already at the red check, if any.
 
 ## What to check
 
 - **The code does what the chunk asks**, no less, and nothing outside it: every behavior and error of the chunk, the callers the change reaches.
 - **The tests cover the chunk**: each of its test cases has a test, each test asserts what identifies the behavior, none passes without it.
 - **Bugs**: an input the public types accept that breaks the code.
+- **Each test that passed already at the red check** fails when the behavior it covers breaks: in a copy of the project outside the repository, change the code so that behavior is wrong, run the test, and expect it red. One that stays green is a test finding.
 
 Not yours: what verify checks (format, lint, types, whether tests pass), style the project does not state, the coherence across chunks (the final review's).
 
