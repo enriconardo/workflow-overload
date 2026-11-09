@@ -1,0 +1,22 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: shellcheck -x plugins/workflow-overload/scripts/*.sh tests/*.sh
+      - name: scripts
+        run: bash tests/run.sh
+      - name: measures
+        run: python3 -m unittest discover -s tests
+      - name: json
+        run: |
+          for f in .claude-plugin/marketplace.json plugins/workflow-overload/.claude-plugin/plugin.json plugins/workflow-overload/hooks/hooks.json; do
+            python3 -m json.tool "$f" >/dev/null
+          done
