@@ -12,6 +12,8 @@ set -euo pipefail
 # has them, put in place for that run only.
 #
 #   red-check.sh
+#
+# With an empty `test_files` in the config, the check is skipped and logged.
 
 # shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -20,7 +22,11 @@ require_config
 on_task_branch
 
 command="$(cfg test_files)"
-[[ -n "$command" ]] || die "the config has no 'test_files': the command that runs given test files and prints JUnit XML, with {files} where the files go."
+if [[ -z "$command" ]]; then
+  printf '%s\t%s\t%s\t%s\n' "$(now)" "$(current_branch)" "red-check" skipped >>"$(state_dir)/runs.log"
+  echo "red check skipped: the config has no 'test_files', the command that runs given test files and prints JUnit XML."
+  exit 0
+fi
 [[ "$command" == *'{files}'* ]] || die "the config's test_files has no {files} placeholder."
 
 mapfile -t files < <(bash "$OVERLOAD_SCRIPTS/suite.sh" files)

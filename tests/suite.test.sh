@@ -110,6 +110,17 @@ test_red_check_refuses_a_suite_where_nothing_fails() {
   expect_fail "no recorded test fails" bash "$SCRIPTS/red-check.sh"
 }
 
+test_red_check_without_test_files_is_skipped() {
+  set_config test_files ''
+  git add -A && git commit -qm "chore(repo): no test_files"
+  open_l_task
+  write_test a.test.ts "case one assert"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/red-check.sh")"
+  [[ "$out" == *"red check skipped"* ]] || fail "$out"
+  grep -q $'\tred-check\tskipped' "$(git rev-parse --git-path overload)/runs.log" || fail "not logged"
+}
+
 test_red_check_without_xml_says_so() {
   set_config test_files 'echo nothing {files}'
   git add -A && git commit -qm "chore(repo): no xml"

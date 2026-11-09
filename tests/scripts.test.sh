@@ -78,6 +78,19 @@ test_verify_green_records_the_tree_and_red_does_not() {
   grep -c $'\tred\t' "$(git rev-parse --git-path overload)/runs.log" | grep -qx 1 || fail "red run not logged"
 }
 
+test_verify_without_a_command_records_the_tree_unchecked() {
+  set_config verify ''
+  git add -A && git commit -qm "chore(repo): no verify"
+  open_task
+  echo "More." >>README.md
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"no 'verify' command"*"nothing checked"* ]] || fail "$out"
+  source_lib
+  is_verified || fail "tree not recorded"
+  grep -q $'\tnone\t' "$(git rev-parse --git-path overload)/runs.log" || fail "run not logged as none"
+  bash "$SCRIPTS/commit.sh" "$(message 'docs(readme): say more')" >/dev/null
+}
+
 test_verify_red_is_red_through_a_pipe_in_the_command() {
   set_config verify 'bash check.sh | cat' 
   git commit -qam "chore(repo): pipe"
