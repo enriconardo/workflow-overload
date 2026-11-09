@@ -14,7 +14,7 @@ Run the `workflow-overload:step-test-author` agent with the spec's path, the chu
 
 ### 3. Implementation — `l/chunk-<n>/implement`
 
-Run the `workflow-overload:step-implementer` agent with the spec's path, the chunk's number, the recorded test files (`suite.sh files`), the config's `rules` and `exec`, and, on a later round, the findings to fix. It writes the code that makes the tests pass and never touches the recorded tests (commit.sh refuses a tree where they changed).
+Run the `workflow-overload:step-implementer` agent with the spec's path, the chunk's number, the recorded test files (`suite.sh files`), the config's `rules` and `exec`, and, on a later round, the findings to fix. It writes the code that makes the tests pass and no test: commit.sh refuses a tree where a recorded test changed, or, on a test-first chunk, any other test file. A case it reports missing goes to the test-author, who records the suite again, and the red check runs again.
 
 When it reports a test it thinks wrong, decide on the spec (*A test reported wrong*).
 

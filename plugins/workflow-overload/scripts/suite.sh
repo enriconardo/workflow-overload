@@ -11,7 +11,9 @@ set -euo pipefail
 #   suite.sh record   the test-author, last: the test files changed against
 #                     HEAD (the config's tests_glob) become record <n>
 #   suite.sh files    the recorded test files, one per line
-#   suite.sh check    fails when a recorded file differs from its record
+#   suite.sh check    fails when a recorded file differs from its record,
+#                     or, while a record sits on HEAD, when a test file
+#                     outside it changed
 #   suite.sh diff     how each recorded file differs, for the reviewers
 #   suite.sh clear    removes the branch's records
 
@@ -84,6 +86,24 @@ check() {
     printf 'overload: these recorded test files differ from the suite the test-author handed over:\n' >&2
     printf '  %s\n' "${changed[@]}" >&2
     echo "Only the test-author changes them, and records the suite again." >&2
+    exit 1
+  fi
+  # A record made on this HEAD means a test-first chunk is under way: its
+  # tests come from the test-author only, so no other test file changes.
+  local last extra=()
+  last="$(suite_refs "$branch" | tail -n 1)"
+  [[ -n "$last" && "$(git rev-parse "$last^")" == "$(git rev-parse HEAD)" ]] || return 0
+  local -A recorded=()
+  while IFS= read -r file; do
+    [[ -n "$file" ]] && recorded["$file"]=1
+  done < <(git diff --name-only HEAD "$last")
+  while IFS= read -r file; do
+    [[ -n "$file" && -z "${recorded[$file]:-}" ]] && extra+=("$file")
+  done < <(git status --porcelain --untracked-files=all --no-renames -- "${specs[@]}" | cut -c4-)
+  if ((${#extra[@]})); then
+    printf 'overload: these test files changed but are not in the suite the test-author recorded for this chunk:\n' >&2
+    printf '  %s\n' "${extra[@]}" >&2
+    echo "On a test-first chunk the tests come from the test-author: report the missing case, or undo the change." >&2
     exit 1
   fi
 }

@@ -14,7 +14,8 @@ The spec's path and the chunk's number; the recorded test files of the suite; th
 ## Rules
 
 - **The recorded tests are not yours.** Never edit them: the commit refuses a tree where they changed. If one looks wrong (it contradicts the spec, or asks for the impossible), stop and report it with the spec's line and the test's: the main agent decides.
-- **Complete the stubs** and write the code the chunk needs, nothing outside it. A finding that is a bug starts from a test that reproduces it, in a test file of its own, never in a recorded one.
+- **Complete the stubs** and write the code the chunk needs, nothing outside it.
+- **On a test-first chunk you write no test**: the commit refuses any test file outside the recorded suite. A case the tests miss, or a bug a finding names, goes in your report, and the main agent has the test-author write it. On a chunk that is not test-first, a test you add goes in a file of its own.
 - **Follow the project's rules** and the code around you. No new dependency.
 - **Run the tests** through the command prefix until they pass, and the project's other tests the change can touch.
 - Never commit, and never move the working tree: no `checkout`, `switch`, `stash` or `reset`.

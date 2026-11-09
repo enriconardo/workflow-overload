@@ -38,6 +38,28 @@ test_commit_refuses_a_changed_recorded_test() {
   bash "$SCRIPTS/commit.sh" "$(message 'feat(greet): x')" >/dev/null
 }
 
+test_commit_refuses_an_unrecorded_test_file_during_a_test_first_chunk() {
+  write_test old.test.ts "case old pass"
+  git add -A && git commit -qm "test(greet): an existing test"
+  open_l_task
+  write_test a.test.ts "case a assert"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  write_test extra.test.ts "case mine pass"
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  expect_fail "not in the suite the test-author recorded" bash "$SCRIPTS/commit.sh" "$(message 'feat(greet): x')"
+  rm __tests__/extra.test.ts
+  write_test old.test.ts "case old skip"
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  expect_fail "__tests__/old.test.ts" bash "$SCRIPTS/commit.sh" "$(message 'feat(greet): x')"
+  git checkout -q -- __tests__/old.test.ts
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message 'feat(greet): x')" >/dev/null
+  # the next chunk is not test-first: no record on this HEAD, tests are free
+  write_test wiring.test.ts "case w pass"
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message 'feat(greet): wire it')" >/dev/null
+}
+
 test_a_new_record_supersedes_the_old_one() {
   open_l_task
   write_test greet.test.ts "case a assert"
