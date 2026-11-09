@@ -3,7 +3,7 @@
 # and the hooks. Run by tests/run.sh, each test in a fresh repository.
 
 source_lib() {
-  # shellcheck source=../plugins/overload/scripts/lib.sh
+  # shellcheck source=../plugins/workflow-overload/scripts/lib.sh
   source "$SCRIPTS/lib.sh"
 }
 

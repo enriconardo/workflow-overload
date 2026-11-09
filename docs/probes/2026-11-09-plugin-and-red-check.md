@@ -4,7 +4,7 @@
 
 ## Plugin
 
-A probe plugin `overload` in a local marketplace, installed with `claude plugin marketplace add` and `claude plugin install` in a separate config, used from another git repository.
+A probe plugin named `overload` (since renamed `workflow-overload`: `/overload` then resolves to `/workflow-overload:overload`, checked the same day) in a local marketplace, installed with `claude plugin marketplace add` and `claude plugin install` in a separate config, used from another git repository.
 
 | Question | Result |
 | --- | --- |

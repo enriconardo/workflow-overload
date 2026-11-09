@@ -7,7 +7,7 @@ set -euo pipefail
 # matches the pattern.
 
 TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export SCRIPTS="$TESTS_DIR/../plugins/overload/scripts"
+export SCRIPTS="$TESTS_DIR/../plugins/workflow-overload/scripts"
 pattern="${1:-}"
 passed=0
 failed=0

@@ -1,12 +1,12 @@
 # workflow-overload
 
-The Claude Code plugin `overload` and its marketplace. Public: no reference to private projects, people or clients, in code, docs, tests or commits.
+The Claude Code plugin `workflow-overload` and its marketplace. Its one command is `/overload`, the short form of `/workflow-overload:overload`; agents are `workflow-overload:<name>`. Public: no reference to private projects, people or clients, in code, docs, tests or commits.
 
 ## Layout
 
 ```
-.claude-plugin/marketplace.json   the marketplace: one plugin, ./plugins/overload
-plugins/overload/                 what an install copies
+.claude-plugin/marketplace.json   the marketplace: one plugin, ./plugins/workflow-overload
+plugins/workflow-overload/        what an install copies
   .claude-plugin/plugin.json      name, version
   skills/overload/SKILL.md        the only entry: /overload, disable-model-invocation
   skills/overload/phases/         one file per phase, read by the entry skill
@@ -28,7 +28,7 @@ docs/                             design and probes
 ## Checks
 
 ```
-shellcheck -x plugins/overload/scripts/*.sh tests/*.sh
+shellcheck -x plugins/workflow-overload/scripts/*.sh tests/*.sh
 tests/run.sh
 python3 -m unittest discover -s tests
 claude plugin validate .

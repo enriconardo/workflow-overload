@@ -1,6 +1,6 @@
 # Workflow Overload
 
-A development workflow for [Claude Code](https://claude.com/claude-code), packaged as the plugin `overload`. It takes a request to a verified merge, spends agents and checks in proportion to the task, and starts only when you type `/overload`.
+A development workflow for [Claude Code](https://claude.com/claude-code), packaged as the plugin `workflow-overload`. It takes a request to a verified merge, spends agents and checks in proportion to the task, and starts only when you type `/overload`.
 
 > **Status: 0.1, the S path.** Brainstorming, triage, the S path, its review, lessons, checkpoint and integration work. The L path (spec, spec review, chunks written test-first by a test author that never reads the code) is next: until then an L task stops at the triage.
 
@@ -15,7 +15,7 @@ A development workflow for [Claude Code](https://claude.com/claude-code), packag
 
 ```
 /plugin marketplace add enriconardo/workflow-overload
-/plugin install overload@workflow-overload
+/plugin install workflow-overload@workflow-overload
 ```
 
 Scripts need `bash`, `git` and `python3` (3.8 or later, standard library only).
@@ -75,7 +75,7 @@ Any key can be overridden for a session by `OVERLOAD_<KEY>`, even to empty: a cl
 
 ## Measures
 
-`plugins/overload/scripts/metrics.py` also reads the Claude Code transcripts of a project (`transcripts`) and the merges of its history (`git`), to compare a workflow with the one before it. Claude Code deletes transcripts after 30 days: set `"cleanupPeriodDays"` in `~/.claude/settings.json` to keep them.
+`plugins/workflow-overload/scripts/metrics.py` also reads the Claude Code transcripts of a project (`transcripts`) and the merges of its history (`git`), to compare a workflow with the one before it. Claude Code deletes transcripts after 30 days: set `"cleanupPeriodDays"` in `~/.claude/settings.json` to keep them.
 
 ## Development
 

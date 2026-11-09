@@ -16,7 +16,7 @@ Write the message to a file outside the repository: a subject in the config's `c
 
 ## 4. Final review — phase `s/review`
 
-Run the `overload:code-reviewer` agent with:
+Run the `workflow-overload:code-reviewer` agent with:
 
 - the intent: the path of the journal, `.workflow/journal.md`, section *Intent*;
 - the range: first round `<base>..HEAD`, with `base` from the journal; a later round, the previous findings and `<sha>..HEAD`, `sha` being the HEAD the previous round reviewed;
@@ -34,7 +34,7 @@ A round that still finds blocking issues after the third goes to `phases/escalat
 
 Only for a problem of this task that could recur and costs more than its rule costs to read. Prefer a check, a script or a lint rule to written text; propose also to retire a rule of the area that proved useless. No proposal: skip to 6.
 
-Write the proposals to a file outside the repository, one per lesson: its text as it would land, where it lands (file and section, or the check and what it refuses), and the evidence (a commit, a finding quoted as it came, a check's output, a `file:line`). Run the `overload:lesson-critic` agent with that path only. Apply the verdicts you accept; a `revise` or `drop` you reject keeps its reason.
+Write the proposals to a file outside the repository, one per lesson: its text as it would land, where it lands (file and section, or the check and what it refuses), and the evidence (a commit, a finding quoted as it came, a check's output, a `file:line`). Run the `workflow-overload:lesson-critic` agent with that path only. Apply the verdicts you accept; a `revise` or `drop` you reject keeps its reason.
 
 ## 6. Summary and checkpoint — phase `s/checkpoint`
 

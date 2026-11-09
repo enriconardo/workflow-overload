@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SPEC = importlib.util.spec_from_file_location("metrics", os.path.join(HERE, "..", "plugins", "overload", "scripts", "metrics.py"))
+SPEC = importlib.util.spec_from_file_location("metrics", os.path.join(HERE, "..", "plugins", "workflow-overload", "scripts", "metrics.py"))
 metrics = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(metrics)
 
@@ -40,12 +40,12 @@ class TranscriptsTest(unittest.TestCase):
             user("u2", "docs/readme/x", "<command-name>/overload</command-name><command-args>go</command-args>", ts="2026-11-09T10:01:00Z"),
             assistant("a2", "docs/readme/x", "m2", usage(1, 0, 1000, 10), [
                 {"type": "tool_use", "id": "t2", "name": "Bash", "input": {"command": "bash /p/scripts/verify.sh"}},
-                {"type": "tool_use", "id": "t3", "name": "Agent", "input": {"subagent_type": "overload:code-reviewer", "prompt": "x"}},
+                {"type": "tool_use", "id": "t3", "name": "Agent", "input": {"subagent_type": "workflow-overload:code-reviewer", "prompt": "x"}},
             ], ts="2026-11-09T10:02:00Z"),
             user("u3", "docs/readme/x", [{"type": "tool_result", "tool_use_id": "t2", "is_error": True, "content": "Exit code 1"}],
                  toolUseResult="Error: Exit code 1"),
             user("u4", "docs/readme/x", [{"type": "tool_result", "tool_use_id": "t3", "content": [{"type": "text", "text": "done"}]}],
-                 toolUseResult={"agentId": "abc", "agentType": "overload:code-reviewer"}),
+                 toolUseResult={"agentId": "abc", "agentType": "workflow-overload:code-reviewer"}),
             user("u5", "docs/readme/x", "[Request interrupted by user]"),
         ]
         with open(os.path.join(self.dir, "s1.jsonl"), "w") as handle:
@@ -56,7 +56,7 @@ class TranscriptsTest(unittest.TestCase):
         with open(os.path.join(sub, "agent-abc.jsonl"), "w") as handle:
             handle.write(json.dumps(assistant("x1", "docs/readme/x", "m9", usage(2, 50, 500, 30), [], model="claude-sonnet-5-5")) + "\n")
         with open(os.path.join(sub, "agent-abc.meta.json"), "w") as handle:
-            json.dump({"agentType": "overload:code-reviewer"}, handle)
+            json.dump({"agentType": "workflow-overload:code-reviewer"}, handle)
 
     def records(self):
         rows = metrics.collect_transcripts(self.dir, "main", __import__("re").compile(r"\bverify\.sh\b"), {"overload"})
@@ -73,7 +73,7 @@ class TranscriptsTest(unittest.TestCase):
         self.assertEqual(roles["main/overload"]["cache_read"], 1000)
 
     def test_subagent_tokens_go_to_its_type(self):
-        role = self.records()["docs/readme/x"]["roles"]["agent/overload:code-reviewer"]
+        role = self.records()["docs/readme/x"]["roles"]["agent/workflow-overload:code-reviewer"]
         self.assertEqual(role["runs"], 1)
         self.assertEqual(role["output"], 30)
         self.assertIn("claude-sonnet-5-5", role["by_model"])
