@@ -65,6 +65,13 @@ test_journal_set_inc_log() {
   expect_eq "$(sed -n '/^## /q; /^lessons:/p' .workflow/journal.md)" "lessons: 2"
 }
 
+test_branch_keeps_the_intent_inside_its_section() {
+  printf '## Problem\nThe README is short.\n# Goal\nSay more.\n' >"$WORK/headed.md"
+  bash "$SCRIPTS/branch.sh" S docs readme describe-project "$WORK/headed.md" >/dev/null
+  expect_eq "$(grep -c '^## ' .workflow/journal.md)" "5" "only the journal's own sections"
+  grep -qx '#### Problem' .workflow/journal.md || fail "heading not demoted"
+}
+
 test_verify_green_records_the_tree_and_red_does_not() {
   open_task
   echo "More." >>README.md
