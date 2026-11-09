@@ -4,7 +4,7 @@ Produces a reviewed spec, split into chunks, that the human approves before any 
 
 ## 1. Spec — phase `l/spec`
 
-You write it, because you hold the discussion with the human: an agent given a summary would lose the intent. Start from the explorer's map. Write it at `<specs>/<YYYY-MM-DD>-<description>.md` (the config's `specs`) and record its path: `journal.sh set spec <path>`.
+You write it, because you hold the discussion with the human: an agent given a summary would lose the intent. Start from the explorer's map, which the spec reviewer and the splitter read too: if the brainstorming logged none, run the `workflow-overload:code-explorer` agent now, as `phases/brainstorm.md` says, and log the map's path. Write it at `<specs>/<YYYY-MM-DD>-<description>.md` (the config's `specs`) and record its path: `journal.sh set spec <path>`.
 
 ```
 ---
