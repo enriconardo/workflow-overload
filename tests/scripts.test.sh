@@ -114,6 +114,17 @@ test_verify_third_red_asks_the_human() {
   expect_fail "Stop and ask the human" bash "$SCRIPTS/verify.sh"
 }
 
+test_verify_sees_a_same_size_edit_made_in_the_same_second() {
+  open_task
+  echo "aaaa" >notes.txt
+  git add notes.txt
+  echo "bbbb" >notes.txt
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message 'docs(readme): add notes')" >/dev/null
+  expect_eq "$(git show HEAD:notes.txt)" "bbbb" "the committed content"
+  expect_eq "$(git status --porcelain)" "" "a clean tree after the commit"
+}
+
 test_journal_edits_do_not_invalidate_verify() {
   open_task
   echo "More." >>README.md

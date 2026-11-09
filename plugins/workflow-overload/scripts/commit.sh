@@ -52,5 +52,11 @@ if [[ -x "$OVERLOAD_SCRIPTS/suite.sh" ]]; then
 fi
 
 git add -A
+# What is staged must be what verify checked, whatever stat data the real
+# index held.
+if [[ "$(commit_tree_hash "$(git write-tree)")" != "$(cut -d' ' -f1 "$(verified_file)")" ]]; then
+  git reset -q
+  die "the staged tree differs from the verified one: run verify.sh again, then commit."
+fi
 git commit --quiet -F "$message"
 git log -1 --format='committed %h %s'

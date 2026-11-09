@@ -116,14 +116,17 @@ state_dir() {
 
 # The tree of the working directory as a commit would record it, untracked
 # files included and ignored files left out, without the journal and the
-# metrics: updating those never invalidates a verify. Built in a copy of the
-# index, so that the real index stays as it is.
+# metrics: updating those never invalidates a verify. Built in an index of
+# its own, so that the real index stays as it is.
 work_tree_hash() {
-  local index real
+  local index
   index="$(mktemp)"
-  real="$(git rev-parse --git-path index)"
-  if [[ -f "$real" ]]; then
-    cp "$real" "$index"
+  # From HEAD's tree, not a copy of the index: a copied index carries stat
+  # data that a same-size edit within the same second matches, and git then
+  # takes the old content for the file's. Entries read from a tree have none,
+  # so every file is hashed.
+  if git rev-parse --verify --quiet HEAD >/dev/null; then
+    GIT_INDEX_FILE="$index" git read-tree HEAD
   else
     rm -f "$index"
   fi
