@@ -30,6 +30,17 @@ verified="$(verified_file)"
 
 git show-ref --verify --quiet "refs/heads/$main" || die "no local '$main' to integrate into."
 
+# An L task's spec is done: every chunk ticked, its status set.
+spec="$(journal_get spec)"
+if [[ -n "$spec" ]]; then
+  [[ -f "$spec" ]] || die "the journal's spec '$spec' does not exist."
+  if grep -q '^- \[ \]' "$spec"; then
+    die "$spec has chunks not ticked:
+$(grep '^- \[ \]' "$spec")"
+  fi
+  grep -qx 'status: done' "$spec" || die "$spec is not 'status: done': set it, verify and commit, then integrate."
+fi
+
 # The journal leaves with the branch; the measures read it first.
 journal_copy="$(mktemp)"
 cp "$JOURNAL_FILE" "$journal_copy"

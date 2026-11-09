@@ -489,15 +489,22 @@ def journal_record(path):
 
 
 def verify_runs(path, branch):
-    runs, red, seconds = 0, 0, 0
+    """The verify runs and red checks that the clone's run log holds for a
+    branch: verify lines have five fields, red-check lines four."""
+    runs, red, seconds, checks, invalid = 0, 0, 0, 0, 0
     if os.path.exists(path):
         for raw in open(path, encoding="utf-8"):
             parts = raw.rstrip("\n").split("\t")
-            if len(parts) >= 5 and parts[1] == branch:
+            if len(parts) < 4 or parts[1] != branch:
+                continue
+            if parts[2] == "red-check":
+                checks += 1
+                invalid += parts[3] != "valid"
+            elif len(parts) >= 5:
                 runs += 1
                 red += parts[3] == "red"
                 seconds += int(parts[4]) if parts[4].isdigit() else 0
-    return {"runs": runs, "red": red, "seconds": seconds}
+    return {"runs": runs, "red": red, "seconds": seconds, "red_checks": checks, "red_checks_invalid": invalid}
 
 
 def record(branch, main_branch, journal, runs_log, phases):

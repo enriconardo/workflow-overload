@@ -158,7 +158,7 @@ assert len(rows) == 1, rows
 r = rows[0]
 assert r["branch"] == "docs/readme/describe-project", r
 assert r["journal"]["tier"] == "S", r
-assert r["verify"] == {"runs": 1, "red": 0, "seconds": r["verify"]["seconds"]}, r
+assert r["verify"]["runs"] == 1 and r["verify"]["red"] == 0 and r["verify"]["red_checks"] == 0, r
 assert r["commits"] == 1 and r["files"] == 2, r
 PY
   [[ -z "$(git status --porcelain)" ]] || fail "dirty after integrate"

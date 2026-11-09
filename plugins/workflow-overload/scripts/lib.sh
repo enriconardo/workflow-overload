@@ -35,6 +35,10 @@ config_default() {
     integrate) echo merge ;;
     backlog) echo .workflow/backlog.md ;;
     rules) echo CLAUDE.md ;;
+    specs) echo .workflow/specs ;;
+    tests_glob) echo '**/__tests__/**, **/*.test.*, **/*.spec.*, **/test_*.py, **/*_test.py, **/*_test.go' ;;
+    red_types) echo 'AssertionError, NotImplemented' ;;
+    reference) echo .workflow/reference ;;
     *) echo '' ;;
   esac
 }
@@ -162,4 +166,21 @@ now() {
 journal_get() {
   [[ -f "$JOURNAL_FILE" ]] || return 0
   sed -n "s/^$1: *//p" "$JOURNAL_FILE" | head -n 1
+}
+
+# The config's `tests_glob` as git pathspecs, one per line.
+tests_pathspecs() {
+  local glob
+  IFS=',' read -ra globs <<<"$(cfg tests_glob)"
+  for glob in "${globs[@]}"; do
+    glob="${glob#"${glob%%[![:space:]]*}"}"
+    glob="${glob%"${glob##*[![:space:]]}"}"
+    [[ -n "$glob" ]] && printf ':(glob)%s\n' "$glob"
+  done
+}
+
+suite_refs() {
+  # for-each-ref matches a pattern up to a slash: the records of fix/x/y are
+  # not those of fix/x/y-other.
+  git for-each-ref --format='%(refname)' "refs/overload/suite/$1" | sort -V
 }
