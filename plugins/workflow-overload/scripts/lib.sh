@@ -31,7 +31,6 @@ config_default() {
     types) echo 'feature, fix, hotfix, refactor, test, docs, chore' ;;
     commit) echo '<type>(<scope>): <summary>' ;;
     commit_types) echo 'feat, fix, refactor, perf, test, docs, build, ci, chore' ;;
-    subject_max) echo 72 ;;
     integrate) echo merge ;;
     backlog) echo .workflow/backlog.md ;;
     rules) echo CLAUDE.md ;;

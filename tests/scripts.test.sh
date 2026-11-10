@@ -48,8 +48,19 @@ test_branch_refuses_bad_names_and_states() {
 }
 
 test_branch_refuses_a_name_too_long_for_the_merge_subject() {
+  set_config subject_max 72
+  git add -A && git commit -qm "chore(repo): limit subjects"
   expect_fail "merge subject would be over 72" bash "$SCRIPTS/branch.sh" S docs readme \
     "a-very-long-description-that-goes-on-and-on-and-on-forever" "$(intent)"
+}
+
+test_no_subject_limit_unless_the_project_sets_one() {
+  bash "$SCRIPTS/branch.sh" S docs readme \
+    "a-very-long-description-that-goes-on-and-on-and-on-forever" "$(intent)" >/dev/null
+  verified_commit "more"
+  echo "Still more." >>README.md
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message "docs(readme): $(printf 'x%.0s' {1..90})")" >/dev/null
 }
 
 test_journal_set_inc_log() {

@@ -45,9 +45,11 @@ branch="${branch//<description>/$description}"
 [[ "$branch" != *'<'* ]] || die "the config's branch '$template' has a placeholder this script does not fill: <type>, <scope> and <description> only."
 git check-ref-format --branch "$branch" >/dev/null 2>&1 || die "'$branch' is not a valid branch name."
 
-# The merge subject `Merge branch '<branch>'` must fit the subject limit.
+# The merge subject `Merge branch '<branch>'` must fit the project's subject
+# limit, when it has one.
 max="$(cfg subject_max)"
-if ((${#branch} + 15 > max)); then
+[[ -z "$max" || "$max" =~ ^[0-9]+$ ]] || die "the config's subject_max '$max' is not a number."
+if [[ -n "$max" ]] && ((${#branch} + 15 > max)); then
   die "'$branch' has ${#branch} characters: its merge subject would be over $max. Shorten the description."
 fi
 
