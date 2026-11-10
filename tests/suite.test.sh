@@ -70,6 +70,23 @@ test_a_new_record_supersedes_the_old_one() {
   bash "$SCRIPTS/suite.sh" diff | grep -q "as recorded (2)" || fail "not the second record"
 }
 
+test_a_new_record_covers_a_file_put_back_to_head() {
+  write_test old.test.ts "case old pass"
+  git add -A && git commit -qm "test(greet): an existing test"
+  open_l_task
+  write_test old.test.ts "case old assert"
+  write_test a.test.ts "case a assert"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  # the test-author puts old.test.ts back as HEAD has it, and records again
+  git checkout -q -- __tests__/old.test.ts
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  bash "$SCRIPTS/suite.sh" check
+  bash "$SCRIPTS/suite.sh" diff | grep -q "old.test.ts: as recorded (2)" || fail "not covered by the second record"
+  # and a change to it after that is still refused
+  write_test old.test.ts "case old skip"
+  expect_fail "__tests__/old.test.ts" bash "$SCRIPTS/suite.sh" check
+}
+
 test_red_check_accepts_assertions_and_not_implemented() {
   fake_runner
   open_l_task
