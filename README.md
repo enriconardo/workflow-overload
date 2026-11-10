@@ -38,7 +38,7 @@ For changes nothing outside sees (or docs, config, tooling), in one area, with c
 2. **Branch**: `branch.sh` opens it from an up-to-date main and writes the journal.
 3. **Implement, verify, commit**: a bug fix starts from a failing test; `commit.sh` refuses any tree but the verified one.
 4. **Final review** (`code-reviewer`): six blocking cases, findings at confidence 80 or more; fixes are commits of their own, and a new round reviews only what changed.
-5. **Lessons** (`lesson-critic`): rules proposed for problems that could recur, judged before you see them.
+5. **Lessons** (`lesson-critic`): rules proposed only for problems that got past the step meant to catch them, judged before you see them.
 6. **Checkpoint**: you give the go and pick the lessons and backlog items to keep.
 7. **Integrate**: `integrate.sh` merges with `--no-ff` without the journal, adds a line of measures to `.workflow/metrics.jsonl`, re-verifies the merge's result when main moved, and leaves main untouched on a conflict or a red verify.
 
