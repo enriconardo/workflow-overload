@@ -89,7 +89,13 @@ if ((moved)); then
   fi
 fi
 
-git commit --quiet --no-edit
+# The subject branch.sh measures the name against, when the project limits
+# subjects: git's own adds " into <main>" when main is not the default
+# branch.
+if ! git commit --quiet -m "Merge branch '$branch'"; then
+  back_to_branch
+  die "the commit of the merge was refused (a commit-msg hook?); '$main' is unchanged."
+fi
 git branch -q -d "$branch"
 for ref in $(git for-each-ref --format='%(refname)' "refs/overload/suite/$branch"); do
   git update-ref -d "$ref"

@@ -48,8 +48,19 @@ test_branch_refuses_bad_names_and_states() {
 }
 
 test_branch_refuses_a_name_too_long_for_the_merge_subject() {
+  set_config subject_max 72
+  git add -A && git commit -qm "chore(repo): limit subjects"
   expect_fail "merge subject would be over 72" bash "$SCRIPTS/branch.sh" S docs readme \
     "a-very-long-description-that-goes-on-and-on-and-on-forever" "$(intent)"
+}
+
+test_no_subject_limit_unless_the_project_sets_one() {
+  bash "$SCRIPTS/branch.sh" S docs readme \
+    "a-very-long-description-that-goes-on-and-on-and-on-forever" "$(intent)" >/dev/null
+  verified_commit "more"
+  echo "Still more." >>README.md
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message "docs(readme): $(printf 'x%.0s' {1..90})")" >/dev/null
 }
 
 test_journal_set_inc_log() {
@@ -193,6 +204,39 @@ assert r["verify"]["runs"] == 1 and r["verify"]["red"] == 0 and r["verify"]["red
 assert r["commits"] == 1 and r["files"] == 2, r
 PY
   [[ -z "$(git status --porcelain)" ]] || fail "dirty after integrate"
+}
+
+test_integrate_keeps_the_merge_subject_short_on_a_long_main() {
+  # A main of 25 characters: git's own subject would add " into <main>".
+  git switch -q -c chore/repo/overload-trial-a
+  set_config main chore/repo/overload-trial-a
+  git add -A && git commit -qm "chore(repo): trial base"
+  mkdir -p .githooks
+  # shellcheck disable=SC2016 # the hook's own code, expanded when it runs
+  printf '#!/usr/bin/env bash\n(( $(head -n1 "$1" | wc -m) <= 73 )) || { echo "subject too long" >&2; exit 1; }\n' >.githooks/commit-msg
+  chmod +x .githooks/commit-msg
+  git config core.hooksPath .githooks
+  git add -A && git commit -qm "chore(repo): hook"
+  bash "$SCRIPTS/branch.sh" S docs readme describe-the-project-in-detail "$(intent)" >/dev/null
+  verified_commit "more"
+  out="$(bash "$SCRIPTS/integrate.sh")"
+  [[ "$out" == *"integrated"* ]] || fail "not integrated: $out"
+  expect_eq "$(git log -1 --format=%s)" "Merge branch 'docs/readme/describe-the-project-in-detail'"
+}
+
+test_integrate_refused_commit_leaves_main_intact() {
+  open_task
+  verified_commit "more"
+  main_before="$(git rev-parse main)"
+  mkdir -p "$WORK/hooks"
+  printf '#!/usr/bin/env bash\necho "refused by a hook" >&2; exit 1\n' >"$WORK/hooks/commit-msg"
+  chmod +x "$WORK/hooks/commit-msg"
+  git config core.hooksPath "$WORK/hooks"
+  expect_fail "the commit of the merge was refused" bash "$SCRIPTS/integrate.sh"
+  expect_eq "$(git rev-parse main)" "$main_before" "main unchanged"
+  expect_eq "$(git branch --show-current)" "docs/readme/describe-project"
+  [[ -f .workflow/journal.md ]] || fail "journal lost"
+  [[ -z "$(git status --porcelain)" ]] || fail "dirty: $(git status --porcelain)"
 }
 
 test_integrate_refuses_an_unverified_head() {

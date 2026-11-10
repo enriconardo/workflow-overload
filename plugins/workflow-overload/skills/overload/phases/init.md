@@ -11,7 +11,7 @@ Without changing anything, find:
 - the main branch (`git symbolic-ref refs/remotes/origin/HEAD`, else `main` or `master`);
 - how its checks run: lockfile and scripts (`package.json`, `Makefile`, `pyproject.toml`, `justfile`…), the CI's workflow files, a container wrapper for commands that touch dependencies (`./dev.sh exec`, `docker compose exec …`);
 - the single command that runs lint, typecheck and tests on what changed, and its dependents. If there is none, the one that runs everything. If the project has no checks at all, `verify` stays empty: verify then checks nothing and records the tree, and the run log says so;
-- branch and commit conventions: the project's CLAUDE.md and contributing docs, then `git log --format=%s -50` and the merged branches' names;
+- branch and commit conventions: the project's CLAUDE.md and contributing docs, then `git log --format=%s -50` and the merged branches' names; a limit on a subject's length, if a `commit-msg` hook or the rules set one;
 - whether it integrates by local merge or by pull request, and where its rules live (CLAUDE.md files, ADR folders), its backlog if it keeps one.
 
 ## 2. Propose
@@ -27,7 +27,7 @@ branch       = <type>/<scope>/<description>
 types        = feature, fix, hotfix, refactor, test, docs, chore     # branch types
 commit       = <type>(<scope>): <summary>                            # subject format
 commit_types = feat, fix, refactor, perf, test, docs, build, ci, chore
-subject_max  = 72
+subject_max  =                      # the project's own limit on a subject, as its commit-msg hook or rules set it; empty: none
 integrate    = merge                # this version merges locally, --no-ff
 rules        = CLAUDE.md            # comma-separated: the files and folders of the project's rules
 backlog      = .workflow/backlog.md

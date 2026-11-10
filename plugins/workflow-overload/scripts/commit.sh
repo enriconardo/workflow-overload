@@ -38,8 +38,11 @@ if ! [[ "$subject" =~ ^$regex$ ]]; then
   die "the subject '$subject' does not follow the config's format '$template' (types: $types)."
 fi
 max="$(cfg subject_max)"
-length="$(printf '%s' "$subject" | wc -m | tr -d ' ')"
-((length <= max)) || die "the subject has $length characters, over $max."
+[[ -z "$max" || "$max" =~ ^[0-9]+$ ]] || die "the config's subject_max '$max' is not a number."
+if [[ -n "$max" ]]; then
+  length="$(printf '%s' "$subject" | wc -m | tr -d ' ')"
+  ((length <= max)) || die "the subject has $length characters, over $max."
+fi
 
 if [[ -z "$(git status --porcelain)" ]]; then
   die "nothing to commit."
