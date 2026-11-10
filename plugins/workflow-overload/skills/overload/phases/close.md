@@ -32,7 +32,7 @@ One message to the human:
 - what changes and why, in a few lines, and the diff's stat (`git diff --stat <base>..HEAD`); on L, the chunks as the spec ticks them;
 - the last verify's result;
 - the findings that need their judgment, and those you rejected, with the reason;
-- the backlog candidates, each with its source;
+- the backlog candidates, each with its source, after you compared them with the config's `backlog` file: a candidate that matches an item says so, already there or already dropped, with the item's date and reason;
 - the lessons the critic kept, each with its verdict; a dropped one as a single line, so they can take it back.
 - the defects of the workflow itself that the task met, each in one line.
 
@@ -40,7 +40,7 @@ Then stop and wait. The human gives the go and picks the lessons and backlog ite
 
 ## 4. Lessons and backlog — phase `close/write`
 
-Write the approved lessons where they land, apply the approved retirements, and add the approved backlog items at the end of the config's `backlog` file (create it if missing), one item per entry: what, why, source. The rule, not its story: `git blame` gives the task and the date. Verify and commit the lessons on their own, then the backlog items on their own. A lesson that stays red goes to the human: retry, or skip, and the lesson leaves the task as a backlog item.
+Write the approved lessons where they land, apply the approved retirements, and add the approved backlog items to the config's `backlog` file (create it if missing) where its own rules put a new item, its header or its sections, else at its end; one item per entry: what, why, source. The rule, not its story: `git blame` gives the task and the date. Verify and commit the lessons on their own, then the backlog items on their own. A lesson that stays red goes to the human: retry, or skip, and the lesson leaves the task as a backlog item.
 
 On L, set the spec's `status: done` in the last of these commits, or in a commit of its own when nothing was approved.
 
