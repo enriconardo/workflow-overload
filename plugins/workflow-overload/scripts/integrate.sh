@@ -97,7 +97,7 @@ if ! git commit --quiet -m "Merge branch '$branch'"; then
   die "the commit of the merge was refused (a commit-msg hook?); '$main' is unchanged."
 fi
 git branch -q -d "$branch"
-for ref in $(git for-each-ref --format='%(refname)' "refs/overload/suite/$branch"); do
+for ref in $(git for-each-ref --format='%(refname)' "refs/overload/suite/$branch" "refs/overload/base/$branch"); do
   git update-ref -d "$ref"
 done
 rm -f "$verified"

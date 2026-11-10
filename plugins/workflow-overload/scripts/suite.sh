@@ -15,7 +15,7 @@ set -euo pipefail
 #                     or, while a record sits on HEAD, when a test file
 #                     outside it changed
 #   suite.sh diff     how each recorded file differs, for the reviewers
-#   suite.sh clear    removes the branch's records
+#   suite.sh clear    removes the branch's records and the stubs' state
 
 # shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -133,6 +133,7 @@ case "${1:-}" in
     ;;
   clear)
     suite_refs "$branch" | while IFS= read -r ref; do git update-ref -d "$ref"; done
+    git update-ref -d "refs/overload/base/$branch" 2>/dev/null || true
     ;;
   *)
     echo "Usage: suite.sh record | files | check | diff | clear" >&2
