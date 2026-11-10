@@ -132,6 +132,19 @@ test_red_check_hands_new_green_tests_to_the_step_reviewer() {
   expect_eq "$(cat "$(git rev-parse --git-path overload)/red-check-green.txt")" "__tests__/a.test.ts > green"
 }
 
+test_red_check_leaves_out_the_test_files_the_suite_deletes() {
+  fake_runner
+  write_test gone.test.ts "case old pass"
+  git add -A && git commit -qm "test(greet): a test to retire"
+  open_l_task
+  git rm -q __tests__/gone.test.ts
+  write_test a.test.ts "case new assert"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/red-check.sh")"
+  [[ "$out" == *"valid red"* ]] || fail "$out"
+  [[ "$out" != *"gone.test.ts"*"not in the runner"* ]] || fail "deleted file judged: $out"
+}
+
 test_red_check_refuses_a_suite_where_nothing_fails() {
   fake_runner
   write_test a.test.ts "case old pass"
