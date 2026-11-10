@@ -27,12 +27,12 @@ Each decision, the alternatives weighed (doing nothing included) and why this on
 The cases that prove the behavior, each one line: input, expected result.
 
 ## Chunks
-- [ ] 1. <title> (test-first | no test-first): the files, the test cases it covers
+- [ ] 1. <title> (test-first | no test-first): the files, the test cases it covers[; signatures: the existing declarations whose signature changes]
 ```
 
 A decision that outlives the task also gets a decision record, where the project keeps them (the config's `rules` names the folder).
 
-**Chunk types.** Test-first: a new or changed behavior of the public API, domain logic, a bug. No test-first: a refactor (the existing tests stay green unchanged), wiring (tested afterwards by the implementer), docs, config.
+**Chunk types.** Test-first: a new or changed behavior of the public API, domain logic, a bug. No test-first: a refactor (the existing tests stay green unchanged), wiring (tested afterwards by the implementer), docs, config, and a chunk that changes no source file (it only adds tests).
 
 ## 2. Probe — phase `l/probe`, only when the spec rests on external facts not yet checked
 

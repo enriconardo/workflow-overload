@@ -15,7 +15,7 @@ set -euo pipefail
 #                     or, while a record sits on HEAD, when a test file
 #                     outside it changed
 #   suite.sh diff     how each recorded file differs, for the reviewers
-#   suite.sh clear    removes the branch's records
+#   suite.sh clear    removes the branch's records and the stubs' state
 
 # shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -27,17 +27,22 @@ branch="$(current_branch)"
 
 mapfile -t specs < <(tests_pathspecs)
 
-# Each recorded file with the record that holds its last version.
+# Each recorded file with the record that holds its last version. Records
+# made on the same HEAD belong to one chunk, and each is a full snapshot of
+# the test files then: the newest of them speaks for every file the chunk's
+# records touched, a file put back as HEAD has it included.
 latest() {
-  local ref file
-  declare -A last=()
+  local ref file parent
+  declare -A last=() newest=()
   while IFS= read -r ref; do
+    parent="$(git rev-parse "$ref^")"
+    newest["$parent"]="$ref"
     while IFS= read -r file; do
       [[ -n "$file" ]] && last["$file"]="$ref"
     done < <(git diff --name-only "$ref^" "$ref")
   done < <(suite_refs "$branch")
   for file in "${!last[@]}"; do
-    printf '%s\t%s\n' "$file" "${last[$file]}"
+    printf '%s\t%s\n' "$file" "${newest[$(git rev-parse "${last[$file]}^")]}"
   done | sort
 }
 
@@ -128,6 +133,7 @@ case "${1:-}" in
     ;;
   clear)
     suite_refs "$branch" | while IFS= read -r ref; do git update-ref -d "$ref"; done
+    git update-ref -d "refs/overload/base/$branch" 2>/dev/null || true
     ;;
   *)
     echo "Usage: suite.sh record | files | check | diff | clear" >&2

@@ -11,6 +11,10 @@ You implement one chunk of a spec, in a clean context: the spec and the tests sa
 
 The spec's path and the chunk's number; the recorded test files of the suite; the project's rule files and its command prefix (`exec`); on a later round, the findings to fix.
 
+## Stub mode
+
+When the input says stub mode, and gives the signatures: change those declarations and nothing else, to the signature the spec gives, each body throwing the project's not-implemented error. Write no test and no logic, and keep callers compiling only where the project's types would otherwise break the tests' run. Report the files changed. The tests come next, and your real implementation after them.
+
 ## Rules
 
 - **The recorded tests are not yours.** Never edit them: the commit refuses a tree where they changed. If one looks wrong (it contradicts the spec, or asks for the impossible), stop and report it with the spec's line and the test's: the main agent decides.

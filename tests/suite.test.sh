@@ -70,6 +70,23 @@ test_a_new_record_supersedes_the_old_one() {
   bash "$SCRIPTS/suite.sh" diff | grep -q "as recorded (2)" || fail "not the second record"
 }
 
+test_a_new_record_covers_a_file_put_back_to_head() {
+  write_test old.test.ts "case old pass"
+  git add -A && git commit -qm "test(greet): an existing test"
+  open_l_task
+  write_test old.test.ts "case old assert"
+  write_test a.test.ts "case a assert"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  # the test-author puts old.test.ts back as HEAD has it, and records again
+  git checkout -q -- __tests__/old.test.ts
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  bash "$SCRIPTS/suite.sh" check
+  bash "$SCRIPTS/suite.sh" diff | grep -q "old.test.ts: as recorded (2)" || fail "not covered by the second record"
+  # and a change to it after that is still refused
+  write_test old.test.ts "case old skip"
+  expect_fail "__tests__/old.test.ts" bash "$SCRIPTS/suite.sh" check
+}
+
 test_red_check_accepts_assertions_and_not_implemented() {
   fake_runner
   open_l_task
@@ -145,6 +162,41 @@ test_red_check_leaves_out_the_test_files_the_suite_deletes() {
   [[ "$out" != *"gone.test.ts"*"not in the runner"* ]] || fail "deleted file judged: $out"
 }
 
+test_red_check_without_code_runs_the_suite_against_the_stubs() {
+  fake_runner
+  set_config test_files 'cat greet.ts; python3 runner.py {files}'
+  git add -A && git commit -qm "chore(repo): runner shows the source"
+  open_l_task
+  write_test a.test.ts "case a assert"
+  echo "stub" >greet.ts
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  bash "$SCRIPTS/red-check.sh" >/dev/null
+  # the implementer has written the code, a test is fixed and recorded again
+  echo "real code" >greet.ts
+  echo "more code" >other.ts
+  write_test a.test.ts "case a notimpl"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/red-check.sh" --without-code)"
+  [[ "$out" == *"valid red"* ]] || fail "not valid: $out"
+  grep -qx "stub" "$(git rev-parse --git-path overload)/red-check-output.txt" || fail "the run did not see the stubs"
+  ! grep -qx "real code" "$(git rev-parse --git-path overload)/red-check-output.txt" || fail "the run saw the code"
+  expect_eq "$(cat greet.ts)" "real code" "the code is back"
+  expect_eq "$(cat other.ts)" "more code" "the new file is back"
+}
+
+test_red_check_without_code_and_no_valid_red_before_runs_against_head() {
+  fake_runner
+  set_config test_files 'ls; python3 runner.py {files}'
+  git add -A && git commit -qm "chore(repo): runner lists the tree"
+  open_l_task
+  write_test a.test.ts "case a assert"
+  echo "code" >greet.ts
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  bash "$SCRIPTS/red-check.sh" --without-code >/dev/null
+  ! grep -qx "greet.ts" "$(git rev-parse --git-path overload)/red-check-output.txt" || fail "the code was in place"
+  expect_eq "$(cat greet.ts)" "code" "the code is back"
+}
+
 test_red_check_refuses_a_suite_where_nothing_fails() {
   fake_runner
   write_test a.test.ts "case old pass"
@@ -179,10 +231,11 @@ test_integrate_clears_the_suite() {
   open_l_task
   write_test greet.test.ts "case a assert"
   bash "$SCRIPTS/suite.sh" record >/dev/null
+  git update-ref refs/overload/base/feature/greet/default-name HEAD
   bash "$SCRIPTS/verify.sh" >/dev/null
   bash "$SCRIPTS/commit.sh" "$(message 'feat(greet): x')" >/dev/null
   bash "$SCRIPTS/integrate.sh" >/dev/null
-  [[ -z "$(git for-each-ref refs/overload/suite)" ]] || fail "suite refs left"
+  [[ -z "$(git for-each-ref refs/overload/suite refs/overload/base)" ]] || fail "suite refs left"
 }
 
 test_integrate_refuses_an_l_spec_not_done() {

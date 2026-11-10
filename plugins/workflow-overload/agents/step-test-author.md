@@ -21,6 +21,7 @@ The spec's path and the chunk's number; the project's rule files; the config's `
 
 - The chunk's test cases, each asserting what identifies the behavior (the value, the error's class or code), not just that something happens. A test that would pass without the behavior is worthless: `toThrow()` with no argument passes on a stub.
 - Stubs only for the new interfaces the spec declares, whose body only throws the project's not-implemented error (`throw new NotImplemented()`, `raise NotImplementedError`, or the project's equivalent), so that the red check sees a failure for the right reason. A stub that the spec puts in an existing source file is appended at its end from the shell (`cat >> <file>`), without reading the file.
+- A declaration whose signature the chunk changes was stubbed for you by the implementer: leave it as it is.
 - A case at the type level (`@ts-expect-error` and the like) gives no reliable red: check it against a reference model written from the spec alone in the `reference` folder, then delete that folder.
 
 ## Last
