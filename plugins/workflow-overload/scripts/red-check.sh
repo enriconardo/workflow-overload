@@ -33,6 +33,23 @@ mapfile -t files < <(bash "$OVERLOAD_SCRIPTS/suite.sh" files)
 ((${#files[@]})) || die "no suite recorded on this branch: the test-author records it with suite.sh record."
 bash "$OVERLOAD_SCRIPTS/suite.sh" check
 
+# A test file the suite deletes has no test to run, and a runner given its
+# path reports nothing for it, or fails.
+present=()
+for file in "${files[@]}"; do
+  if [[ -f "$file" ]]; then
+    present+=("$file")
+  else
+    echo "$file: deleted by the suite, not run"
+  fi
+done
+if ((${#present[@]} == 0)); then
+  printf '%s\t%s\t%s\t%s\n' "$(now)" "$(current_branch)" "red-check" valid >>"$(state_dir)/runs.log"
+  echo "red check: the suite only deletes test files, nothing to run."
+  exit 0
+fi
+files=("${present[@]}")
+
 # Runs the command with {files} replaced by the given files, quoted.
 run_files() {
   local quoted="" file
@@ -51,7 +68,7 @@ existing="$state/red-check-existing.txt"
 
 old=()
 for file in "${files[@]}"; do
-  [[ -f "$file" ]] && git cat-file -e "HEAD:$file" 2>/dev/null && old+=("$file")
+  git cat-file -e "HEAD:$file" 2>/dev/null && old+=("$file")
 done
 if ((${#old[@]})); then
   # The recorded versions wait in a copy, put back whatever happens.
