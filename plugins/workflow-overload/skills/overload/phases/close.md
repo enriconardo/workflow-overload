@@ -21,9 +21,9 @@ A round that still finds blocking issues after the third goes to `phases/escalat
 
 ## 2. Lessons — phase `close/lessons`
 
-Only for a problem of this task, planning included, that could recur and costs more than its rule costs to read. The candidates are in the journal's *Lesson candidates*. Prefer a check, a script or a lint rule to written text; propose also to retire a rule of the area that proved useless or superseded. No proposal: skip to 3.
+Only for a problem of this task, planning included, that got past the step meant to catch it (the review or check of its own step did not) and could recur beyond this task's area. A defect of the workflow itself goes to the checkpoint as such, not as a lesson. The candidates are in the journal's *Lesson candidates*. Prefer a check, a script or a lint rule to written text; propose also to retire a rule of the area that proved useless or superseded. No proposal: skip to 3.
 
-Write the proposals to a file outside the repository, one per lesson: its text as it would land, where it lands (file and section, or the check and what it refuses), and the evidence (a commit, a finding quoted as it came, a check's output, a `file:line`). Run the `workflow-overload:lesson-critic` agent with that path only. Apply the verdicts you accept; a `revise` or `drop` you reject keeps its reason.
+Write the proposals to a file outside the repository, one per lesson: its text as it would land, where it lands (file and section, or the check and what it refuses), the evidence (a commit, a finding quoted as it came, a check's output, a `file:line`), and the step that found the problem and the one meant to catch it. Run the `workflow-overload:lesson-critic` agent with that path only. Apply the verdicts you accept; a `revise` or `drop` you reject keeps its reason.
 
 ## 3. Summary and checkpoint — phase `close/checkpoint`
 
@@ -34,6 +34,7 @@ One message to the human:
 - the findings that need their judgment, and those you rejected, with the reason;
 - the backlog candidates, each with its source;
 - the lessons the critic kept, each with its verdict; a dropped one as a single line, so they can take it back.
+- the defects of the workflow itself that the task met, each in one line.
 
 Then stop and wait. The human gives the go and picks the lessons and backlog items to keep, or asks for changes: on S you are back in `s/implement`; on L you add the changes to the spec as one more chunk, and it goes through `phases/l-chunk.md`, then this file again from 1. Log their words.
 
