@@ -1,6 +1,6 @@
 {
   "name": "workflow-overload",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "A development workflow that starts only with /overload: brainstorming, an S or an L path, independent reviews, verified commits and measures.",
   "author": { "name": "Enrico Nardo" },
   "homepage": "https://github.com/enriconardo/workflow-overload",
