@@ -64,4 +64,4 @@ Set `status: approved`, then verify and commit the spec and the decision record,
 
 ## 8. Restart, recommended
 
-Tell the human, in one line, that this is the moment for `/clear` and then `/overload`: the next session resumes from the journal and the spec, with a few thousand tokens of context instead of the whole brainstorming. Every call that directs the implementation rereads that context. Wait for them, or go on if they say so: then read `phases/l-chunk.md`.
+Tell the human, in one line, that this is the moment for `/clear` and then `/overload`: the next session resumes from the journal and the spec, with a few thousand tokens of context instead of the whole brainstorming. Every call of this session rereads its whole context; the agents start from their own. The chunks and the close make most of a task's calls: on a large task, a fresh session saves about a sixth of its cost. Wait for them, or go on if they say so: then read `phases/l-chunk.md`.
