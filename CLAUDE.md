@@ -40,4 +40,4 @@ CI runs them on every push. A change to a script starts with a test in `tests/sc
 
 - Branch: `<type>/<scope>/<description>`, types `feature, fix, refactor, test, docs, chore`, scope `scripts`, `skill`, `agents`, `hooks`, `metrics` or `repo`.
 - Commit: `[<scope>] <type>: <summary>`, the scope as for branches, the type one of `feat, fix, refactor, perf, test, docs, build, ci, chore`; summary imperative, lowercase, no trailing period, at most 72 characters in all; a body when the why is not obvious.
-- Integration by local merge to `main` (`git merge --no-ff`), then push: a personal project, no pull requests. A release bumps `version` in `plugin.json`.
+- Integration by local merge to `main` (`git merge --no-ff`), a personal project with no pull requests. When the work is done, stop for a checkpoint with the owner before merging; on their go-ahead, merge and delete the feature branch, without pushing; without it, the work is discussed again. A release bumps `version` in `plugin.json`.
