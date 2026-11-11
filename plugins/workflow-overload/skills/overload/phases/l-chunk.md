@@ -2,17 +2,17 @@
 
 Each chunk goes through agents that did not write the spec, and scripts, and ends in a green commit. The chunk to work is the first one the spec does not tick; its phase is `l/chunk-<n>/<step>`.
 
-A chunk's first step is `stub` when its line names `signatures`, otherwise `test` when it is test-first or changes no source file, otherwise `implement`.
+A chunk's first step is `stub` when its line names `signatures` or `dependencies`, otherwise `test` when it is test-first or changes no source file, otherwise `implement`.
 
 ## Per chunk
 
-### 0. Stubs — `l/chunk-<n>/stub`, only when the chunk line names `signatures`
+### 0. Stubs — `l/chunk-<n>/stub`, only when the chunk line names `signatures` or `dependencies`
 
-The test-author cannot stub a declaration that already exists: a changed constructor or parameter list. Run the `workflow-overload:step-implementer` agent in stub mode, with the spec's path, the chunk's number, the signatures and the config's `stub`. It changes only those, each body the `stub` statement, and it writes no test. Do not commit. Then go on with 1.
+The test-author cannot stub a declaration that already exists (a changed constructor or parameter list), and installs nothing, while a test of code that imports a missing package does not load. Run the `workflow-overload:step-implementer` agent in stub mode, with the spec's path, the chunk's number, its signatures and dependencies, and the config's `stub` and `exec`. It adds the dependencies, changes only the signatures, each body the `stub` statement, and it writes no test. Do not commit. Then go on with 1.
 
 ### 1. Tests — `l/chunk-<n>/test`, test-first chunks and chunks with no source to change
 
-Run the `workflow-overload:step-test-author` agent with the spec's path, the chunk's number, the config's `rules`, `tests_glob`, `stub` and `reference`, and the scripts' folder. It writes the chunk's tests before any code, and stubs only for the new interfaces the spec declares, and records the suite with `suite.sh record`. It never reads the source the chunk changes.
+Run the `workflow-overload:step-test-author` agent with the spec's path, the chunk's number, the config's `rules`, `tests_glob`, `stub` and `reference`, and the scripts' folder. It writes the chunk's tests before any code, and stubs only for the new interfaces the spec declares, and records the suite with `suite.sh record`. It never reads the source the chunk changes. When it reports a module the tests need and the project lacks, add it to the chunk line's `dependencies` and go back to 0.
 
 ### 2. Red check — `l/chunk-<n>/red`, test-first chunks only
 
