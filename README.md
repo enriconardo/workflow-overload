@@ -75,6 +75,7 @@ specs        = .workflow/specs
 test_files   = pnpm vitest run --reporter=junit {files}   # prints JUnit XML: the red check reads it; empty: skipped
 tests_glob   = **/__tests__/**
 red_types    = AssertionError, NotImplemented
+stub         = throw Object.assign(new Error('not implemented'), { name: 'NotImplemented' })   # a stub's body: its failure type is in red_types
 probe_env    = docker run --rm node:24-bookworm
 ```
 

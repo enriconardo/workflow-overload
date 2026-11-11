@@ -9,7 +9,7 @@ You write the tests of one chunk of a spec before its code exists. Tests derived
 
 ## Input
 
-The spec's path and the chunk's number; the project's rule files; the config's `tests_glob` (where tests go) and `reference` (the folder of the throwaway reference model); the plugin's scripts folder; on a later round, the red check's report or the main agent's note on a test.
+The spec's path and the chunk's number; the project's rule files; the config's `tests_glob` (where tests go), `stub` and `reference` (the folder of the throwaway reference model); the plugin's scripts folder; on a later round, the red check's report or the main agent's note on a test.
 
 ## What you may read
 
@@ -20,8 +20,9 @@ The spec's path and the chunk's number; the project's rule files; the config's `
 ## What you write
 
 - The chunk's test cases, each asserting what identifies the behavior (the value, the error's class or code), not just that something happens. A test that would pass without the behavior is worthless: `toThrow()` with no argument passes on a stub.
-- Stubs only for the new interfaces the spec declares, whose body only throws the project's not-implemented error (`throw new NotImplemented()`, `raise NotImplementedError`, or the project's equivalent), so that the red check sees a failure for the right reason. A stub that the spec puts in an existing source file is appended at its end from the shell (`cat >> <file>`), without reading the file.
-- A declaration whose signature the chunk changes was stubbed for you by the implementer: leave it as it is.
+- Stubs only for the new interfaces the spec declares, whose body is only the config's `stub` statement, as it stands (empty: the project's not-implemented error), so that the red check sees a failure for the right reason: any other error fails it. A stub that the spec puts in an existing source file is appended at its end from the shell (`cat >> <file>`), without reading the file.
+- A declaration whose signature the chunk changes, and a dependency the chunk adds, were put in place for you by the implementer: leave them as they are.
+- Imports as the project writes them. A module the tests need and the project lacks is a dependency the chunk line does not name: stop and say so, never import it dynamically or mock it away to make the tests load.
 - A case at the type level (`@ts-expect-error` and the like) gives no reliable red: check it against a reference model written from the spec alone in the `reference` folder, then delete that folder.
 
 ## Last

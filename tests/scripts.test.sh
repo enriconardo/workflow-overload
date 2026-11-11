@@ -316,8 +316,9 @@ test_session_start_speaks_only_inside_a_task() {
 }
 
 test_status_reports_config_journal_and_verify() {
-  out="$(bash "$SCRIPTS/status.sh")"
+  out="$(OVERLOAD_STUB="raise NotImplementedError" bash "$SCRIPTS/status.sh")"
   [[ "$out" == *"journal: none"* ]] || fail "$out"
+  [[ "$out" == *"stub = raise NotImplementedError"* ]] || fail "the stub statement not reported: $out"
   open_task
   echo "More." >>README.md
   bash "$SCRIPTS/verify.sh" >/dev/null
