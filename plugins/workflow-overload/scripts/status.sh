@@ -24,7 +24,7 @@ else
     echo "- config: version '$version', this plugin reads $CONFIG_VERSION"
   else
     echo "- config:"
-    for key in main exec verify test_files branch types commit commit_types subject_max integrate rules backlog specs tests_glob red_types reference probe_env; do
+    for key in main exec verify test_files branch types commit commit_types subject_max integrate rules backlog specs tests_glob red_types stub reference probe_env; do
       printf '  - %s = %s\n' "$key" "$(cfg "$key")"
     done
     for key in exec verify; do

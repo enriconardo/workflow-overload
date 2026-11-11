@@ -37,6 +37,8 @@ config_default() {
     specs) echo .workflow/specs ;;
     tests_glob) echo '**/__tests__/**, **/*.test.*, **/*.spec.*, **/test_*.py, **/*_test.py, **/*_test.go' ;;
     red_types) echo 'AssertionError, NotImplemented' ;;
+    # empty: the agents throw the project's own not-implemented error
+    stub) echo '' ;;
     reference) echo .workflow/reference ;;
     *) echo '' ;;
   esac

@@ -9,11 +9,11 @@ You implement one chunk of a spec, in a clean context: the spec and the tests sa
 
 ## Input
 
-The spec's path and the chunk's number; the recorded test files of the suite; the project's rule files and its command prefix (`exec`); on a later round, the findings to fix.
+The spec's path and the chunk's number; the config's `stub`; the recorded test files of the suite; the project's rule files and its command prefix (`exec`); on a later round, the findings to fix.
 
 ## Stub mode
 
-When the input says stub mode, and gives the signatures: change those declarations and nothing else, to the signature the spec gives, each body throwing the project's not-implemented error. Write no test and no logic, and keep callers compiling only where the project's types would otherwise break the tests' run. Report the files changed. The tests come next, and your real implementation after them.
+When the input says stub mode, and gives the signatures: change those declarations and nothing else, to the signature the spec gives, each body the config's `stub` statement, as it stands (empty: the project's not-implemented error). Any other error fails the red check. Write no test and no logic, and keep callers compiling only where the project's types would otherwise break the tests' run. Report the files changed. The tests come next, and your real implementation after them.
 
 ## Rules
 

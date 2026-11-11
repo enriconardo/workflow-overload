@@ -35,9 +35,12 @@ specs        = .workflow/specs      # where L specs go
 test_files   = <command> {files}    # runs the given test files and prints JUnit XML on stdout; empty: no red check
 tests_glob   = **/__tests__/**, **/*.test.*   # what the test-author's suite records
 red_types    = AssertionError, NotImplemented # failure types that make a valid red
+stub         = <statement>          # the whole body of a stub, e.g. raise NotImplementedError; its failure type is in red_types
 reference    = .workflow/reference  # the test-author's throwaway reference model
 probe_env    = <command>            # a throwaway environment for the prober, e.g. docker run --rm <image>
 ```
+
+For `stub`, the project's not-implemented error if it has one; otherwise a statement that throws an error the runner reports by a name of its own, in `red_types`: in TypeScript `throw Object.assign(new Error('not implemented'), { name: 'NotImplemented' })`, in Python `raise NotImplementedError` with `NotImplementedError` in `red_types`. A plain `Error` will not do: the runner reports it as `Error`, which no valid red accepts.
 
 For `test_files`, the runner's JUnit reporter on stdout: vitest `--reporter=junit`, jest with `jest-junit` to stdout, pytest `--junitxml=/dev/stdout`, go `gotestsum --junitfile /dev/stdout`. The red check reads the XML from the output, so other lines around it do no harm.
 
@@ -47,7 +50,7 @@ A value never holds ` #`, which starts a comment. Any key can be overridden for 
 
 Write the file, and an empty backlog file if the project keeps none, then run `bash <scripts>/verify.sh` on the main branch. It must be green: a red main makes every task red. If it is red or the command is wrong, fix the config with the human and run it again. Remove nothing the project already had.
 
-Then, if the project will run L tasks and `test_files` is set, test the red check: in a temporary folder of tests, one test that fails on an assertion and one that imports a module that does not exist, run through `test_files`, and `python3 <scripts>/junit.py <output-file> <the two files>`. The first must read `red, AssertionError`, the second `LOAD ERROR`. If not, the runner's report needs another `test_files` or `red_types`. With no way to tell them apart, leave `test_files` empty and tell the human: the red check is then skipped, and logged as such. Delete the folder.
+Then, if the project will run L tasks and `test_files` is set, test the red check: in a temporary folder of tests, one test that fails on an assertion, one that calls a function whose body is `stub`, and one that imports a module that does not exist, run through `test_files`, and `python3 <scripts>/junit.py --types "<red_types>" <output-file> <the three files>`. The first must read `red, AssertionError`, the second `red, ` and a type of `red_types`, the third `LOAD ERROR`. If not, the runner's report needs another `test_files`, `red_types` or `stub`. With no way to tell them apart, leave `test_files` empty and tell the human: the red check is then skipped, and logged as such. Delete the folder.
 
 ## 4. Commit
 
