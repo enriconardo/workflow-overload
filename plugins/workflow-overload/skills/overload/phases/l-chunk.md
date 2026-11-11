@@ -2,13 +2,15 @@
 
 Each chunk goes through agents that did not write the spec, and scripts, and ends in a green commit. The chunk to work is the first one the spec does not tick; its phase is `l/chunk-<n>/<step>`.
 
+A chunk's first step is `stub` when its line names `signatures`, otherwise `test` when it is test-first or changes no source file, otherwise `implement`.
+
 ## Per chunk
 
 ### 0. Stubs — `l/chunk-<n>/stub`, only when the chunk line names `signatures`
 
 The test-author cannot stub a declaration that already exists: a changed constructor or parameter list. Run the `workflow-overload:step-implementer` agent in stub mode, with the spec's path, the chunk's number, and the signatures. It changes only those, each body throws the project's not-implemented error, and it writes no test. Do not commit. Then go on with 1.
 
-### 1. Tests — `l/chunk-<n>/test`, test-first chunks only
+### 1. Tests — `l/chunk-<n>/test`, test-first chunks and chunks with no source to change
 
 Run the `workflow-overload:step-test-author` agent with the spec's path, the chunk's number, the config's `rules`, `tests_glob` and `reference`, and the scripts' folder. It writes the chunk's tests before any code, and stubs only for the new interfaces the spec declares, and records the suite with `suite.sh record`. It never reads the source the chunk changes.
 
@@ -28,7 +30,7 @@ When it reports a test it thinks wrong, decide on the spec (*A test reported wro
 
 ### 5. Step review — `l/chunk-<n>/review`, when the spec has more than one chunk or the red check listed tests that pass already
 
-Run the `workflow-overload:step-reviewer` agent with the spec's path, the chunk's number, the recorded test files, the range (the working tree against `HEAD`), and the red check's list of tests that passed already, if any. It checks that the code does what the chunk asks, and that the tests cover it. Code findings go back to the implementer (to 3); a test finding is handled as a test reported wrong. Three rounds at most. Increment `step_review_rounds` in the journal at each round, the final review's `review_rounds` stays its own.
+Run the `workflow-overload:step-reviewer` agent with the spec's path, the chunk's number, the recorded test files, the range (the working tree against `HEAD`), and the red check's list of tests that passed already, if any. It checks that the code does what the chunk asks, and that the tests cover it. Code findings go back to the implementer (to 3); a test finding is handled as a test reported wrong. Three rounds at most per chunk. At each round, increment `step_review_rounds` in the journal, which counts the rounds of all chunks together, and log it with the chunk (`journal.sh log "step review chunk <n> round <k>: <m> findings"`); the final review's `review_rounds` stays its own.
 
 ### 6. Commit — `l/chunk-<n>/commit`
 
