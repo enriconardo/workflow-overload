@@ -60,7 +60,7 @@ The human approves, or sends the spec back for corrections (to 1, then 3), or th
 
 ## 7. Commit the spec
 
-Set `status: approved`, then verify and commit the spec and the decision record, so that an interrupted session resumes from them. Set the phase to `l/chunk-1/test`.
+Set `status: approved`, then verify and commit the spec and the decision record, so that an interrupted session resumes from them. Set the phase to chunk 1's first step (`phases/l-chunk.md`).
 
 ## 8. Restart, recommended
 
