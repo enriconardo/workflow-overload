@@ -60,6 +60,17 @@ test_commit_refuses_an_unrecorded_test_file_during_a_test_first_chunk() {
   bash "$SCRIPTS/commit.sh" "$(message 'feat(greet): wire it')" >/dev/null
 }
 
+test_a_renamed_test_file_stays_in_the_suite() {
+  write_test old.test.ts "case a pass" "case b pass" "case c pass"
+  git add -A && git commit -qm "test(greet): an existing test"
+  open_l_task
+  git mv __tests__/old.test.ts __tests__/new.test.ts
+  printf '%s\n' "case d assert" >>__tests__/new.test.ts
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  bash "$SCRIPTS/suite.sh" files | grep -qx "__tests__/old.test.ts" || fail "the old path is not in the suite"
+  bash "$SCRIPTS/suite.sh" check
+}
+
 test_a_new_record_supersedes_the_old_one() {
   open_l_task
   write_test greet.test.ts "case a assert"

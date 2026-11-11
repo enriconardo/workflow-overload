@@ -27,6 +27,10 @@ branch="$(current_branch)"
 
 mapfile -t specs < <(tests_pathspecs)
 
+# Every listing of files, git diff and git status alike, takes --no-renames:
+# a renamed test file is its old path deleted and its new one added, and a
+# listing that pairs them would leave the old path out of the suite.
+
 # Each recorded file with the record that holds its last version. Records
 # made on the same HEAD belong to one chunk, and each is a full snapshot of
 # the test files then: the newest of them speaks for every file the chunk's
@@ -39,7 +43,7 @@ latest() {
     newest["$parent"]="$ref"
     while IFS= read -r file; do
       [[ -n "$file" ]] && last["$file"]="$ref"
-    done < <(git diff --name-only "$ref^" "$ref")
+    done < <(git diff --name-only --no-renames "$ref^" "$ref")
   done < <(suite_refs "$branch")
   for file in "${!last[@]}"; do
     printf '%s\t%s\n' "$file" "${newest[$(git rev-parse "${last[$file]}^")]}"
@@ -73,7 +77,7 @@ record() {
   commit="$(git commit-tree "$tree" -p HEAD -m "test-author suite $next on $branch")"
   git update-ref "$ref" "$commit" ""
   echo "Recorded suite $next as $ref:"
-  git diff --name-status HEAD "$commit"
+  git diff --name-status --no-renames HEAD "$commit"
 }
 
 check() {
@@ -101,7 +105,7 @@ check() {
   local -A recorded=()
   while IFS= read -r file; do
     [[ -n "$file" ]] && recorded["$file"]=1
-  done < <(git diff --name-only HEAD "$last")
+  done < <(git diff --name-only --no-renames HEAD "$last")
   while IFS= read -r file; do
     [[ -n "$file" && -z "${recorded[$file]:-}" ]] && extra+=("$file")
   done < <(git status --porcelain --untracked-files=all --no-renames -- "${specs[@]}" | cut -c4-)
