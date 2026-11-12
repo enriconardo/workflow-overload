@@ -444,15 +444,19 @@ test_branch_carries_the_first_config_of_init() {
 
 test_the_phases_and_agents_name_only_the_config_s_keys() {
   source_lib
-  local plugin="$SCRIPTS/.." readme="$SCRIPTS/../../../README.md" key
+  local plugin="$SCRIPTS/.." readme="$SCRIPTS/../../../README.md" key explorer_keys
   local -a named=() unknown=() missing=()
-  # "the config's `a`, `b` and `c`", and the `key = value` lines of the key
-  # lists in init.md and the README
+  # The setup explorer's key list: the `- \`key\`` lines of its section.
+  # shellcheck disable=SC2016 # backticks to match, not to expand
+  explorer_keys="$(sed -n '/^## The keys/,/^## /p' "$plugin/agents/setup-explorer.md" | grep -oE '^- `[a-z_]+`' | sed 's/^- `//; s/`$//')"
+  # "the config's `a`, `b` and `c`", the explorer's key list, and the
+  # `key = value` lines of the README's
   # shellcheck disable=SC2016 # backticks to match, not to expand
   mapfile -t named < <({
     grep -ohE "config's (\`[a-z_]+\`(, | and |, and )?)+" "$plugin"/skills/overload/SKILL.md \
       "$plugin"/skills/overload/phases/*.md "$plugin"/agents/*.md | grep -oE '`[a-z_]+`' | tr -d '`'
-    grep -ohE '^[a-z_]+ +=' "$plugin/skills/overload/phases/init.md" "$readme" | tr -d ' ='
+    printf '%s\n' "$explorer_keys"
+    grep -ohE '^[a-z_]+ +=' "$readme" | tr -d ' ='
   } | sort -u)
   ((${#named[@]} >= 5)) || fail "too few keys found, the patterns are stale: ${named[*]}"
   for key in "${named[@]}"; do
@@ -460,7 +464,7 @@ test_the_phases_and_agents_name_only_the_config_s_keys() {
   done
   ((${#unknown[@]} == 0)) || fail "named, but not keys of lib.sh: ${unknown[*]}"
   for key in $CONFIG_KEYS; do
-    grep -qE "^$key +=" "$plugin/skills/overload/phases/init.md" || missing+=("init.md: $key")
+    grep -qx "$key" <<<"$explorer_keys" || missing+=("setup-explorer.md: $key")
     grep -qE "^$key +=" "$readme" || missing+=("README.md: $key")
   done
   ((${#missing[@]} == 0)) || fail "keys missing from a key list: ${missing[*]}"

@@ -2,7 +2,7 @@
 name: overload
 description: Starts, resumes or configures a Workflow Overload development task. Runs only when the user types /overload.
 disable-model-invocation: true
-argument-hint: "[request | init]"
+argument-hint: "[request | setup]"
 allowed-tools: Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/status.sh), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/journal.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/verify.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/branch.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/commit.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/suite.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/red-check.sh:*)
 ---
 
@@ -19,8 +19,8 @@ State of this project, read by a script as this skill loaded:
 
 ## Where to start
 
-1. Arguments starting with `init`: read `phases/init.md`; any text after `init` is the human's guidance for it.
-2. No config: say so in one line and offer `/overload init`. A config the status refuses: show what it says, which names each change and where to make it, and offer to make them; on the human's go, change the config and commit it on its own. Stop there.
+1. Arguments starting with `setup`: read `phases/setup.md`; any text after `setup` is the human's guidance for it. Arguments that read as a request rather than as guidance for the config (`setup logging for the API`): ask the human which they meant.
+2. No config: say so in one line and offer `/overload setup`. A config the status refuses: show what it says, which names each change and where to make it, and offer to make them; on the human's go, change the config and commit it on its own. Stop there.
 3. A journal on this branch:
    - no arguments: read `phases/resume.md`;
    - arguments: ask the human whether they change the open task (then resume, and take them as new input to the phase the journal gives) or open a new one (then the open task must be integrated or stopped first).
