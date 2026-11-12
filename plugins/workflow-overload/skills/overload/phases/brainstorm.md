@@ -17,9 +17,9 @@ Turns the request into an understood problem and a tier the human confirms, with
 5. **Open the branch.** Write the intent to a file outside the repository (your scratchpad, or a temporary file): the problem, the goal, the constraints, the decisions the human took, with their words where they matter. Then:
 
    ```
-   bash <scripts>/branch.sh <S|L> <type> <scope> <description> <intent-file>
+   bash <scripts>/branch.sh <S|L> <name> <intent-file>
    ```
 
-   The type is one of the config's `types`; scope and description are kebab-case, short. If the script refuses, fix the name, not the script.
+   The name is short, and follows *Names and messages* in the skill's rules. If the script refuses, change the name, not the script.
 
 6. **Go on** with `phases/s-path.md` on S, `phases/l-plan.md` on L. On L, write the explorer's map to a file outside the repository and log its path (`journal.sh log "map: <path>"`): the spec reviewer and the splitter read it.

@@ -20,7 +20,7 @@ State of this project, read by a script as this skill loaded:
 ## Where to start
 
 1. Arguments starting with `init`: read `phases/init.md`; any text after `init` is the human's guidance for it.
-2. No config, or a config of another version: say so in one line and offer `/overload init`. Stop there.
+2. No config: say so in one line and offer `/overload init`. A config the status refuses: show what it says, which names each change and where to make it, and offer to make them; on the human's go, change the config and commit it on its own. Stop there.
 3. A journal on this branch:
    - no arguments: read `phases/resume.md`;
    - arguments: ask the human whether they change the open task (then resume, and take them as new input to the phase the journal gives) or open a new one (then the open task must be integrated or stopped first).
@@ -34,6 +34,7 @@ State of this project, read by a script as this skill loaded:
 - **Three rounds at most.** Any automatic loop (a red verify, a review that keeps finding blocking issues) stops at its third round and goes to the human, as `phases/escalate.md` says.
 - **The journal is the task's memory** across sessions. Change the phase with `journal.sh set phase <phase>`, note in its sections the lesson candidates, backlog candidates and open findings as they come up, and log what the human decides with `journal.sh log`.
 - **The backlog holds only what the human approves.** Agents and you propose candidates; the human picks at the checkpoint.
-- **The project's rules** are the files of the config's `rules` (its CLAUDE.md files, ADRs): read those that bear on the change before you write code. Commands that touch dependencies run through the config's `exec` prefix.
+- **The project's rules** are the files of the config's `rules` (its CLAUDE.md files, ADRs): read those that bear on the change before you write code. Commands run as they say (a container, a wrapper).
+- **Names and messages are the project's.** The branch's name and every commit's message follow its rules. Where they state no convention: a branch `<type>/<description>` in kebab-case (`fix/empty-cart-total`), a subject in the imperative of at most 72 characters. The project's hooks have the last word: when one refuses a name or a message, change it; never bypass the hook.
 - **Talk to the human in their language.** Commits, the journal and the project's files follow the project's own conventions.
 - **The human decides** the tier, the result, the lessons and backlog items to keep, and every escalation. A step that cannot be undone outside the branch waits for them.

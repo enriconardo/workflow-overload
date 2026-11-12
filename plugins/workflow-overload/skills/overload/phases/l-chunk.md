@@ -8,19 +8,19 @@ A chunk's first step is `stub` when its line names `signatures` or `dependencies
 
 ### 0. Stubs — `l/chunk-<n>/stub`, only when the chunk line names `signatures` or `dependencies`
 
-The test-author cannot stub a declaration that already exists (a changed constructor or parameter list), and installs nothing, while a test of code that imports a missing package does not load. Run the `workflow-overload:step-implementer` agent in stub mode, with the spec's path, the chunk's number, its signatures and dependencies, and the config's `stub` and `exec`. It adds the dependencies, changes only the signatures, each body the `stub` statement, and it writes no test. Do not commit. Then go on with 1.
+The test-author cannot stub a declaration that already exists (a changed constructor or parameter list), and installs nothing, while a test of code that imports a missing package does not load. Run the `workflow-overload:step-implementer` agent in stub mode, with the spec's path, the chunk's number, and its signatures and dependencies. It adds the dependencies, changes only the signatures, each body a stub, and it writes no test. Do not commit. Then go on with 1.
 
 ### 1. Tests — `l/chunk-<n>/test`, test-first chunks and chunks with no source to change
 
-Run the `workflow-overload:step-test-author` agent with the spec's path, the chunk's number, the config's `rules`, `tests_glob`, `stub` and `reference`, and the scripts' folder. It writes the chunk's tests before any code, and stubs only for the new interfaces the spec declares, and records the suite with `suite.sh record`. It never reads the source the chunk changes. When it reports a module the tests need and the project lacks, add it to the chunk line's `dependencies` and go back to 0.
+Run the `workflow-overload:step-test-author` agent with the spec's path, the chunk's number, the config's `rules` and `tests_glob`, and the scripts' folder. It writes the chunk's tests before any code, and stubs only for the new interfaces the spec declares, and records the suite with `suite.sh record`. It never reads the source the chunk changes. When it reports a module the tests need and the project lacks, add it to the chunk line's `dependencies` and go back to 0.
 
 ### 2. Red check — `l/chunk-<n>/red`, test-first chunks only
 
-`bash <scripts>/red-check.sh`. Valid red: every new test fails on an assertion or a stub's `NotImplemented`, or passes already; a test already in HEAD may pass. A new test that passes already (the code of an earlier chunk covers it) is listed in `red-check-green.txt` under the state folder the script names, for the step review. When it says it was skipped (no `test_files` in the config), log that and go on. Otherwise the report goes back to the test-author as it came, for a new record and a new red check; three rounds at most, then `phases/escalate.md`. When the code is already in the working tree (a suite recorded again after a test reported wrong), run `red-check.sh --without-code`: it runs the suite against the source as it was at the last valid red, the stubs included, and puts the working tree back.
+`bash <scripts>/red-check.sh`. Valid red: every new test fails on an assertion or a stub's `NotImplemented`, or passes already; a test already in HEAD may pass. A new test that passes already (the code of an earlier chunk covers it) is listed in `red-check-green.txt` under the state folder the script names, for the step review. When it says it was skipped (no `run_tests` in the config), log that and go on. Otherwise the report goes back to the test-author as it came, for a new record and a new red check; three rounds at most, then `phases/escalate.md`. When the code is already in the working tree (a suite recorded again after a test reported wrong), run `red-check.sh --without-code`: it runs the suite against the source as it was at the last valid red, the stubs included, and puts the working tree back.
 
 ### 3. Implementation — `l/chunk-<n>/implement`
 
-Run the `workflow-overload:step-implementer` agent with the spec's path, the chunk's number, the recorded test files (`suite.sh files`), the config's `rules` and `exec`, and, on a later round, the findings to fix. It writes the code that makes the tests pass and no test: commit.sh refuses a tree where a recorded test changed, or, on a test-first chunk, any other test file. A case it reports missing goes to the test-author, who records the suite again, and the red check runs again.
+Run the `workflow-overload:step-implementer` agent with the spec's path, the chunk's number, the recorded test files (`suite.sh files`), the config's `rules`, and, on a later round, the findings to fix. It writes the code that makes the tests pass and no test: commit.sh refuses a tree where a recorded test changed, or, on a test-first chunk, any other test file. A case it reports missing goes to the test-author, who records the suite again, and the red check runs again.
 
 When it reports a test it thinks wrong, decide on the spec (*A test reported wrong*).
 
@@ -34,7 +34,7 @@ Run the `workflow-overload:step-reviewer` agent with the spec's path, the chunk'
 
 ### 6. Commit — `l/chunk-<n>/commit`
 
-Tick the chunk in the spec (`- [x]`), then verify and commit: one commit for the chunk, its tests, its code and its tick, the subject in the config's format, the chunk's title in the body. Set the phase to the next chunk's first step.
+Tick the chunk in the spec (`- [x]`), then verify and commit: one commit for the chunk, its tests, its code and its tick, its message as *Names and messages* in the skill's rules says, the chunk's title in the body. Set the phase to the next chunk's first step.
 
 ## A chunk with no source to change
 

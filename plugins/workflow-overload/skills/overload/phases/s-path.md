@@ -12,7 +12,7 @@ Write the change, following the project's rules. A bug fix starts with a test th
 
 ## 3. Commit
 
-Write the message to a file outside the repository: a subject in the config's `commit` format, then a body with the intent (why the change, what it decides). `bash <scripts>/commit.sh <message-file>`. It refuses a tree that is not the verified one: verify again after any change.
+Write the message to a file outside the repository: a subject as *Names and messages* in the skill's rules says, then a body with the intent (why the change, what it decides). `bash <scripts>/commit.sh <message-file>`. It refuses a tree that is not the verified one: verify again after any change.
 
 ## 4. Close
 

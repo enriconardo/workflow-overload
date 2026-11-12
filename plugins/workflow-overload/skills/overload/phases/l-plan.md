@@ -4,7 +4,7 @@ Produces a reviewed spec, split into chunks, that the human approves before any 
 
 ## 1. Spec — phase `l/spec`
 
-You write it, because you hold the discussion with the human: an agent given a summary would lose the intent. Start from the explorer's map, which the spec reviewer and the splitter read too: if the brainstorming logged none, run the `workflow-overload:code-explorer` agent now, as `phases/brainstorm.md` says, and log the map's path. Write it at `<specs>/<YYYY-MM-DD>-<description>.md` (the config's `specs`) and record its path: `journal.sh set spec <path>`.
+You write it, because you hold the discussion with the human: an agent given a summary would lose the intent. Start from the explorer's map, which the spec reviewer and the splitter read too: if the brainstorming logged none, run the `workflow-overload:code-explorer` agent now, as `phases/brainstorm.md` says, and log the map's path. Write it at `.workflow/specs/<YYYY-MM-DD>-<description>.md` and record its path: `journal.sh set spec <path>`.
 
 ```
 ---
@@ -30,13 +30,13 @@ The cases that prove the behavior, each one line: input, expected result.
 - [ ] 1. <title> (test-first | no test-first): the files, the test cases it covers[; signatures: the existing declarations whose signature changes]
 ```
 
-A decision that outlives the task also gets a decision record, where the project keeps them (the config's `rules` names the folder).
+A decision that outlives the task also gets a decision record, in a folder of the config's `rules` that already holds decision records. With no such folder, write none: the human hears it at checkpoint 1.
 
 **Chunk types.** Test-first: a new or changed behavior of the public API, domain logic, a bug. No test-first: a refactor (the existing tests stay green unchanged), wiring (tested afterwards by the implementer), docs, config, and a chunk that changes no source file (it only adds tests).
 
 ## 2. Probe — phase `l/probe`, only when the spec rests on external facts not yet checked
 
-Versions, APIs, a dependency's behavior. Run the `workflow-overload:prober` agent with the questions, one per line, and the config's `probe_env`. It answers each with the commands it ran and their output. Update the spec, and note in *Decisions* what the probe settled.
+Versions, APIs, a dependency's behavior. Run the `workflow-overload:prober` agent with the questions, one per line. It answers each with the commands it ran and their output. Update the spec, and note in *Decisions* what the probe settled.
 
 ## 3. Spec review — phase `l/spec-review`
 
@@ -54,7 +54,7 @@ Run the `workflow-overload:spec-splitter` agent with the spec's path and the map
 
 ## 6. Summary and checkpoint 1 — phase `l/checkpoint`
 
-One message to the human: what changes according to the spec, how it splits into chunks and their types, the decision record if any, the facts the prober checked, the spec reviewer's objections still open and those you rejected, each with its title and reason, the risks and the questions. Then stop and wait.
+One message to the human: what changes according to the spec, how it splits into chunks and their types, the decision record if any, and a decision left without one because `rules` holds no folder of them, the facts the prober checked, the spec reviewer's objections still open and those you rejected, each with its title and reason, the risks and the questions. Then stop and wait.
 
 The human approves, or sends the spec back for corrections (to 1, then 3), or the requirements back to the brainstorming. Log their words.
 
