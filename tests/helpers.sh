@@ -38,7 +38,7 @@ intent() {
 }
 
 open_task() {
-  bash "$SCRIPTS/branch.sh" S docs "${1:-readme}" "${2:-describe-project}" "$(intent)" >/dev/null
+  bash "$SCRIPTS/branch.sh" S "${1:-docs/readme/describe-project}" "$(intent)" >/dev/null
 }
 
 message() {
@@ -102,5 +102,16 @@ PY
 }
 
 open_l_task() {
-  bash "$SCRIPTS/branch.sh" L feature "${1:-greet}" "${2:-default-name}" "$(intent)" >/dev/null
+  bash "$SCRIPTS/branch.sh" L "${1:-feature/greet/default-name}" "$(intent)" >/dev/null
+}
+
+# refusing_hook <name> <max>: a hook in core.hooksPath that refuses a message
+# whose subject is over <max> characters.
+refusing_hook() {
+  mkdir -p "$WORK/hooks"
+  # shellcheck disable=SC2016 # the hook's own code, expanded when it runs
+  printf '#!/usr/bin/env bash\n(( $(head -n 1 "$1" | wc -m) <= %d )) || { echo "subject over %d" >&2; exit 1; }\n' \
+    "$(($2 + 1))" "$2" >"$WORK/hooks/$1"
+  chmod +x "$WORK/hooks/$1"
+  git config core.hooksPath "$WORK/hooks"
 }

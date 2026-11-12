@@ -37,28 +37,52 @@ test_branch_opens_task_with_journal() {
 }
 
 test_branch_refuses_bad_names_and_states() {
-  expect_fail "not among the config's types" bash "$SCRIPTS/branch.sh" S feat readme x "$(intent)"
-  expect_fail "not kebab-case" bash "$SCRIPTS/branch.sh" S docs Readme x "$(intent)"
-  expect_fail "tier is S or L" bash "$SCRIPTS/branch.sh" M docs readme x "$(intent)"
+  expect_fail "not a valid branch name" bash "$SCRIPTS/branch.sh" S "docs/bad name" "$(intent)"
+  expect_fail "is the main branch" bash "$SCRIPTS/branch.sh" S main "$(intent)"
+  expect_fail "tier is S or L" bash "$SCRIPTS/branch.sh" M docs/readme "$(intent)"
+  expect_fail "Usage" bash "$SCRIPTS/branch.sh" S docs readme "$(intent)"
   echo change >>README.md
-  expect_fail "uncommitted changes" bash "$SCRIPTS/branch.sh" S docs readme x "$(intent)"
+  expect_fail "uncommitted changes" bash "$SCRIPTS/branch.sh" S docs/readme "$(intent)"
   git checkout -q README.md
+  git branch docs/readme
+  expect_fail "exists already" bash "$SCRIPTS/branch.sh" S docs/readme "$(intent)"
   git switch -q -c other
-  expect_fail "a task starts from main" bash "$SCRIPTS/branch.sh" S docs readme x "$(intent)"
+  expect_fail "a task starts from main" bash "$SCRIPTS/branch.sh" S docs/other "$(intent)"
 }
 
-test_branch_refuses_a_name_too_long_for_the_merge_subject() {
-  set_config subject_max 72
-  git add -A && git commit -qm "chore(repo): limit subjects"
-  expect_fail "merge subject would be over 72" bash "$SCRIPTS/branch.sh" S docs readme \
-    "a-very-long-description-that-goes-on-and-on-and-on-forever" "$(intent)"
+test_branch_takes_the_name_whole() {
+  bash "$SCRIPTS/branch.sh" S "EN-209_Snapshot.diff" "$(intent)" >/dev/null
+  expect_eq "$(git branch --show-current)" "EN-209_Snapshot.diff"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get branch)" "EN-209_Snapshot.diff"
 }
 
-test_no_subject_limit_unless_the_project_sets_one() {
-  bash "$SCRIPTS/branch.sh" S docs readme \
-    "a-very-long-description-that-goes-on-and-on-and-on-forever" "$(intent)" >/dev/null
-  verified_commit "more"
-  echo "Still more." >>README.md
+test_branch_refuses_a_name_the_commit_msg_hook_refuses_at_the_merge() {
+  refusing_hook commit-msg 72
+  expect_fail "subject over 72" bash "$SCRIPTS/branch.sh" S \
+    "docs/a-very-long-description-that-goes-on-and-on-and-on-forever" "$(intent)"
+  expect_fail "Merge branch 'docs/a-very-long" bash "$SCRIPTS/branch.sh" S \
+    "docs/a-very-long-description-that-goes-on-and-on-and-on-forever" "$(intent)"
+  expect_eq "$(git branch --show-current)" "main" "no branch for a refused name"
+  bash "$SCRIPTS/branch.sh" S docs/short "$(intent)" >/dev/null
+  expect_eq "$(git branch --show-current)" "docs/short"
+}
+
+test_branch_says_when_git_is_too_old_to_run_the_hook() {
+  refusing_hook commit-msg 10
+  mkdir -p "$WORK/bin"
+  # shellcheck disable=SC2016 # the wrapper's own code, expanded when it runs
+  printf '#!/usr/bin/env bash\n[[ "$1" != version && "$1" != --version ]] || { echo "git version 2.35.1"; exit 0; }\nexec %q "$@"\n' \
+    "$(command -v git)" >"$WORK/bin/git"
+  chmod +x "$WORK/bin/git"
+  out="$(PATH="$WORK/bin:$PATH" bash "$SCRIPTS/branch.sh" S docs/readme/describe-project "$(intent)")"
+  [[ "$out" == *"git 2.35"*"not checked"* ]] || fail "$out"
+  expect_eq "$(git branch --show-current)" "docs/readme/describe-project"
+}
+
+test_without_hooks_no_name_or_subject_is_too_long() {
+  bash "$SCRIPTS/branch.sh" S \
+    "docs/a-very-long-description-that-goes-on-and-on-and-on-forever" "$(intent)" >/dev/null
+  echo "More." >>README.md
   bash "$SCRIPTS/verify.sh" >/dev/null
   bash "$SCRIPTS/commit.sh" "$(message "docs(readme): $(printf 'x%.0s' {1..90})")" >/dev/null
 }
@@ -78,7 +102,7 @@ test_journal_set_inc_log() {
 
 test_branch_keeps_the_intent_inside_its_section() {
   printf '## Problem\nThe README is short.\n# Goal\nSay more.\n' >"$WORK/headed.md"
-  bash "$SCRIPTS/branch.sh" S docs readme describe-project "$WORK/headed.md" >/dev/null
+  bash "$SCRIPTS/branch.sh" S docs/readme/describe-project "$WORK/headed.md" >/dev/null
   expect_eq "$(grep -c '^## ' .workflow/journal.md)" "5" "only the journal's own sections"
   grep -qx '#### Problem' .workflow/journal.md || fail "heading not demoted"
 }
@@ -230,7 +254,7 @@ test_integrate_keeps_the_merge_subject_short_on_a_long_main() {
   chmod +x .githooks/commit-msg
   git config core.hooksPath .githooks
   git add -A && git commit -qm "chore(repo): hook"
-  bash "$SCRIPTS/branch.sh" S docs readme describe-the-project-in-detail "$(intent)" >/dev/null
+  bash "$SCRIPTS/branch.sh" S docs/readme/describe-the-project-in-detail "$(intent)" >/dev/null
   verified_commit "more"
   out="$(bash "$SCRIPTS/integrate.sh")"
   [[ "$out" == *"integrated"* ]] || fail "not integrated: $out"
@@ -348,5 +372,5 @@ test_branch_carries_the_first_config_of_init() {
   open_task
   expect_eq "$(git branch --show-current)" "docs/readme/describe-project"
   echo "More." >>README.md
-  expect_fail "uncommitted changes" bash -c "git switch -q main && bash '$SCRIPTS/branch.sh' S docs other thing '$(intent)'"
+  expect_fail "uncommitted changes" bash -c "git switch -q main && bash '$SCRIPTS/branch.sh' S docs/other/thing '$(intent)'"
 }
