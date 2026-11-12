@@ -24,7 +24,7 @@ Scripts need `bash`, `git` and `python3` (3.8 or later, standard library only).
 
 | Command | What it does |
 | --- | --- |
-| `/overload init [guidance]` | Reads the project, following your guidance if you give any ("take the commands from package.json"), proposes `.workflow/config`, tests it (verify green on main) and commits it on your go. |
+| `/overload setup [guidance]` | An agent reads the project, following your guidance if you give any ("take the commands from the Makefile"), and proposes `.workflow/config`, each value with its source, and the conventions your rule files lack; you settle it. Then verify must be green on main, a second agent measures `red_types` with throwaway tests, and it commits on your go. |
 | `/overload <request>` | Opens a task: brainstorming, then the S or the L path. |
 | `/overload` | Resumes the task of the current branch from its journal, after an interruption or a `/clear`. |
 
@@ -56,7 +56,7 @@ For everything else:
 
 ## Configuration
 
-`.workflow/config` holds what is the project's own, as `key = value` lines that scripts read without executing. The plugin owns when a check runs and the process around it: a commit takes only the verified tree, the test-author's suite stays untouched, a task starts from a clean main and merges with `--no-ff`. The project owns its commands, its names and its messages.
+`.workflow/config` holds what is the project's own, as `key = value` lines that scripts read without executing; `/overload setup` writes it. The plugin owns when a check runs and the process around it: a commit takes only the verified tree, the test-author's suite stays untouched, a task starts from a clean main and merges with `--no-ff`. The project owns its commands, its names and its messages.
 
 ```
 version    = 2

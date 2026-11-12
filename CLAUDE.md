@@ -22,7 +22,7 @@ docs/                             design and probes
 - **The workflow starts only with `/overload`.** Never a second skill (the model could load it on its own), never an agent whose description invites delegation, never a hook that acts on a branch without `.workflow/journal.md`.
 - **A script finds its files from `BASH_SOURCE`**: the model's Bash has no `CLAUDE_PLUGIN_ROOT`. Only the skill's text gets `${CLAUDE_PLUGIN_ROOT}` and `${CLAUDE_SKILL_DIR}` substituted.
 - **Scripts need only bash, git and python3** (3.8+, standard library): no `jq`, no Node, no package to install. A script's output is short enough that the model never pipes it.
-- **Project specifics live in `.workflow/config`**, read by `lib.sh`'s `config_get` without evaluation; each key has a default there or a refusal. A new key goes in `lib.sh`'s `CONFIG_KEYS` (its default in `config_default`), the key list of `phases/init.md` and the README's *Configuration*; a test refuses a phase or an agent that names a key `lib.sh` does not know.
+- **Project specifics live in `.workflow/config`**, read by `lib.sh`'s `config_get` without evaluation; each key has a default there or a refusal. A new key goes in `lib.sh`'s `CONFIG_KEYS` (its default in `config_default`), the key list of `agents/setup-explorer.md` with what makes a good value, and the README's *Configuration*; a test refuses a phase or an agent that names a key `lib.sh` does not know.
 - **Phases and agents are instructions to a model**: imperative, short, one place per rule. A rule both the skill and an agent need lives in the agent, and the skill passes the inputs the agent's *Input* lists.
 
 ## Checks
