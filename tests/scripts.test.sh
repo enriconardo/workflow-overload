@@ -172,27 +172,51 @@ test_journal_edits_do_not_invalidate_verify() {
   true
 }
 
-test_commit_needs_a_verified_tree_and_the_format() {
+test_commit_needs_a_verified_tree_and_a_subject() {
   open_task
   echo "More." >>README.md
   expect_fail "not the one the last green verify checked" bash "$SCRIPTS/commit.sh" "$(message 'docs(readme): say what it does')"
   bash "$SCRIPTS/verify.sh" >/dev/null
-  expect_fail "does not follow the config's format" bash "$SCRIPTS/commit.sh" "$(message 'Update README')"
-  expect_fail "does not follow the config's format" bash "$SCRIPTS/commit.sh" "$(message 'feature(readme): say what it does')"
-  bash "$SCRIPTS/commit.sh" "$(message 'docs(readme): say what it does')" | grep -q "committed" || fail "no commit"
+  printf '# a comment\n\n' >"$WORK/no-subject.txt"
+  expect_fail "no subject line" bash "$SCRIPTS/commit.sh" "$WORK/no-subject.txt"
+  # the subject's form is the project's rules', and its hooks': none here
+  bash "$SCRIPTS/commit.sh" "$(message 'Update README')" | grep -q "committed" || fail "no commit"
   git show --name-only --format= HEAD | grep -qx .workflow/journal.md || fail "journal not committed"
   echo "Again." >>README.md
   expect_fail "not the one the last green verify checked" bash "$SCRIPTS/commit.sh" "$(message 'docs(readme): again')"
 }
 
-test_commit_follows_a_bracketed_format() {
-  set_config commit '[<scope>] <type>: <summary>' 
-  git commit -qam "chore(repo): bracket format"
+test_commit_undoes_a_commit_whose_tree_a_pre_commit_hook_changed() {
+  # as lint-staged does: the hook rewrites a staged file and stages it again
+  mkdir -p "$WORK/hooks"
+  printf '#!/usr/bin/env bash\ngrep -qx formatted README.md || { echo formatted >>README.md; git add README.md; }\n' >"$WORK/hooks/pre-commit"
+  chmod +x "$WORK/hooks/pre-commit"
+  git config core.hooksPath "$WORK/hooks"
   open_task
   echo "More." >>README.md
   bash "$SCRIPTS/verify.sh" >/dev/null
-  expect_fail "does not follow" bash "$SCRIPTS/commit.sh" "$(message 'docs(readme): x')"
-  bash "$SCRIPTS/commit.sh" "$(message '[@scope/pkg] docs: say what it does')" >/dev/null
+  before="$(git rev-parse HEAD)"
+  if out="$(bash "$SCRIPTS/commit.sh" "$(message 'docs(readme): say more')" 2>&1)"; then
+    fail "committed a tree verify did not check: $out"
+  fi
+  [[ "$out" == *"changed the commit's tree"*"README.md"* ]] || fail "$out"
+  expect_eq "$(git rev-parse HEAD)" "$before" "the commit undone"
+  grep -qx formatted README.md || fail "the hook's change lost"
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message 'docs(readme): say more')" >/dev/null
+  expect_eq "$(git show HEAD:README.md | tail -n 1)" "formatted"
+}
+
+test_commit_reports_a_refusal_of_the_commit_msg_hook() {
+  open_task
+  refusing_hook commit-msg 20
+  echo "More." >>README.md
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  before="$(git rev-parse HEAD)"
+  expect_fail "subject over 20" bash "$SCRIPTS/commit.sh" "$(message 'docs(readme): a subject over twenty')"
+  expect_fail "git refused the commit" bash "$SCRIPTS/commit.sh" "$(message 'docs(readme): a subject over twenty')"
+  expect_eq "$(git rev-parse HEAD)" "$before" "nothing committed"
+  bash "$SCRIPTS/commit.sh" "$(message 'docs(x): short')" >/dev/null
 }
 
 test_commit_refuses_main_and_branches_without_journal() {

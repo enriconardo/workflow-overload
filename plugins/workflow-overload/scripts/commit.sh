@@ -2,10 +2,11 @@
 set -euo pipefail
 
 # Commits the working tree of a task's branch, only when it is the tree the
-# last green verify checked, with a subject in the config's `commit` format.
-# Everything goes in, the journal included: one commit is one logical
-# change, so code, review fixes and lessons are separate runs of verify and
-# of this script.
+# last green verify checked. Everything goes in, the journal included: one
+# commit is one logical change, so code, review fixes and lessons are
+# separate runs of verify and of this script. The message is the model's,
+# written to the project's rules; the project's hooks judge it, and a commit
+# whose tree a pre-commit hook changed is undone.
 #
 #   commit.sh <message-file>
 
@@ -25,25 +26,6 @@ message="$1"
 subject="$(grep -v -m 1 -e '^#' -e '^[[:space:]]*$' "$message" || true)"
 [[ -n "$subject" ]] || die "the message has no subject line."
 
-# The config's format as an extended regex: the literal parts escaped,
-# <type> one of `commit_types`, the other placeholders any text.
-template="$(cfg commit)"
-types="$(cfg commit_types)"
-alternation="$(printf '%s' "$types" | tr -d '[:space:]' | tr ',' '|')"
-# shellcheck disable=SC2016 # a sed bracket expression, not an expansion
-regex="$(printf '%s' "$template" | sed -e 's/[][\.*^$()+?{}|/]/\\&/g')"
-regex="${regex//<type>/($alternation)}"
-regex="$(printf '%s' "$regex" | sed -e 's/<[a-z_-]*>/.+/g')"
-if ! [[ "$subject" =~ ^$regex$ ]]; then
-  die "the subject '$subject' does not follow the config's format '$template' (types: $types)."
-fi
-max="$(cfg subject_max)"
-[[ -z "$max" || "$max" =~ ^[0-9]+$ ]] || die "the config's subject_max '$max' is not a number."
-if [[ -n "$max" ]]; then
-  length="$(printf '%s' "$subject" | wc -m | tr -d ' ')"
-  ((length <= max)) || die "the subject has $length characters, over $max."
-fi
-
 if [[ -z "$(git status --porcelain)" ]]; then
   die "nothing to commit."
 fi
@@ -61,5 +43,16 @@ if [[ "$(commit_tree_hash "$(git write-tree)")" != "$(cut -d' ' -f1 "$(verified_
   git reset -q
   die "the staged tree differs from the verified one: run verify.sh again, then commit."
 fi
-git commit --quiet -F "$message"
+git commit --quiet -F "$message" ||
+  die "git refused the commit, most likely through a hook of the project: its output is above. Fix what it says (verify again after changing a file), then commit again."
+# A pre-commit hook that rewrites staged files (lint-staged, a formatter)
+# changes the tree after the check: the commit must be the verified tree.
+verified_tree="$(cut -d' ' -f1 "$(verified_file)")"
+committed="$(commit_tree_hash HEAD)"
+if [[ "$committed" != "$verified_tree" ]]; then
+  changed="$(git diff --name-only --no-renames "$verified_tree" "$committed")"
+  git reset -q --soft HEAD^
+  die "a hook changed the commit's tree after verify checked it: the commit is undone, the hook's changes are in the working tree. Verify them, then commit again. The files it changed:
+$changed"
+fi
 git log -1 --format='committed %h %s'
