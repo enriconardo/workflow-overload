@@ -9,23 +9,45 @@ source_lib() {
 
 test_config_reads_values_comments_and_defaults() {
   source_lib
-  expect_eq "$(cfg verify)" "bash check.sh"
-  expect_eq "$(cfg exec)" ""
+  expect_eq "$(cfg check)" "bash check.sh"
+  expect_eq "$(cfg run_tests)" "" "default"
   expect_eq "$(cfg integrate)" "merge" "default"
-  expect_eq "$(cfg commit)" "<type>(<scope>): <summary>" "default"
+  expect_eq "$(cfg red_types)" "AssertionError, NotImplemented" "default"
 }
 
 test_config_env_overrides_even_when_empty() {
   source_lib
-  echo 'exec = ./dev.sh exec' >>.workflow/config
-  expect_eq "$(cfg exec)" "./dev.sh exec"
-  expect_eq "$(OVERLOAD_EXEC='' cfg exec)" ""
-  expect_eq "$(OVERLOAD_VERIFY='make check' cfg verify)" "make check"
+  echo 'run_tests = ./dev.sh exec pytest {files}' >>.workflow/config
+  expect_eq "$(cfg run_tests)" "./dev.sh exec pytest {files}"
+  expect_eq "$(OVERLOAD_RUN_TESTS='' cfg run_tests)" ""
+  expect_eq "$(OVERLOAD_CHECK='make check' cfg check)" "make check"
 }
 
 test_config_refuses_another_version() {
-  set_config version 2
-  expect_fail "reads version 1" bash "$SCRIPTS/verify.sh"
+  set_config version 3
+  expect_fail "reads version 2" bash "$SCRIPTS/verify.sh"
+}
+
+test_config_refuses_version_1_and_says_how_to_migrate() {
+  set_config version 1
+  expect_fail "rename verify to check, test_files to run_tests" bash "$SCRIPTS/verify.sh"
+  expect_fail "on main, or" bash "$SCRIPTS/verify.sh"
+  [[ "$(bash "$SCRIPTS/status.sh")" == *"config: refused"*"version 1"*"on main, or"* ]] || fail "status: $(bash "$SCRIPTS/status.sh")"
+}
+
+test_config_refuses_a_key_it_does_not_know() {
+  echo 'verify = make check' >>.workflow/config
+  echo 'tests_glb = **/*.test.ts' >>.workflow/config
+  expect_fail "'verify' is 'check' in version 2" bash "$SCRIPTS/verify.sh"
+  expect_fail "'tests_glb' is not a key of version 2" bash "$SCRIPTS/verify.sh"
+  [[ "$(bash "$SCRIPTS/status.sh")" == *"config: refused"*"tests_glb"* ]] || fail "status: $(bash "$SCRIPTS/status.sh")"
+}
+
+test_config_refuses_a_config_without_check() {
+  grep -v '^check' .workflow/config >"$WORK/config" && mv "$WORK/config" .workflow/config
+  expect_fail "no 'check'" bash "$SCRIPTS/verify.sh"
+  echo 'check =' >>.workflow/config
+  bash "$SCRIPTS/verify.sh" | grep -q "nothing checked" || fail "an empty check refused"
 }
 
 test_branch_opens_task_with_journal() {
@@ -121,12 +143,12 @@ test_verify_green_records_the_tree_and_red_does_not() {
 }
 
 test_verify_without_a_command_records_the_tree_unchecked() {
-  set_config verify ''
-  git add -A && git commit -qm "chore(repo): no verify"
+  set_config check ''
+  git add -A && git commit -qm "chore(repo): no check"
   open_task
   echo "More." >>README.md
   out="$(bash "$SCRIPTS/verify.sh")"
-  [[ "$out" == *"no 'verify' command"*"nothing checked"* ]] || fail "$out"
+  [[ "$out" == *"no 'check' command"*"nothing checked"* ]] || fail "$out"
   source_lib
   is_verified || fail "tree not recorded"
   grep -q $'\tnone\t' "$(git rev-parse --git-path overload)/runs.log" || fail "run not logged as none"
@@ -134,7 +156,7 @@ test_verify_without_a_command_records_the_tree_unchecked() {
 }
 
 test_verify_red_is_red_through_a_pipe_in_the_command() {
-  set_config verify 'bash check.sh | cat' 
+  set_config check 'bash check.sh | cat' 
   git commit -qam "chore(repo): pipe"
   open_task
   touch red
@@ -143,7 +165,7 @@ test_verify_red_is_red_through_a_pipe_in_the_command() {
 
 test_verify_is_red_when_the_check_changes_a_file_git_does_not_ignore() {
   echo "*.log" >.gitignore
-  set_config verify 'bash check.sh; date >run.log; [[ ! -f fix ]] || echo fixed >>README.md'
+  set_config check 'bash check.sh; date >run.log; [[ ! -f fix ]] || echo fixed >>README.md'
   git add -A && git commit -qm "chore(repo): a check that writes"
   open_task
   echo "More." >>README.md
@@ -393,9 +415,9 @@ test_session_start_speaks_only_inside_a_task() {
 }
 
 test_status_reports_config_journal_and_verify() {
-  out="$(OVERLOAD_STUB="raise NotImplementedError" bash "$SCRIPTS/status.sh")"
+  out="$(OVERLOAD_RUN_TESTS="pytest {files}" bash "$SCRIPTS/status.sh")"
   [[ "$out" == *"journal: none"* ]] || fail "$out"
-  [[ "$out" == *"stub = raise NotImplementedError"* ]] || fail "the stub statement not reported: $out"
+  [[ "$out" == *"run_tests = pytest {files}"*"run_tests comes from \$OVERLOAD_RUN_TESTS"* ]] || fail "the override not reported: $out"
   open_task
   echo "More." >>README.md
   bash "$SCRIPTS/verify.sh" >/dev/null

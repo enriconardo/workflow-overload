@@ -4,8 +4,8 @@ set -euo pipefail
 # Checks that the recorded suite fails for the right reason before any code
 # is written: every recorded test runs, and fails on an assertion or on a
 # stub's NotImplemented, not on an import or a load error (junit.py). Runs
-# the config's `test_files`, its `{files}` replaced by the recorded test
-# files, through the `exec` prefix; the command prints JUnit XML.
+# the config's `run_tests`, its `{files}` replaced by the recorded test
+# files; the command prints JUnit XML.
 #
 # A recorded file that exists in HEAD holds tests from before the chunk,
 # which may pass. Their names come from a first run of those files as HEAD
@@ -22,7 +22,7 @@ set -euo pipefail
 # A valid red leaves the stubs' state in refs/overload/base/<branch>, which
 # integrate.sh removes with the suite's records.
 #
-# With an empty `test_files` in the config, the check is skipped and logged.
+# With an empty `run_tests` in the config, the check is skipped and logged.
 
 # shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -37,13 +37,13 @@ case "${1:-}" in
   *) die "usage: red-check.sh [--without-code]" ;;
 esac
 
-command="$(cfg test_files)"
+command="$(cfg run_tests)"
 if [[ -z "$command" ]]; then
   printf '%s\t%s\t%s\t%s\n' "$(now)" "$(current_branch)" "red-check" skipped >>"$(state_dir)/runs.log"
-  echo "red check skipped: the config has no 'test_files', the command that runs given test files and prints JUnit XML."
+  echo "red check skipped: the config has no 'run_tests', the command that runs given test files and prints JUnit XML."
   exit 0
 fi
-[[ "$command" == *'{files}'* ]] || die "the config's test_files has no {files} placeholder."
+[[ "$command" == *'{files}'* ]] || die "the config's run_tests has no {files} placeholder."
 
 mapfile -t files < <(bash "$OVERLOAD_SCRIPTS/suite.sh" files)
 ((${#files[@]})) || die "no suite recorded on this branch: the test-author records it with suite.sh record."

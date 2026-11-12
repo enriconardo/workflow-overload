@@ -51,11 +51,10 @@ latest() {
 }
 
 record() {
-  local reference tree last next ref commit
+  local tree last next ref commit
   local -a changed=()
-  reference="$(cfg reference)"
-  if [[ -e "$reference" ]]; then
-    die "the reference model $reference is still in place: delete it before recording."
+  if [[ -e "$REFERENCE_DIR" ]]; then
+    die "the reference model $REFERENCE_DIR is still in place: delete it before recording."
   fi
   # The changed test files, listed first: git add refuses a pathspec that
   # matches nothing, and a project rarely uses every glob of the default.

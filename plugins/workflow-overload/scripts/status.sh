@@ -19,15 +19,16 @@ echo "- branch: $(current_branch || echo '(detached)')"
 if [[ ! -f "$CONFIG_FILE" ]]; then
   echo "- config: none ($CONFIG_FILE is missing)"
 else
-  version="$(cfg version)"
-  if [[ "$version" != "$CONFIG_VERSION" ]]; then
-    echo "- config: version '$version', this plugin reads $CONFIG_VERSION"
+  problems="$(config_problems)"
+  if [[ -n "$problems" ]]; then
+    echo "- config: refused"
+    printf '%s\n' "$problems" | sed 's/^/  - /'
   else
     echo "- config:"
-    for key in main exec verify test_files branch types commit commit_types subject_max integrate rules backlog specs tests_glob red_types stub reference probe_env; do
+    for key in $CONFIG_KEYS; do
       printf '  - %s = %s\n' "$key" "$(cfg "$key")"
     done
-    for key in exec verify; do
+    for key in $CONFIG_KEYS; do
       var="OVERLOAD_$(printf '%s' "$key" | tr '[:lower:]' '[:upper:]')"
       [[ -n "${!var+x}" ]] && echo "  - ($key comes from \$$var)"
     done

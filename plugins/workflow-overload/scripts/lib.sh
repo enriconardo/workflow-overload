@@ -9,7 +9,12 @@ export OVERLOAD_SCRIPTS
 CONFIG_FILE=".workflow/config"
 JOURNAL_FILE=".workflow/journal.md"
 METRICS_FILE=".workflow/metrics.jsonl"
-CONFIG_VERSION=1
+# The test-author's throwaway reference model: the plugin's, not the project's.
+REFERENCE_DIR=".workflow/reference"
+CONFIG_VERSION=2
+# Every key of this version. `check` has no default: a config without it is
+# refused, and a project with no checks writes `check =`, empty, on purpose.
+CONFIG_KEYS="version check run_tests main integrate rules backlog tests_glob red_types"
 
 die() {
   echo "overload: $*" >&2
@@ -27,58 +32,109 @@ in_project() {
 config_default() {
   case "$1" in
     main) echo main ;;
-    branch) echo '<type>/<scope>/<description>' ;;
-    types) echo 'feature, fix, hotfix, refactor, test, docs, chore' ;;
-    commit) echo '<type>(<scope>): <summary>' ;;
-    commit_types) echo 'feat, fix, refactor, perf, test, docs, build, ci, chore' ;;
     integrate) echo merge ;;
     backlog) echo .workflow/backlog.md ;;
     rules) echo CLAUDE.md ;;
-    specs) echo .workflow/specs ;;
     tests_glob) echo '**/__tests__/**, **/*.test.*, **/*.spec.*, **/test_*.py, **/*_test.py, **/*_test.go' ;;
     red_types) echo 'AssertionError, NotImplemented' ;;
-    # empty: the agents throw the project's own not-implemented error
-    stub) echo '' ;;
-    reference) echo .workflow/reference ;;
     *) echo '' ;;
   esac
 }
 
+# The config file's lines as `key<TAB>value`. Lines are `key = value`; a `#`
+# after whitespace starts a comment; nothing is evaluated.
+config_entries() {
+  local line k v
+  [[ -f "$CONFIG_FILE" ]] || return 0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%%[[:space:]]#*}"
+    [[ "$line" == \#* ]] && continue
+    [[ "$line" == *=* ]] || continue
+    k="${line%%=*}"
+    v="${line#*=}"
+    k="${k//[[:space:]]/}"
+    v="${v#"${v%%[![:space:]]*}"}"
+    v="${v%"${v##*[![:space:]]}"}"
+    printf '%s\t%s\n' "$k" "$v"
+  done <"$CONFIG_FILE"
+}
+
 # config_get <key>: the value from OVERLOAD_<KEY> when that variable is set,
-# even to empty (a cloud session without Docker empties `exec`), else from
-# .workflow/config, else the default. Lines are `key = value`; a `#` after
-# whitespace starts a comment; nothing is evaluated.
+# even to empty (a session where the project's container is out of reach
+# sets OVERLOAD_CHECK), else from .workflow/config, else the default.
 config_get() {
-  local key="$1" var line k v found=""
+  local key="$1" var k v found=""
   var="OVERLOAD_$(printf '%s' "$key" | tr '[:lower:]' '[:upper:]')"
   if [[ -n "${!var+x}" ]]; then
     printf '%s\n' "${!var}"
     return
   fi
-  if [[ -f "$CONFIG_FILE" ]]; then
-    while IFS= read -r line || [[ -n "$line" ]]; do
-      line="${line%%[[:space:]]#*}"
-      [[ "$line" == \#* ]] && continue
-      [[ "$line" == *=* ]] || continue
-      k="${line%%=*}"
-      v="${line#*=}"
-      k="${k//[[:space:]]/}"
-      v="${v#"${v%%[![:space:]]*}"}"
-      v="${v%"${v##*[![:space:]]}"}"
-      if [[ "$k" == "$key" ]]; then
-        found=1
-        printf '%s\n' "$v"
-      fi
-    done <"$CONFIG_FILE"
-  fi
+  while IFS=$'\t' read -r k v; do
+    if [[ "$k" == "$key" ]]; then
+      found=1
+      printf '%s\n' "$v"
+    fi
+  done < <(config_entries)
   [[ -n "$found" ]] || config_default "$key"
+}
+
+# What became of a key of version 1 that version 2 does not have.
+v1_key() {
+  case "$1" in
+    verify) echo "is 'check' in version 2" ;;
+    test_files) echo "is 'run_tests' in version 2" ;;
+    exec) echo "is gone in version 2: its prefix goes at the start of 'check' and 'run_tests'" ;;
+    branch | types | commit | commit_types | subject_max) echo "is gone in version 2: names and messages follow the project's rules, and its commit-msg hook" ;;
+    specs) echo "is gone in version 2: L specs are always in .workflow/specs" ;;
+    reference) echo "is gone in version 2: the reference model is always in $REFERENCE_DIR" ;;
+    stub) echo "is gone in version 2: a stub only throws the language's not-implemented error, whose name red_types holds" ;;
+    probe_env) echo "is gone in version 2: the prober makes its own environment" ;;
+    *) return 1 ;;
+  esac
+}
+
+# Why the config cannot be read, a line each, then where to fix it; nothing
+# when it can. Read from the file alone: an environment variable changes a
+# value, not the config.
+config_problems() {
+  local found
+  found="$(config_problems_found)"
+  [[ -n "$found" ]] || return 0
+  printf '%s\n' "$found"
+  echo "Fix it on main, or, with a task open, on its branch in a commit of its own (verify.sh, then commit.sh)."
+}
+
+config_problems_found() {
+  local k v version="" has_check=0
+  local -a keys=()
+  while IFS=$'\t' read -r k v; do
+    [[ "$k" == version ]] && version="$v"
+    [[ "$k" == check ]] && has_check=1
+    keys+=("$k")
+  done < <(config_entries)
+  if [[ "$version" == 1 ]]; then
+    echo "$CONFIG_FILE is version 1, this plugin reads version $CONFIG_VERSION. To migrate it: set version = 2; rename verify to check, test_files to run_tests; put the exec prefix, if any, at the start of both commands; remove exec, branch, types, commit, commit_types, subject_max, specs, stub, reference and probe_env."
+  elif [[ "$version" != "$CONFIG_VERSION" ]]; then
+    echo "$CONFIG_FILE has version '$version', this plugin reads version $CONFIG_VERSION."
+  else
+    for k in ${keys[@]+"${keys[@]}"}; do
+      [[ " $CONFIG_KEYS " == *" $k "* ]] && continue
+      if v="$(v1_key "$k")"; then
+        echo "'$k' $v."
+      else
+        echo "'$k' is not a key of version $CONFIG_VERSION, whose keys are: ${CONFIG_KEYS// /, }."
+      fi
+    done
+    ((has_check)) || echo "no 'check': the command that checks the tree before each commit, or 'check =' for a project with no checks."
+  fi
 }
 
 require_config() {
   [[ -f "$CONFIG_FILE" ]] || die "no $CONFIG_FILE in this project: run /overload init first."
-  local version
-  version="$(config_get version | tail -n 1)"
-  [[ "$version" == "$CONFIG_VERSION" ]] || die "$CONFIG_FILE has version '${version}', this plugin reads version $CONFIG_VERSION."
+  local problems
+  problems="$(config_problems)"
+  [[ -z "$problems" ]] || die "$CONFIG_FILE is refused:
+$problems"
 }
 
 # The last value of a key, for keys given once.
@@ -86,12 +142,10 @@ cfg() {
   config_get "$1" | tail -n 1
 }
 
-# Runs a project command through the config's `exec` prefix, in bash, with
-# pipefail, so that `verify | tail` cannot turn a red run green.
+# Runs a project command in bash, with pipefail, so that `check | tail`
+# cannot turn a red run green.
 run_project() {
-  local prefix
-  prefix="$(cfg exec)"
-  bash -o pipefail -c "${prefix:+$prefix }$1"
+  bash -o pipefail -c "$1"
 }
 
 current_branch() {

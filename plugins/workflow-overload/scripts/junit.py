@@ -162,7 +162,7 @@ def main():
     with open(args.output, encoding="utf-8", errors="replace") as handle:
         xml_text = extract_xml(handle.read())
     if xml_text is None:
-        print("red check: the test command printed no JUnit XML; check the config's test_files.")
+        print("red check: the test command printed no JUnit XML; check the config's run_tests.")
         return 2
     try:
         if args.list:

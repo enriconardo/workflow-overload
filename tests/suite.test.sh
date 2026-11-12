@@ -118,7 +118,7 @@ with open("/dev/stdout", "w") as handle:
     handle.write(report[report.index("<?xml"):])
 print("2 failed in 0.01s", flush=True)
 PY
-  set_config test_files 'python3 stdout-runner.py {files}'
+  set_config run_tests 'python3 stdout-runner.py {files}'
   git add -A && git commit -qm "chore(repo): a runner that writes its report to /dev/stdout"
   open_l_task
   write_test a.test.ts "case one assert" "case two notimpl"
@@ -195,7 +195,7 @@ test_red_check_leaves_out_the_test_files_the_suite_deletes() {
 
 test_red_check_without_code_runs_the_suite_against_the_stubs() {
   fake_runner
-  set_config test_files 'cat greet.ts; python3 runner.py {files}'
+  set_config run_tests 'cat greet.ts; python3 runner.py {files}'
   git add -A && git commit -qm "chore(repo): runner shows the source"
   open_l_task
   write_test a.test.ts "case a assert"
@@ -217,7 +217,7 @@ test_red_check_without_code_runs_the_suite_against_the_stubs() {
 
 test_red_check_without_code_and_no_valid_red_before_runs_against_head() {
   fake_runner
-  set_config test_files 'ls; python3 runner.py {files}'
+  set_config run_tests 'ls; python3 runner.py {files}'
   git add -A && git commit -qm "chore(repo): runner lists the tree"
   open_l_task
   write_test a.test.ts "case a assert"
@@ -238,9 +238,9 @@ test_red_check_refuses_a_suite_where_nothing_fails() {
   expect_fail "no recorded test fails" bash "$SCRIPTS/red-check.sh"
 }
 
-test_red_check_without_test_files_is_skipped() {
-  set_config test_files ''
-  git add -A && git commit -qm "chore(repo): no test_files"
+test_red_check_without_run_tests_is_skipped() {
+  set_config run_tests ''
+  git add -A && git commit -qm "chore(repo): no run_tests"
   open_l_task
   write_test a.test.ts "case one assert"
   bash "$SCRIPTS/suite.sh" record >/dev/null
@@ -250,7 +250,7 @@ test_red_check_without_test_files_is_skipped() {
 }
 
 test_red_check_without_xml_says_so() {
-  set_config test_files 'echo nothing {files}'
+  set_config run_tests 'echo nothing {files}'
   git add -A && git commit -qm "chore(repo): no xml"
   open_l_task
   write_test a.test.ts "case one assert"

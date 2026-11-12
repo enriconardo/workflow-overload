@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# Helpers of the tests: a throwaway project with a config whose verify reads
+# Helpers of the tests: a throwaway project with a config whose check reads
 # a file, so that a test decides whether verify is green or red.
 
 setup_repo() {
@@ -11,15 +11,14 @@ setup_repo() {
   git config --global user.name Test
   git config --global init.defaultBranch main
   # Keep the variables of a cloud session out of the tests.
-  unset OVERLOAD_EXEC OVERLOAD_VERIFY
+  unset OVERLOAD_CHECK OVERLOAD_RUN_TESTS
   REPO="$WORK/repo"
   mkdir -p "$REPO" && cd "$REPO" || exit 1
   git init -q
   mkdir -p .workflow
   cat >.workflow/config <<'EOF'
-version = 1
-exec    =                      # nothing: the commands run here
-verify  = bash check.sh        # green unless the file red exists
+version = 2
+check   = bash check.sh        # green unless the file red exists
 main    = main
 EOF
   cat >check.sh <<'EOF'
@@ -97,7 +96,7 @@ for path in sys.argv[1:]:
     print("</testsuite>")
 print("</testsuites>")
 PY
-  set_config test_files 'python3 runner.py {files}'
+  set_config run_tests 'python3 runner.py {files}'
   git add -A && git commit -qm "chore(repo): fake runner"
 }
 

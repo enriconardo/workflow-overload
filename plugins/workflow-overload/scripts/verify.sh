@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Runs the config's `verify` through its `exec` prefix and, when it is green,
-# records the hash of the tree it checked: commit.sh and integrate.sh refuse
-# any other tree. A check changes no file: a run that changed one git does
+# Runs the config's `check` and, when it is green, records the hash of the
+# tree it checked: commit.sh and integrate.sh refuse any other tree. A check changes no file: a run that changed one git does
 # not ignore is red, whatever its exit. Every run, green or red, goes to the
 # clone's run log, which the measures read.
 #
@@ -13,7 +12,7 @@ set -euo pipefail
 # (80 by default) and a single line on green, so that the caller needs no
 # pipe. On a task's branch, a red run adds to the journal's red streak and
 # the third one in a row says to stop and ask the human. With an empty
-# `verify` in the config, nothing runs and the tree is recorded as unchecked.
+# `check` in the config, nothing runs and the tree is recorded as unchecked.
 
 # shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -26,7 +25,7 @@ if [[ "${1:-}" == --lines ]]; then
   lines="$2"
 fi
 
-command="$(cfg verify)"
+command="$(cfg check)"
 state="$(state_dir)"
 output="$state/verify-output.txt"
 branch="$(current_branch)"
@@ -38,7 +37,7 @@ tree="$(work_tree_hash)"
 if [[ -z "$command" ]]; then
   printf '%s\t%s\t%s\t%s\t%s\n' "$(now)" "${branch:-HEAD}" "$tree" none 0 >>"$state/runs.log"
   printf '%s %s %s\n' "$tree" "${branch:-HEAD}" "$(now)" >"$(verified_file)"
-  echo "verify: the config has no 'verify' command, nothing checked; tree ${tree:0:12} recorded."
+  echo "verify: the config has no 'check' command, nothing checked; tree ${tree:0:12} recorded."
   exit 0
 fi
 
