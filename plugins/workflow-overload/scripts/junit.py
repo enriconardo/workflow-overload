@@ -18,8 +18,10 @@ The rules, from the probe of 2026-11-09 on vitest:
 2. no new testcase is skipped. One that passes already is no valid red by
    itself: it goes to the step reviewer, who checks that it fails when the
    behavior it covers breaks (--green writes them to a file);
-3. each failure's `type` is among --types; a TypeError, for instance, means
-   a missing export in Node, a stub that was never written;
+3. each failure's type is among --types; a TypeError, for instance, means
+   a missing export in Node, a stub that was never written. The type is the
+   failure's `type`; pytest writes none, and with its default traceback the
+   type ends the failure's text, on a last line `<path>:<line>: <Type>`;
 4. at least one testcase fails.
 
 A testcase listed in --existing (lines `<test-file>\t<name>`, as --list
@@ -56,6 +58,18 @@ def norm(path):
     return path.replace("\\", "/").lstrip("./")
 
 
+LAST_LINE_TYPE = re.compile(r":\d+: ([A-Za-z_][\w.]*)$")
+
+
+def failure_type(failure):
+    kind = failure.get("type")
+    if kind:
+        return kind
+    lines = (failure.text or "").strip().splitlines()
+    match = LAST_LINE_TYPE.search(lines[-1].strip()) if lines else None
+    return match.group(1).rsplit(".", 1)[-1] if match else ""
+
+
 def same_file(a, b):
     a, b = norm(a), norm(b)
     return a == b or a.endswith("/" + b) or b.endswith("/" + a)
@@ -70,9 +84,10 @@ def collect(xml_text, files):
         owner = next((f for f in files if same_file(f, name)), None)
         cases = list(suite.iter("testcase"))
         if owner is None:
-            # pytest and others name suites by package: match by classname/file
+            # pytest and others name suites by package: match by classname/file,
+            # or by name for pytest's collection error, which has no classname
             for case in cases:
-                where = case.get("file") or case.get("classname") or ""
+                where = case.get("file") or case.get("classname") or case.get("name") or ""
                 owner = next((f for f in files if same_file(f, where) or same_file(f, where.replace(".", "/") + ".py")), None)
                 if owner:
                     found[owner].append(case)
@@ -113,7 +128,7 @@ def judge(xml_text, files, types, existing=frozenset()):
                 green.append(label)
                 lines.append("%s: passes already, before the chunk's code" % label)
             else:
-                kind = failure.get("type") or ""
+                kind = failure_type(failure)
                 if kind in types:
                     red += 1
                     lines.append("%s: red, %s" % (label, kind))

@@ -42,7 +42,7 @@ probe_env    = <command>            # a throwaway environment for the prober, e.
 
 For `stub`, the project's not-implemented error if it has one; otherwise a statement that throws an error the runner reports by a name of its own, in `red_types`: in TypeScript `throw Object.assign(new Error('not implemented'), { name: 'NotImplemented' })`, in Python `raise NotImplementedError` with `NotImplementedError` in `red_types`. A plain `Error` will not do: the runner reports it as `Error`, which no valid red accepts.
 
-For `test_files`, the runner's JUnit reporter on stdout: vitest `--reporter=junit`, jest with `jest-junit` to stdout, pytest `--junitxml=/dev/stdout`, go `gotestsum --junitfile /dev/stdout`. The red check reads the XML from the output, so other lines around it do no harm.
+For `test_files`, the runner's JUnit reporter on stdout: vitest `--reporter=junit`, jest with `jest-junit` to stdout, pytest `--continue-on-collection-errors --junitxml=/dev/stdout` with its default traceback (no `--tb`: the failure's type is on the traceback's last line), go `gotestsum --junitfile /dev/stdout`. The red check reads the XML from the output, so other lines around it do no harm.
 
 A value never holds ` #`, which starts a comment. Any key can be overridden for one session by an environment variable, `OVERLOAD_<KEY>`, even to empty: a cloud session without Docker runs with `OVERLOAD_EXEC=`.
 
