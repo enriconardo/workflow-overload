@@ -206,6 +206,19 @@ PY
   [[ -z "$(git status --porcelain)" ]] || fail "dirty after integrate"
 }
 
+test_integrate_deletes_a_branch_whose_upstream_is_behind() {
+  # Pushed once, then committed on: git branch -d measures against the
+  # upstream and refuses, though the branch is all in main.
+  git init -q --bare "$WORK/remote.git"
+  git remote add origin "$WORK/remote.git"
+  open_task
+  git push -q -u origin docs/readme/describe-project
+  verified_commit "more"
+  out="$(bash "$SCRIPTS/integrate.sh")"
+  [[ "$out" == *"integrated 'docs/readme/describe-project'"* ]] || fail "not integrated: $out"
+  if git show-ref --verify --quiet refs/heads/docs/readme/describe-project; then fail "branch not deleted"; fi
+}
+
 test_integrate_keeps_the_merge_subject_short_on_a_long_main() {
   # A main of 25 characters: git's own subject would add " into <main>".
   git switch -q -c chore/repo/overload-trial-a

@@ -96,7 +96,10 @@ if ! git commit --quiet -m "Merge branch '$branch'"; then
   back_to_branch
   die "the commit of the merge was refused (a commit-msg hook?); '$main' is unchanged."
 fi
-git branch -q -d "$branch"
+# The branch is the merge's second parent, so all of it is in main; -d would
+# measure against the branch's upstream instead, and refuse one pushed and
+# then committed on.
+git branch -q -D "$branch"
 for ref in $(git for-each-ref --format='%(refname)' "refs/overload/suite/$branch" "refs/overload/base/$branch"); do
   git update-ref -d "$ref"
 done
