@@ -17,3 +17,11 @@ Write the message to a file outside the repository: a subject as *Names and mess
 ## 4. Close
 
 Go on with `phases/close.md`. On the S path you are the one who fixes what the review finds.
+
+## Turning L
+
+When the change proves to be L by step 4 of `phases/brainstorm.md`, at any step of this path or of the close, stop and tell the human why: the tier is theirs. On their go:
+
+1. Put the uncommitted work in a stash (`git stash push -u -m "S work" -- <paths>`: stash paths, so the journal stays out of it) and log it. The commits stay.
+2. `journal.sh set tier L`, `journal.sh log "tier L: <reason>"`, `journal.sh set phase l/spec`.
+3. Go on with `phases/l-plan.md` from 1; it runs the explorer when the brainstorming logged no map. The spec describes the whole change and names the commits already made; its chunks cover only what is left. You may read the stash while you write it.

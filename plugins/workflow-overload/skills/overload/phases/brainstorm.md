@@ -13,7 +13,7 @@ Turns the request into an understood problem and a tier the human confirms, with
      - no high uncertainty: clear requirements, known code and dependencies. A dependency upgrade that changes behavior is L.
    - **L**: everything else.
 
-   A task that turns out bigger changes tier later, and the human is told.
+   A task that turns out bigger changes tier later, on the human's go: *Turning L* in `phases/s-path.md` says how.
 5. **Open the branch.** Write the intent to a file outside the repository (your scratchpad, or a temporary file): the problem, the goal, the constraints, the decisions the human took, with their words where they matter. Then:
 
    ```
