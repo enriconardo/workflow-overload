@@ -43,6 +43,11 @@ test_config_refuses_a_key_it_does_not_know() {
   [[ "$(bash "$SCRIPTS/status.sh")" == *"config: refused"*"tests_glb"* ]] || fail "status: $(bash "$SCRIPTS/status.sh")"
 }
 
+test_config_missing_points_to_setup() {
+  rm .workflow/config
+  expect_fail "run /overload setup first" bash "$SCRIPTS/verify.sh"
+}
+
 test_config_refuses_a_config_without_check() {
   grep -v '^check' .workflow/config >"$WORK/config" && mv "$WORK/config" .workflow/config
   expect_fail "no 'check'" bash "$SCRIPTS/verify.sh"

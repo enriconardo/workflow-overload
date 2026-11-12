@@ -31,7 +31,7 @@ main="$(cfg main)"
 [[ "$branch" != "$main" ]] || die "'$branch' is the main branch: a task opens a branch of its own."
 current="$(current_branch)"
 [[ "$current" == "$main" ]] || die "on '${current:-a detached HEAD}': a task starts from $main."
-# A clean main, but for the first config that /overload init wrote and has
+# A clean main, but for the first config that /overload setup wrote and has
 # not committed yet: its first task is the one that commits it.
 dirty="$(git status --porcelain --untracked-files=all)"
 if ! git cat-file -e "HEAD:$CONFIG_FILE" 2>/dev/null; then

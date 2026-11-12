@@ -130,7 +130,7 @@ config_problems_found() {
 }
 
 require_config() {
-  [[ -f "$CONFIG_FILE" ]] || die "no $CONFIG_FILE in this project: run /overload init first."
+  [[ -f "$CONFIG_FILE" ]] || die "no $CONFIG_FILE in this project: run /overload setup first."
   local problems
   problems="$(config_problems)"
   [[ -z "$problems" ]] || die "$CONFIG_FILE is refused:
