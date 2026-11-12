@@ -107,6 +107,26 @@ test_red_check_accepts_assertions_and_not_implemented() {
   [[ "$out" == *"valid red, every new test fails"* ]] || fail "$out"
 }
 
+test_red_check_reads_a_report_the_runner_writes_to_dev_stdout() {
+  fake_runner
+  # as pytest --junitxml=/dev/stdout: the report opens /dev/stdout anew, around the runner's own lines
+  cat >"$REPO/stdout-runner.py" <<'PY'
+import subprocess, sys
+report = subprocess.run([sys.executable, "runner.py"] + sys.argv[1:], capture_output=True, text=True).stdout
+print("collected 2 items", flush=True)
+with open("/dev/stdout", "w") as handle:
+    handle.write(report[report.index("<?xml"):])
+print("2 failed in 0.01s", flush=True)
+PY
+  set_config test_files 'python3 stdout-runner.py {files}'
+  git add -A && git commit -qm "chore(repo): a runner that writes its report to /dev/stdout"
+  open_l_task
+  write_test a.test.ts "case one assert" "case two notimpl"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/red-check.sh")"
+  [[ "$out" == *"valid red, every new test fails"* ]] || fail "$out"
+}
+
 test_red_check_refuses_load_errors_passes_skips_and_type_errors() {
   fake_runner
   open_l_task

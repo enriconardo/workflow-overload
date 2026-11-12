@@ -141,6 +141,15 @@ run_files() {
   set -e
 }
 
+# Saves what the command printed, through a pipe: a report written to
+# /dev/stdout (pytest --junitxml) opens a file anew, truncating it and
+# writing over the runner's other lines, but a pipe keeps both in order.
+save_run() {
+  local into="$1"
+  shift
+  run_files "$@" 2>&1 | cat >"$into"
+}
+
 state="$(state_dir)"
 output="$state/red-check-output.txt"
 existing="$state/red-check-existing.txt"
@@ -166,13 +175,13 @@ if ((${#old[@]})); then
     cp -- "$file" "$backup/$file"
     git show "HEAD:$file" >"$file"
   done
-  run_files "${old[@]}" >"$state/red-check-head.txt" 2>&1
+  save_run "$state/red-check-head.txt" "${old[@]}"
   restore
   trap restore_code EXIT
   python3 "$OVERLOAD_SCRIPTS/junit.py" --list "$state/red-check-head.txt" "${old[@]}" >"$existing" || true
 fi
 
-run_files "${files[@]}" >"$output" 2>&1
+save_run "$output" "${files[@]}"
 restore_code
 trap - EXIT
 
