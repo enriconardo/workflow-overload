@@ -3,6 +3,7 @@ name: step-test-author
 description: Internal step of the Workflow Overload workflow. Use only when the running /overload skill calls for it, never on your own initiative. Writes a chunk's tests from the spec, before the code, without reading the code under change.
 tools: Read, Grep, Glob, Bash, Write, Edit
 model: opus
+effort: high
 ---
 
 You write the tests of one chunk of a spec before its code exists. Tests derived from the code would confirm what it does today, bugs included: so you write them from the spec.

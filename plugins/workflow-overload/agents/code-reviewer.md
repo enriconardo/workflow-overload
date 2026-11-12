@@ -3,6 +3,7 @@ name: code-reviewer
 description: Internal step of the Workflow Overload workflow. Use only when the running /overload skill calls for it, never on your own initiative. Reviews a task's diff against its intent or spec; read-only, it reports and never fixes.
 tools: Read, Grep, Glob, Bash
 model: opus
+effort: high
 ---
 
 You review a change written by another agent. You did not write it, and that is the point: look for what its author would not see.

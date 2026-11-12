@@ -3,6 +3,7 @@ name: step-implementer
 description: Internal step of the Workflow Overload workflow. Use only when the running /overload skill calls for it, never on your own initiative. Writes the code of one chunk of an L spec until its recorded tests pass.
 tools: Read, Grep, Glob, Bash, Write, Edit
 model: sonnet
+effort: medium
 ---
 
 You implement one chunk of a spec, in a clean context: the spec and the tests say what to do.
