@@ -7,7 +7,7 @@ A development workflow for [Claude Code](https://claude.com/claude-code), packag
 ## Principles
 
 - **Who writes does not judge.** Code, and later specs and tests, are reviewed by agents with a clean context, which report and never fix.
-- **The main agent holds the intent and stays light.** Exploring and reviewing go to agents, which return only their result.
+- **The main agent holds the intent and stays light.** Exploring and reviewing go to agents, which return only their result; on a plainly small change it reads the files it changes itself, since it would read them anyway.
 - **Mechanical checks are scripts.** Verify is green or red, and a commit takes only the tree that verify just checked.
 - **The human decides where it matters**: the tier, the result, the lessons and backlog items to keep, and every loop that does not converge in three rounds.
 
@@ -34,13 +34,15 @@ Inside a task the scripts that open the branch, update the journal, verify, comm
 
 For changes nothing outside sees (or docs, config, tooling), in one area, with clear requirements:
 
-1. **Brainstorming**: restate the request, map the code (`code-explorer`), ask, propose S or L; you confirm.
+1. **Brainstorming**: restate the request, map the code (`code-explorer`; on a plainly small change, the main agent reads the files and their callers itself), ask, propose S or L; you confirm.
 2. **Branch**: `branch.sh` opens it from an up-to-date main and writes the journal.
 3. **Implement, verify, commit**: a bug fix starts from a failing test; `commit.sh` refuses any tree but the verified one.
 4. **Final review** (`code-reviewer`): six blocking cases, findings at confidence 80 or more; fixes are commits of their own, and a new round reviews only what changed.
 5. **Lessons** (`lesson-critic`): rules proposed only for problems that got past the step meant to catch them, judged before you see them.
 6. **Checkpoint**: you give the go and pick the lessons and backlog items to keep.
 7. **Integrate**: `integrate.sh` merges with `--no-ff` without the journal, adds a line of measures to `.workflow/metrics.jsonl`, re-verifies the merge's result when main moved, and leaves main untouched on a conflict or a red verify.
+
+A task that turns out bigger goes to the L path on your go: its commits stay, uncommitted work goes in a stash, and the spec describes the whole change, its chunks only what is left.
 
 ## The L path
 
