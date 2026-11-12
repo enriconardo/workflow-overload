@@ -435,7 +435,6 @@ def collect_git(repo, main_branch, spec_glob, review_re, critic_re, test_re):
             "first_commit": first,
             "hours_to_merge": round((parse_ts(when) - parse_ts(first)).total_seconds() / 3600, 2) if commits else 0,
             "tier": spec.get("tier") or ("S" if not added_specs else "?"),
-            "type": branch.split("/")[0],
             "spec": added_specs[0] if added_specs else None,
             "implementer": spec.get("implementer"),
             "commits": len(commits),

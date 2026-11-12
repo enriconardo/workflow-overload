@@ -5,6 +5,8 @@ shapes Claude Code 2.1 writes them."""
 import importlib.util
 import json
 import os
+import re
+import subprocess
 import tempfile
 import unittest
 
@@ -102,6 +104,31 @@ class TranscriptsTest(unittest.TestCase):
     def test_weighted_uses_price_ratios(self):
         bucket = {"input": 10, "cache_write": 100, "cache_read": 1000, "output": 2}
         self.assertEqual(metrics.weighted(bucket), 10 + 125 + 100 + 10)
+
+
+class GitTest(unittest.TestCase):
+    def git(self, *args):
+        env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
+        subprocess.run(["git", "-c", "user.name=Test", "-c", "user.email=test@example.com", "-C", self.repo] + list(args),
+                       check=True, capture_output=True, env=env)
+
+    def setUp(self):
+        self.repo = tempfile.mkdtemp()
+        self.git("init", "-q", "-b", "main")
+        self.git("commit", "-q", "--allow-empty", "-m", "start")
+        self.git("switch", "-q", "-c", "EN-209-snapshot-diff")
+        with open(os.path.join(self.repo, "a.txt"), "w") as handle:
+            handle.write("a\n")
+        self.git("add", "a.txt")
+        self.git("commit", "-q", "-m", "add a")
+        self.git("switch", "-q", "main")
+        self.git("merge", "-q", "--no-ff", "-m", "Merge branch 'EN-209-snapshot-diff'", "EN-209-snapshot-diff")
+
+    def test_a_merge_is_read_with_its_branch_name_whole(self):
+        rows = metrics.collect_git(self.repo, "main", r"\.workflow/specs/.*\.md", re.compile("review"), re.compile("critic"), re.compile(r"\.test\."))
+        self.assertEqual([r["branch"] for r in rows], ["EN-209-snapshot-diff"])
+        self.assertEqual(rows[0]["commits"], 1)
+        self.assertNotIn("type", rows[0])
 
 
 if __name__ == "__main__":
