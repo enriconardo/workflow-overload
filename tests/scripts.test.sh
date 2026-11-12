@@ -436,3 +436,27 @@ test_branch_carries_the_first_config_of_init() {
   echo "More." >>README.md
   expect_fail "uncommitted changes" bash -c "git switch -q main && bash '$SCRIPTS/branch.sh' S docs/other/thing '$(intent)'"
 }
+
+test_the_phases_and_agents_name_only_the_config_s_keys() {
+  source_lib
+  local plugin="$SCRIPTS/.." readme="$SCRIPTS/../../../README.md" key
+  local -a named=() unknown=() missing=()
+  # "the config's `a`, `b` and `c`", and the `key = value` lines of the key
+  # lists in init.md and the README
+  # shellcheck disable=SC2016 # backticks to match, not to expand
+  mapfile -t named < <({
+    grep -ohE "config's (\`[a-z_]+\`(, | and |, and )?)+" "$plugin"/skills/overload/SKILL.md \
+      "$plugin"/skills/overload/phases/*.md "$plugin"/agents/*.md | grep -oE '`[a-z_]+`' | tr -d '`'
+    grep -ohE '^[a-z_]+ +=' "$plugin/skills/overload/phases/init.md" "$readme" | tr -d ' ='
+  } | sort -u)
+  ((${#named[@]} >= 5)) || fail "too few keys found, the patterns are stale: ${named[*]}"
+  for key in "${named[@]}"; do
+    [[ " $CONFIG_KEYS " == *" $key "* ]] || unknown+=("$key")
+  done
+  ((${#unknown[@]} == 0)) || fail "named, but not keys of lib.sh: ${unknown[*]}"
+  for key in $CONFIG_KEYS; do
+    grep -qE "^$key +=" "$plugin/skills/overload/phases/init.md" || missing+=("init.md: $key")
+    grep -qE "^$key +=" "$readme" || missing+=("README.md: $key")
+  done
+  ((${#missing[@]} == 0)) || fail "keys missing from a key list: ${missing[*]}"
+}

@@ -47,7 +47,7 @@ For changes nothing outside sees (or docs, config, tooling), in one area, with c
 For everything else:
 
 1. **Spec**, written by the main agent, which held the discussion; a decision record for a decision that outlives the task.
-2. **Probe** (`prober`), only for external facts the spec rests on, in a throwaway environment.
+2. **Probe** (`prober`), only for external facts the spec rests on, in a temporary folder outside the repository, on the project's runtime.
 3. **Spec review** (`spec-reviewer`): correctness, and a critique of the premises: was the problem seen, what is the strongest alternative, what is missing. It gets the spec and the code map, never a summary of the discussion.
 4. **Split** (`spec-splitter`), above about 6–7 files or 10–15 test cases: the fewest chunks, each green alone, each test-first or not.
 5. **Checkpoint 1**: you approve the plan; a `/clear` and `/overload` then resume from the journal with a small context.
@@ -56,30 +56,77 @@ For everything else:
 
 ## Configuration
 
-`.workflow/config` holds everything project-specific, as `key = value` lines that scripts read without executing:
+`.workflow/config` holds what is the project's own, as `key = value` lines that scripts read without executing. The plugin owns when a check runs and the process around it: a commit takes only the verified tree, the test-author's suite stays untouched, a task starts from a clean main and merges with `--no-ff`. The project owns its commands, its names and its messages.
 
 ```
-version      = 1
-exec         = ./dev.sh exec        # prefix of commands that touch dependencies
-verify       = pnpm verify          # green or red, on what changed and its dependents; empty: nothing checked
-main         = main
-branch       = <type>/<scope>/<description>
-types        = feature, fix, hotfix, refactor, test, docs, chore
-commit       = <type>(<scope>): <summary>
-commit_types = feat, fix, refactor, perf, test, docs, build, ci, chore
-subject_max  = 72                   # the project's limit on a subject; empty (default): none
-integrate    = merge
-rules        = CLAUDE.md, docs/adr/
-backlog      = .workflow/backlog.md
-specs        = .workflow/specs
-test_files   = pnpm vitest run --reporter=junit {files}   # prints JUnit XML: the red check reads it; empty: skipped
-tests_glob   = **/__tests__/**
-red_types    = AssertionError, NotImplemented
-stub         = throw Object.assign(new Error('not implemented'), { name: 'NotImplemented' })   # a stub's body: its failure type is in red_types
-probe_env    = docker run --rm node:24-bookworm
+version    = 2
+check      = pnpm check                                 # the commit gate, see *check*; empty: nothing checked
+run_tests  = pnpm vitest run --reporter=junit {files}   # runs the given test files, prints JUnit XML; empty: no red check
+main       = main
+integrate  = merge
+rules      = CLAUDE.md, docs/adr/
+backlog    = .workflow/backlog.md
+tests_glob = **/__tests__/**
+red_types  = AssertionError, NotImplemented
 ```
 
-Any key can be overridden for a session by `OVERLOAD_<KEY>`, even to empty: a cloud session without Docker sets `OVERLOAD_EXEC=`. The project's code conventions and lessons stay in its own CLAUDE.md files; the workflow's rules stay in the plugin.
+| Key | Default | What it holds |
+| --- | --- | --- |
+| `version` | none, required | `2` |
+| `check` | none, required, may be empty | the command that checks the whole tree before every commit |
+| `run_tests` | empty: the red check is skipped | the command that runs the test files in `{files}` and prints JUnit XML |
+| `main` | `main` | the branch tasks start from and merge into |
+| `integrate` | `merge` | how a task lands: a local `--no-ff` merge, the only mode so far |
+| `rules` | `CLAUDE.md` | the files and folders of the project's rules, comma-separated; decision records go in a folder of them |
+| `backlog` | `.workflow/backlog.md` | where the backlog items the human approves go |
+| `tests_glob` | the usual test file names of JavaScript, TypeScript, Python and Go | which files are tests: the suite records them, and `commit.sh` protects them |
+| `red_types` | `AssertionError, NotImplemented` | the failure types the runner reports for an assertion and for a stub |
+
+A value never holds ` #`, which starts a comment. A key the version does not know is refused, and so is a config without `check`: a misspelt key, or one kept from version 1, would otherwise leave `check` empty, and every commit would pass unchecked. Any key can be overridden for one session by `OVERLOAD_<KEY>`, even to empty: a session that cannot reach the project's container sets `OVERLOAD_CHECK` and `OVERLOAD_RUN_TESTS`.
+
+Branch names and commit messages follow the project's rules (its CLAUDE.md, its contributing docs); where they state none, a branch `<type>/<description>` in kebab-case and a subject in the imperative of at most 72 characters. The project's hooks enforce them: `branch.sh` runs the `commit-msg` hook on the merge's subject before the task starts (git 2.36 or later), and `commit.sh` undoes a commit whose tree a `pre-commit` hook changed after the check. Stubs, the L specs (`.workflow/specs/`) and the test-author's reference model (`.workflow/reference/`) are the plugin's own: a stub only throws the language's not-implemented error, and `red_types` names the type the runner reports for it (`NotImplementedError` in Python).
+
+### check
+
+`check` is the commit gate: `verify.sh` runs it before every commit, and on the merge's result when main moved, and `commit.sh` takes only a tree it found green. It is a local subset of what the CI runs, and it:
+
+- exits 0 on green, anything else on red;
+- ends on its own: no watch mode, no prompt;
+- changes no file: `--check`, not `--fix`. `verify.sh` hashes the tree again after the run, and a run that changed a file git does not ignore is red, with the files it changed;
+- runs locally, with no secrets or services;
+- is fast enough to run before every commit, and gives the same result on the same tree;
+- prints the cause of a red in its last lines, the ones `verify.sh` shows.
+
+It checks the whole tree, never only what changed: on main, at the first verify and on the merge's result, a scoped command would check nothing. Some examples:
+
+```
+check = make check
+check = pnpm lint && pnpm typecheck && pnpm vitest run       # vitest run: no watch mode
+check = pnpm prettier --check . && pnpm jest --ci             # --ci: a missing snapshot fails, it is not written
+check = uv run ruff format --check . && uv run ruff check . && uv run pytest -q
+check = docker compose exec -T app make check                # -T: no terminal needed
+```
+
+Before the first task, try it on a clean main:
+
+```
+git status --short          # nothing
+<check>; echo "exit $?"     # exit 0, and it ended on its own
+git status --short          # still nothing: the check changed no file
+```
+
+Run it twice: the same result both times, in a time you would wait for at every commit.
+
+### From version 1
+
+`status.sh` and every script refuse a version 1 config and say what to change:
+
+- `version = 2`;
+- `verify` becomes `check`, `test_files` becomes `run_tests`;
+- an `exec` prefix goes at the start of both commands (`check = ./dev.sh exec pnpm check`), and `exec` goes;
+- `branch`, `types`, `commit`, `commit_types`, `subject_max`, `specs`, `stub`, `reference` and `probe_env` go. A limit on a subject's length belongs in the project's `commit-msg` hook.
+
+Change it on main, or, with a task open, on its branch in a commit of its own (`verify.sh`, then `commit.sh`).
 
 ## Files in a project
 
