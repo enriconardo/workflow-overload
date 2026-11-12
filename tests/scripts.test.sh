@@ -24,22 +24,15 @@ test_config_env_overrides_even_when_empty() {
 }
 
 test_config_refuses_another_version() {
-  set_config version 3
-  expect_fail "reads version 2" bash "$SCRIPTS/verify.sh"
-}
-
-test_config_refuses_version_1_and_says_how_to_migrate() {
-  set_config version 1
-  expect_fail "rename verify to check, test_files to run_tests" bash "$SCRIPTS/verify.sh"
+  set_config version 2
+  expect_fail "has version '2', this plugin reads version 1" bash "$SCRIPTS/verify.sh"
   expect_fail "on main, or" bash "$SCRIPTS/verify.sh"
-  [[ "$(bash "$SCRIPTS/status.sh")" == *"config: refused"*"version 1"*"on main, or"* ]] || fail "status: $(bash "$SCRIPTS/status.sh")"
+  [[ "$(bash "$SCRIPTS/status.sh")" == *"config: refused"*"version '2'"*"on main, or"* ]] || fail "status: $(bash "$SCRIPTS/status.sh")"
 }
 
 test_config_refuses_a_key_it_does_not_know() {
-  echo 'verify = make check' >>.workflow/config
   echo 'tests_glb = **/*.test.ts' >>.workflow/config
-  expect_fail "'verify' is 'check' in version 2" bash "$SCRIPTS/verify.sh"
-  expect_fail "'tests_glb' is not a key of version 2" bash "$SCRIPTS/verify.sh"
+  expect_fail "'tests_glb' is not a key of version 1" bash "$SCRIPTS/verify.sh"
   [[ "$(bash "$SCRIPTS/status.sh")" == *"config: refused"*"tests_glb"* ]] || fail "status: $(bash "$SCRIPTS/status.sh")"
 }
 

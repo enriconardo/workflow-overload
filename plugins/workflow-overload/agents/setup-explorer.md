@@ -20,7 +20,7 @@ The manifests and their scripts (`package.json`, `pyproject.toml`, `Makefile`, `
 
 A row for each, in this order. A key's default is the one `config_default` gives in `<scripts>/lib.sh`: show it from there, never from memory.
 
-- `version`: `2`.
+- `version`: `1`.
 - `check`: the single command that checks the whole tree before every commit, a local subset of what the CI runs: lint, typecheck, tests. It exits 0 on green and anything else on red; ends on its own, with no watch mode and no prompt (`vitest run`, not `vitest`); changes no file (`--check`, not `--fix`; `jest --ci`, which fails on a missing snapshot instead of writing it); runs locally, with no secrets or services; is fast enough for every commit and gives the same result on the same tree; prints the cause of a red in its last lines. It checks the whole tree, never only what changed (not `lint-staged`). A container or wrapper goes inside it, with no terminal (`docker compose exec -T app make check`). A project with no checks at all: empty, and say so.
 - `run_tests`: the runner's command for the test files in `{files}`, printing JUnit XML on stdout, inside the same container or wrapper as `check`: vitest `--reporter=junit`, jest with `jest-junit` to stdout, pytest `--continue-on-collection-errors --junitxml=/dev/stdout` with its default traceback (no `--tb`: the failure's type is on its last line), go `gotestsum --junitfile /dev/stdout`. Other lines around the XML do no harm. A runner whose JUnit reporter the project lacks: empty, with what would add it.
 - `main`: always a question. Propose the branch of `origin/HEAD` when it exists (`git symbolic-ref refs/remotes/origin/HEAD`), else `main`, with that source: `origin/HEAD` is missing or stale too often to be written unasked.

@@ -61,7 +61,7 @@ For everything else:
 `.workflow/config` holds what is the project's own, as `key = value` lines that scripts read without executing; `/overload setup` writes it. The plugin owns when a check runs and the process around it: a commit takes only the verified tree, the test-author's suite stays untouched, a task starts from a clean main and merges with `--no-ff`. The project owns its commands, its names and its messages.
 
 ```
-version    = 2
+version    = 1
 check      = pnpm check                                 # the commit gate, see *check*; empty: nothing checked
 run_tests  = pnpm vitest run --reporter=junit {files}   # runs the given test files, prints JUnit XML; empty: no red check
 main       = main
@@ -74,7 +74,7 @@ red_types  = AssertionError, NotImplemented
 
 | Key | Default | What it holds |
 | --- | --- | --- |
-| `version` | none, required | `2` |
+| `version` | none, required | `1` |
 | `check` | none, required, may be empty | the command that checks the whole tree before every commit |
 | `run_tests` | empty: the red check is skipped | the command that runs the test files in `{files}` and prints JUnit XML |
 | `main` | `main` | the branch tasks start from and merge into |
@@ -84,7 +84,7 @@ red_types  = AssertionError, NotImplemented
 | `tests_glob` | the usual test file names of JavaScript, TypeScript, Python and Go | which files are tests: the suite records them, and `commit.sh` protects them |
 | `red_types` | `AssertionError, NotImplemented` | the failure types the runner reports for an assertion and for a stub |
 
-A value never holds ` #`, which starts a comment. A key the version does not know is refused, and so is a config without `check`: a misspelt key, or one kept from version 1, would otherwise leave `check` empty, and every commit would pass unchecked. Any key can be overridden for one session by `OVERLOAD_<KEY>`, even to empty: a session that cannot reach the project's container sets `OVERLOAD_CHECK` and `OVERLOAD_RUN_TESTS`.
+A value never holds ` #`, which starts a comment. A key the version does not know is refused, and so is a config without `check`: a misspelt key would otherwise leave `check` empty, and every commit would pass unchecked. Any key can be overridden for one session by `OVERLOAD_<KEY>`, even to empty: a session that cannot reach the project's container sets `OVERLOAD_CHECK` and `OVERLOAD_RUN_TESTS`.
 
 Branch names and commit messages follow the project's rules (its CLAUDE.md, its contributing docs); where they state none, a branch `<type>/<description>` in kebab-case and a subject in the imperative of at most 72 characters. The project's hooks enforce them: `branch.sh` runs the `commit-msg` hook on the merge's subject before the task starts (git 2.36 or later), and `commit.sh` undoes a commit whose tree a `pre-commit` hook changed after the check. Stubs, the L specs (`.workflow/specs/`) and the test-author's reference model (`.workflow/reference/`) are the plugin's own: a stub only throws the language's not-implemented error, and `red_types` names the type the runner reports for it (`NotImplementedError` in Python).
 
@@ -118,17 +118,6 @@ git status --short          # still nothing: the check changed no file
 ```
 
 Run it twice: the same result both times, in a time you would wait for at every commit.
-
-### From version 1
-
-`status.sh` and every script refuse a version 1 config and say what to change:
-
-- `version = 2`;
-- `verify` becomes `check`, `test_files` becomes `run_tests`;
-- an `exec` prefix goes at the start of both commands (`check = ./dev.sh exec pnpm check`), and `exec` goes;
-- `branch`, `types`, `commit`, `commit_types`, `subject_max`, `specs`, `stub`, `reference` and `probe_env` go. A limit on a subject's length belongs in the project's `commit-msg` hook.
-
-Change it on main, or, with a task open, on its branch in a commit of its own (`verify.sh`, then `commit.sh`).
 
 ## Files in a project
 

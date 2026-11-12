@@ -10,8 +10,9 @@ CONFIG_FILE=".workflow/config"
 JOURNAL_FILE=".workflow/journal.md"
 METRICS_FILE=".workflow/metrics.jsonl"
 # The test-author's throwaway reference model: the plugin's, not the project's.
+# shellcheck disable=SC2034 # read by suite.sh
 REFERENCE_DIR=".workflow/reference"
-CONFIG_VERSION=2
+CONFIG_VERSION=1
 # Every key of this version. `check` has no default: a config without it is
 # refused, and a project with no checks writes `check =`, empty, on purpose.
 CONFIG_KEYS="version check run_tests main integrate rules backlog tests_glob red_types"
@@ -78,21 +79,6 @@ config_get() {
   [[ -n "$found" ]] || config_default "$key"
 }
 
-# What became of a key of version 1 that version 2 does not have.
-v1_key() {
-  case "$1" in
-    verify) echo "is 'check' in version 2" ;;
-    test_files) echo "is 'run_tests' in version 2" ;;
-    exec) echo "is gone in version 2: its prefix goes at the start of 'check' and 'run_tests'" ;;
-    branch | types | commit | commit_types | subject_max) echo "is gone in version 2: names and messages follow the project's rules, and its commit-msg hook" ;;
-    specs) echo "is gone in version 2: L specs are always in .workflow/specs" ;;
-    reference) echo "is gone in version 2: the reference model is always in $REFERENCE_DIR" ;;
-    stub) echo "is gone in version 2: a stub only throws the language's not-implemented error, whose name red_types holds" ;;
-    probe_env) echo "is gone in version 2: the prober makes its own environment" ;;
-    *) return 1 ;;
-  esac
-}
-
 # Why the config cannot be read, a line each, then where to fix it; nothing
 # when it can. Read from the file alone: an environment variable changes a
 # value, not the config.
@@ -112,18 +98,12 @@ config_problems_found() {
     [[ "$k" == check ]] && has_check=1
     keys+=("$k")
   done < <(config_entries)
-  if [[ "$version" == 1 ]]; then
-    echo "$CONFIG_FILE is version 1, this plugin reads version $CONFIG_VERSION. To migrate it: set version = 2; rename verify to check, test_files to run_tests; put the exec prefix, if any, at the start of both commands; remove exec, branch, types, commit, commit_types, subject_max, specs, stub, reference and probe_env."
-  elif [[ "$version" != "$CONFIG_VERSION" ]]; then
+  if [[ "$version" != "$CONFIG_VERSION" ]]; then
     echo "$CONFIG_FILE has version '$version', this plugin reads version $CONFIG_VERSION."
   else
     for k in ${keys[@]+"${keys[@]}"}; do
       [[ " $CONFIG_KEYS " == *" $k "* ]] && continue
-      if v="$(v1_key "$k")"; then
-        echo "'$k' $v."
-      else
-        echo "'$k' is not a key of version $CONFIG_VERSION, whose keys are: ${CONFIG_KEYS// /, }."
-      fi
+      echo "'$k' is not a key of version $CONFIG_VERSION, whose keys are: ${CONFIG_KEYS// /, }."
     done
     ((has_check)) || echo "no 'check': the command that checks the tree before each commit, or 'check =' for a project with no checks."
   fi

@@ -17,7 +17,7 @@ setup_repo() {
   git init -q
   mkdir -p .workflow
   cat >.workflow/config <<'EOF'
-version = 2
+version = 1
 check   = bash check.sh        # green unless the file red exists
 main    = main
 EOF
