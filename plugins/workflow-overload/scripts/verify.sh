@@ -3,8 +3,9 @@ set -euo pipefail
 
 # Runs the config's `verify` through its `exec` prefix and, when it is green,
 # records the hash of the tree it checked: commit.sh and integrate.sh refuse
-# any other tree. Every run, green or red, goes to the clone's run log, which
-# the measures read.
+# any other tree. A check changes no file: a run that changed one git does
+# not ignore is red, whatever its exit. Every run, green or red, goes to the
+# clone's run log, which the measures read.
 #
 #   verify.sh [--lines <n>]
 #
@@ -49,8 +50,14 @@ status=$?
 set -e
 seconds=$(($(date +%s) - started))
 
+# A --fix, a snapshot written, a report git does not ignore: the tree the
+# check looked at is no longer the one in place.
+changed=""
+after="$(work_tree_hash)"
+[[ "$after" == "$tree" ]] || changed="$(git diff --name-only --no-renames "$tree" "$after")"
+
 result=red
-((status == 0)) && result=green
+((status == 0)) && [[ -z "$changed" ]] && result=green
 printf '%s\t%s\t%s\t%s\t%s\n' "$(now)" "${branch:-HEAD}" "$tree" "$result" "$seconds" >>"$state/runs.log"
 
 task=0
@@ -58,7 +65,7 @@ if [[ -f "$JOURNAL_FILE" && -n "$branch" && "$branch" != "$(cfg main)" ]]; then
   task=1
 fi
 
-if ((status == 0)); then
+if [[ "$result" == green ]]; then
   printf '%s %s %s\n' "$tree" "${branch:-HEAD}" "$(now)" >"$(verified_file)"
   ((task)) && bash "$OVERLOAD_SCRIPTS/journal.sh" set verify_red_streak 0
   echo "verify: green in ${seconds}s, tree ${tree:0:12} recorded (full output: $output)."
@@ -66,9 +73,17 @@ if ((status == 0)); then
 fi
 
 rm -f "$(verified_file)"
-tail -n "$lines" "$output"
-echo
-echo "verify: red (exit $status) in ${seconds}s; full output: $output."
+if ((status != 0)); then
+  tail -n "$lines" "$output"
+  echo
+fi
+if [[ -n "$changed" ]]; then
+  echo "verify: red (exit $status) in ${seconds}s: the check changed files git does not ignore, which a check never does (a --fix, a snapshot written, a report not ignored). They stay as it left them:"
+  printf '%s\n' "$changed" | sed 's/^/  /'
+  echo "Full output: $output."
+else
+  echo "verify: red (exit $status) in ${seconds}s; full output: $output."
+fi
 if ((task)); then
   streak="$(bash "$OVERLOAD_SCRIPTS/journal.sh" inc verify_red_streak)"
   if ((streak >= 3)); then

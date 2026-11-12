@@ -141,6 +141,22 @@ test_verify_red_is_red_through_a_pipe_in_the_command() {
   expect_fail "verify: red" bash "$SCRIPTS/verify.sh"
 }
 
+test_verify_is_red_when_the_check_changes_a_file_git_does_not_ignore() {
+  echo "*.log" >.gitignore
+  set_config verify 'bash check.sh; date >run.log; [[ ! -f fix ]] || echo fixed >>README.md'
+  git add -A && git commit -qm "chore(repo): a check that writes"
+  open_task
+  echo "More." >>README.md
+  bash "$SCRIPTS/verify.sh" | grep -q "verify: green" || fail "an ignored file made it red"
+  touch fix
+  if out="$(bash "$SCRIPTS/verify.sh" 2>&1)"; then fail "green: $out"; fi
+  [[ "$out" == *"verify: red"*"changed files git does not ignore"*"README.md"* ]] || fail "$out"
+  [[ "$out" != *"  fix"* ]] || fail "a file the check did not change is listed: $out"
+  source_lib
+  is_verified && fail "a check that changed the tree left it verified"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get verify_red_streak)" "1"
+}
+
 test_verify_third_red_asks_the_human() {
   open_task
   touch red
