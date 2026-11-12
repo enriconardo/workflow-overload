@@ -86,6 +86,19 @@ class TranscriptsTest(unittest.TestCase):
         self.assertEqual(r["verify"]["runs"], 1)
         self.assertEqual(r["verify"]["red"], 1)
 
+    def test_verify_default_matches_only_the_plugins_steps(self):
+        verify_re = __import__("re").compile(metrics.VERIFY_RE)
+        for command in ["bash /p/scripts/verify.sh", "bash /p/scripts/integrate.sh", "cd x && bash ../scripts/verify.sh 2>&1"]:
+            self.assertRegex(command, verify_re)
+        for command in ["pnpm verify", "./dev.sh exec pnpm run verify:all", "bash scripts/verify-docs.sh", "make verify"]:
+            self.assertNotRegex(command, verify_re)
+
+    def test_a_piped_step_is_flagged(self):
+        self.assertRegex("bash /p/scripts/verify.sh | tail -5", metrics.PIPED_RE)
+        self.assertRegex("bash /p/scripts/integrate.sh 2>&1 | tail", metrics.PIPED_RE)
+        self.assertNotRegex("bash /p/scripts/verify.sh || echo red", metrics.PIPED_RE)
+        self.assertNotRegex("pnpm verify:all | tail", metrics.PIPED_RE)
+
     def test_weighted_uses_price_ratios(self):
         bucket = {"input": 10, "cache_write": 100, "cache_read": 1000, "output": 2}
         self.assertEqual(metrics.weighted(bucket), 10 + 125 + 100 + 10)

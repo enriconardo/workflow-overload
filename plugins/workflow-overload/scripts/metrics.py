@@ -147,7 +147,10 @@ def human_text(line):
 # What a failed run prints when a pipe hides its exit code: pnpm, turbo,
 # npm, and the shell's own report.
 FAILURE_RE = re.compile(r"ELIFECYCLE|ERR_PNPM_|^\s*Failed:\s+\S|\bnpm error\b|Exit code [1-9]|Tasks:\s+\d+ successful, \d+ total.*\n?.*Failed", re.M)
-PIPED_RE = re.compile(r"verify(:all)?\b(?:[^|;&]|(?<!&)&(?!&))*\|(?!\|)")
+# A Bash command that runs verify: the plugin's own steps, verify.sh and
+# integrate.sh, which repeats verify on a merge's result.
+VERIFY_RE = r"\b(verify|integrate)\.sh\b"
+PIPED_RE = re.compile(VERIFY_RE + r"(?:[^|;&]|(?<!&)&(?!&))*\|(?!\|)")
 
 
 def result_text(block):
@@ -540,7 +543,7 @@ def record(branch, main_branch, journal, runs_log, phases):
     }
     project_dir = os.path.join(config_dir(), "projects", encode_project_path("."))
     if os.path.isdir(project_dir):
-        verify_re = re.compile(r"\bverify\.sh\b")
+        verify_re = re.compile(VERIFY_RE)
         for r in collect_transcripts(project_dir, main_branch, verify_re, phases):
             if r["branch"] == branch:
                 out["tokens"] = {"roles": r["roles"], "total": r["total"], "sessions": r["sessions"],
@@ -555,7 +558,7 @@ def main():
     tp.add_argument("--repo", help="the repository's checkout; finds its transcript folder")
     tp.add_argument("--project-dir", help="the transcript folder itself, instead of --repo")
     tp.add_argument("--main", default="main")
-    tp.add_argument("--verify", default=r"(^|[;&|(]\s*)(\./dev\.sh exec\s+)?pnpm (run )?verify(:all)?\b|(^|[;&|(]\s*)(bash\s+)?(\./)?scripts/integrate\.sh\b|\bverify\.sh\b", help="regex of a Bash command that runs verify")
+    tp.add_argument("--verify", default=VERIFY_RE, help="regex of a Bash command that runs verify")
     tp.add_argument("--phases", default="spec,implement,publish,arch-review,overload", help="skills that open a phase of the main agent")
     tp.add_argument("--branch", help="regex: keep only matching branches")
     gp = sub.add_parser("git", help="tier, commits and review rounds per merged branch")
