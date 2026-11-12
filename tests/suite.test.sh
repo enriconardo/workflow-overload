@@ -249,6 +249,22 @@ test_red_check_without_run_tests_is_skipped() {
   grep -q $'\tred-check\tskipped' "$(git rev-parse --git-path overload)/runs.log" || fail "not logged"
 }
 
+test_junit_types_found_prints_what_the_runner_reported() {
+  fake_runner
+  write_test probe-assert.test.ts "case a assert"
+  write_test probe-stub.test.ts "case s notimpl"
+  write_test probe-load.test.ts "load"
+  files=(__tests__/probe-assert.test.ts __tests__/probe-stub.test.ts __tests__/probe-load.test.ts)
+  python3 runner.py "${files[@]}" >"$WORK/out.txt"
+  out="$(python3 "$SCRIPTS/junit.py" --types-found "$WORK/out.txt" "${files[@]}" __tests__/missing.test.ts)"
+  expect_eq "$out" "__tests__/probe-assert.test.ts > a: AssertionError
+__tests__/probe-stub.test.ts > s: NotImplemented
+__tests__/probe-load.test.ts > __tests__/probe-load.test.ts: LOAD ERROR
+__tests__/missing.test.ts: not in the runner's report"
+  echo nothing >"$WORK/empty.txt"
+  expect_fail "printed no JUnit XML" python3 "$SCRIPTS/junit.py" --types-found "$WORK/empty.txt" "${files[@]}"
+}
+
 test_red_check_without_xml_says_so() {
   set_config run_tests 'echo nothing {files}'
   git add -A && git commit -qm "chore(repo): no xml"

@@ -77,5 +77,35 @@ class PytestTest(unittest.TestCase):
         self.assertEqual(lines, ["a.test.ts > t: red, NotImplemented"])
 
 
+class TypesFoundTest(unittest.TestCase):
+    """What the setup's red probe reads: each testcase's outcome, with no
+    judgment and nothing that changes from one run to the next."""
+
+    def test_prints_each_testcase_s_type_in_the_order_of_the_files(self):
+        lines = junit.types_found(PYTEST, ["tests/test_b.py", "tests/test_a.py", "tests/test_c.py"])
+        self.assertEqual(lines, [
+            "tests/test_b.py > tests.test_b: LOAD ERROR",
+            "tests/test_a.py > test_assert: AssertionError",
+            "tests/test_a.py > test_stub: NotImplementedError",
+            "tests/test_a.py > test_ok: passes",
+            "tests/test_c.py > test_custom: Custom",
+            "tests/test_c.py > test_type: TypeError",
+        ])
+
+    def test_names_a_file_not_in_the_report_skips_and_failures_without_a_type(self):
+        xml = ('<testsuites><testsuite name="a.test.ts">'
+               '<testcase classname="a.test.ts" name="s"><skipped/></testcase>'
+               '<testcase classname="a.test.ts" name="u"><failure message="boom">no type here</failure></testcase>'
+               '<testcase classname="a.test.ts" name="a.test.ts"><failure type="Error" message="Cannot find module"/></testcase>'
+               '</testsuite></testsuites>')
+        lines = junit.types_found(xml, ["a.test.ts", "b.test.ts"])
+        self.assertEqual(lines, [
+            "a.test.ts > s: skipped",
+            "a.test.ts > u: no type",
+            "a.test.ts > a.test.ts: LOAD ERROR",
+            "b.test.ts: not in the runner's report",
+        ])
+
+
 if __name__ == "__main__":
     unittest.main()

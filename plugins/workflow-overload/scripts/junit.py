@@ -3,6 +3,7 @@
 
   junit.py --types "AssertionError, NotImplemented" [--existing <names-file>] [--green <file>] <output-file> <test-file>...
   junit.py --list <output-file> <test-file>...
+  junit.py --types-found <output-file> <test-file>...
 
 <output-file> holds what the test command printed: the JUnit XML is the
 part from the first `<?xml` or `<testsuites` to the last `</testsuites>`, so
@@ -28,6 +29,11 @@ A testcase listed in --existing (lines `<test-file>\t<name>`, as --list
 prints them for a run of the files as they are in HEAD) was there before the
 chunk: it may pass, or fail by rule 3 when the chunk changes the behavior it
 tests.
+
+--types-found judges nothing: it prints each testcase's outcome, the
+failure's type by rule 3, LOAD ERROR by rule 1, `skipped` or `passes`, and
+each file the report lacks. The setup's red probe reads it to measure
+red_types.
 
 Exit 0 when the run is a valid red, 1 when it is not, 2 when the output
 holds no JUnit XML. Python 3.8+, standard library only.
@@ -96,6 +102,32 @@ def collect(xml_text, files):
     return found
 
 
+def load_error(case, f):
+    """A testcase that stands for its file failing to load (rule 1)."""
+    name = case.get("name") or ""
+    classname = case.get("classname")
+    return case.find("error") is not None or same_file(name, f) or bool(classname and same_file(name, classname))
+
+
+def types_found(xml_text, files):
+    lines = []
+    for f, cases in collect(xml_text, files).items():
+        if not cases:
+            lines.append("%s: not in the runner's report" % f)
+        for case in cases:
+            failure = case.find("failure")
+            if load_error(case, f):
+                kind = "LOAD ERROR"
+            elif case.find("skipped") is not None:
+                kind = "skipped"
+            elif failure is None:
+                kind = "passes"
+            else:
+                kind = failure_type(failure) or "no type"
+            lines.append("%s > %s: %s" % (f, case.get("name"), kind))
+    return lines
+
+
 def judge(xml_text, files, types, existing=frozenset()):
     found = collect(xml_text, files)
     problems = []
@@ -114,7 +146,7 @@ def judge(xml_text, files, types, existing=frozenset()):
             error = case.find("error")
             skipped = case.find("skipped")
             name = case.get("name") or ""
-            if error is not None or same_file(name, f) or (case.get("classname") and same_file(name, case.get("classname") or "")):
+            if load_error(case, f):
                 problems.append(label)
                 node = error if error is not None else failure
                 message = (node.get("message") if node is not None else "") or ""
@@ -155,6 +187,7 @@ def main():
     parser.add_argument("--existing", help="the testcases already in HEAD, as --list prints them")
     parser.add_argument("--green", help="a file for the new testcases that pass already, one per line")
     parser.add_argument("--list", action="store_true", help="print each testcase as <test-file>\\t<name>")
+    parser.add_argument("--types-found", action="store_true", help="print each testcase's failure type, judging nothing")
     parser.add_argument("output")
     parser.add_argument("files", nargs="+")
     args = parser.parse_args()
@@ -169,6 +202,10 @@ def main():
             for f, cases in collect(xml_text, args.files).items():
                 for case in cases:
                     print("%s\t%s" % (f, case.get("name") or ""))
+            return 0
+        if args.types_found:
+            for line in types_found(xml_text, args.files):
+                print(line)
             return 0
         problems, lines, green = judge(xml_text, args.files, types, read_existing(args.existing))
     except ET.ParseError as error:
