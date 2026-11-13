@@ -2,8 +2,6 @@
 
 A development workflow for [Claude Code](https://claude.com/claude-code), packaged as the plugin `workflow-overload`. It takes a request to a verified merge, spends agents and checks in proportion to the task, and starts only when you type `/overload`.
 
-> **Status: 0.4.1.** Setup, brainstorming, triage, the S path, the L path, resume and integration by local merge all work. Not yet: integration by pull request, starting a project with no code, and a plan above the single task (see [the backlog](.workflow/backlog.md)).
-
 ## What this is and why it exists
 
 An agent left alone on a change writes the code, writes the tests that confirm it, reviews its own work and commits whatever it last saw pass. Each of those steps hides the defects of the one before: tests written after the code confirm what it does today, bugs included; a review by the author sees what the author meant, not what they wrote; a long session carries its drift toward the human's first idea into every later step.
@@ -291,6 +289,14 @@ CI runs them on every push. A change to a script starts with a test in `tests/sc
 - Branch: `<type>/<scope>/<description>`, types `feature`, `fix`, `refactor`, `test`, `docs`, `chore`; scope `scripts`, `skill`, `agents`, `hooks`, `metrics` or `repo`.
 - Commit: `[<scope>] <type>: <summary>`, the type one of `feat`, `fix`, `refactor`, `perf`, `test`, `docs`, `build`, `ci`, `chore`; summary imperative, lowercase, no trailing period, at most 72 characters in all; a body when the why is not obvious.
 - A release bumps `version` in `plugins/workflow-overload/.claude-plugin/plugin.json`; a change that breaks existing configs bumps the minor version.
+
+## Roadmap
+
+Setup, brainstorming, triage, the S path, the L path, resume and integration by local merge all work today. Next, each to be designed before it is built (details in [the backlog](.workflow/backlog.md)):
+
+- **Integration by pull or merge request** on GitHub, GitLab and Bitbucket, for projects whose main branch takes no local merge.
+- **`/overload bootstrap`**, to start a project that has no code yet: no `check`, no test runner, nothing for setup to read.
+- **A level above the task**, a roadmap or epic that carries architecture and order across tasks, for building a whole application.
 
 ## License
 
