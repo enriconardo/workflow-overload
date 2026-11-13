@@ -16,7 +16,7 @@ The spec's path and the explorer's map (a path).
 
 - **The fewest chunks.** Each stays under about 6–7 files touched or 10–15 test cases.
 - **Each chunk leaves the repository green by itself**, after its commit: no chunk relies on a later one to compile or to pass.
-- **Each chunk has a type.** Test-first: new or changed public behavior, domain logic, a bug. No test-first: a refactor (existing tests stay green unchanged), wiring, docs, config, and a chunk that changes no source file, only tests: with no code to write, its tests cannot fail first.
+- **Each chunk has a type.** Test-first: new or changed public behavior, domain logic, a bug, whose tests fail at runtime against its stubs. No test-first: a refactor (existing tests stay green unchanged), wiring, docs, config; a chunk that changes no source file, only tests: with no code to write, its tests cannot fail first; and a chunk whose code is only declarations (types, interfaces): its stub is already its code, and its tests fail only in the type checker, which the red check does not run. A chunk the spec says has no red at runtime is no test-first.
 - **A changed signature is named.** A test-first chunk that changes the signature of an existing declaration (a constructor, a parameter list) lists it after `signatures:`: the test-author cannot stub it.
 - **A new dependency is named.** A test-first chunk whose code needs a package the project lacks lists it after `dependencies:`: its tests cannot load before the package is installed.
 - **Order by dependency**: interfaces before their users; the refactor that makes room before the behavior that uses it.
