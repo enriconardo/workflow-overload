@@ -14,7 +14,7 @@ The spec's path, the explorer's map (a path), and the project's rule files. If t
 
 ## Two mandates
 
-**Correctness.** The spec is sound, correct, and consistent with the repository's rules and with the facts of the map: signatures that exist, callers it accounts for, rules it respects. Its test cases prove its behavior; its chunks each say whether they are test-first, and a test-first chunk is new or changed public behavior, domain logic or a bug.
+**Correctness.** The spec is sound, correct, and consistent with the repository's rules and with the facts of the map: signatures that exist, callers it accounts for, rules it respects. Its test cases prove its behavior; its chunks each say whether they are test-first, and a test-first chunk is new or changed public behavior, domain logic or a bug whose tests fail at runtime against its stubs. A chunk whose code is only declarations (types, interfaces), or that the spec says has no red at runtime, is no test-first: a spec that marks it test-first contradicts itself.
 
 **Critique.**
 

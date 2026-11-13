@@ -12,7 +12,7 @@ The test-author cannot stub a declaration that already exists (a changed constru
 
 ### 1. Tests — `l/chunk-<n>/test`, test-first chunks and chunks with no source to change
 
-Run the `workflow-overload:step-test-author` agent with the spec's path, the chunk's number, the config's `rules` and `tests_glob`, and the scripts' folder. It writes the chunk's tests before any code, and stubs only for the new interfaces the spec declares, and records the suite with `suite.sh record`. It never reads the source the chunk changes. When it reports a module the tests need and the project lacks, add it to the chunk line's `dependencies` and go back to 0.
+Run the `workflow-overload:step-test-author` agent with the spec's path, the chunk's number, the config's `rules` and `tests_glob`, and the scripts' folder. It writes the chunk's tests before any code, and stubs only for the new interfaces the spec declares, and records the suite with `suite.sh record`. It never reads the source the chunk changes. When it reports a module the tests need and the project lacks, add it to the chunk line's `dependencies` and go back to 0. When it reports that every case of the chunk is at the type level, the chunk has no red: change its type to `no test-first` in the spec, log it, and go to 3.
 
 ### 2. Red check — `l/chunk-<n>/red`, test-first chunks only
 
