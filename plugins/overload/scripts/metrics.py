@@ -152,6 +152,12 @@ FAILURE_RE = re.compile(r"ELIFECYCLE|ERR_PNPM_|^\s*Failed:\s+\S|\bnpm error\b|Ex
 VERIFY_RE = r"\b(verify|integrate)\.sh\b"
 PIPED_RE = re.compile(VERIFY_RE + r"(?:[^|;&]|(?<!&)&(?!&))*\|(?!\|)")
 
+# The skills that open a phase of the main agent: /overload:task in a task's
+# line; the transcripts also read the entry of releases before 0.5.0,
+# /overload, and the skills of the workflow before this one.
+RECORD_PHASES = "task"
+TRANSCRIPT_PHASES = "spec,implement,publish,arch-review,overload,task"
+
 
 def result_text(block):
     content = block.get("content")
@@ -558,7 +564,7 @@ def main():
     tp.add_argument("--project-dir", help="the transcript folder itself, instead of --repo")
     tp.add_argument("--main", default="main")
     tp.add_argument("--verify", default=VERIFY_RE, help="regex of a Bash command that runs verify")
-    tp.add_argument("--phases", default="spec,implement,publish,arch-review,overload", help="skills that open a phase of the main agent")
+    tp.add_argument("--phases", default=TRANSCRIPT_PHASES, help="skills that open a phase of the main agent")
     tp.add_argument("--branch", help="regex: keep only matching branches")
     gp = sub.add_parser("git", help="tier, commits and review rounds per merged branch")
     gp.add_argument("--repo", required=True)
@@ -572,7 +578,7 @@ def main():
     rp.add_argument("--main", default="main")
     rp.add_argument("--journal", required=True)
     rp.add_argument("--runs", required=True, help="the clone's verify run log")
-    rp.add_argument("--phases", default="overload")
+    rp.add_argument("--phases", default=RECORD_PHASES)
     sp = sub.add_parser("summary", help="a table joining the two outputs by branch")
     sp.add_argument("files", nargs="+")
     args = parser.parse_args()
