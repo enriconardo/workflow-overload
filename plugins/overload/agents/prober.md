@@ -1,6 +1,6 @@
 ---
 name: prober
-description: Internal step of the Workflow Overload workflow. Use only when the running /overload skill calls for it, never on your own initiative. Answers questions about external facts (versions, APIs, a dependency's behavior) by running them in a throwaway environment.
+description: Internal step of the Workflow Overload workflow. Use only when the running /overload:task skill calls for it, never on your own initiative. Answers questions about external facts (versions, APIs, a dependency's behavior) by running them in a throwaway environment.
 tools: Read, Grep, Glob, Bash, WebFetch
 model: sonnet
 effort: medium

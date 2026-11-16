@@ -435,6 +435,15 @@ test_branch_carries_the_first_config_of_init() {
   expect_fail "uncommitted changes" bash -c "git switch -q main && bash '$SCRIPTS/branch.sh' S docs/other/thing '$(intent)'"
 }
 
+test_every_skill_runs_only_when_the_user_types_it() {
+  local skill
+  local -a open=()
+  for skill in "$SCRIPTS"/../skills/*/SKILL.md; do
+    sed -n '2,/^---$/p' "$skill" | grep -qx 'disable-model-invocation: true' || open+=("$skill")
+  done
+  ((${#open[@]} == 0)) || fail "the model could load: ${open[*]}"
+}
+
 test_the_phases_and_agents_name_only_the_config_s_keys() {
   source_lib
   local plugin="$SCRIPTS/.." readme="$SCRIPTS/../../../README.md" key explorer_keys
@@ -446,8 +455,8 @@ test_the_phases_and_agents_name_only_the_config_s_keys() {
   # `key = value` lines of the README's
   # shellcheck disable=SC2016 # backticks to match, not to expand
   mapfile -t named < <({
-    grep -ohE "config's (\`[a-z_]+\`(, | and |, and )?)+" "$plugin"/skills/overload/SKILL.md \
-      "$plugin"/skills/overload/phases/*.md "$plugin"/agents/*.md | grep -oE '`[a-z_]+`' | tr -d '`'
+    grep -ohE "config's (\`[a-z_]+\`(, | and |, and )?)+" "$plugin"/skills/*/SKILL.md \
+      "$plugin"/skills/task/phases/*.md "$plugin"/agents/*.md | grep -oE '`[a-z_]+`' | tr -d '`'
     printf '%s\n' "$explorer_keys"
     grep -ohE '^[a-z_]+ +=' "$readme" | tr -d ' ='
   } | sort -u)

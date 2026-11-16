@@ -1,6 +1,6 @@
 ---
 name: spec-reviewer
-description: Internal step of the Workflow Overload workflow. Use only when the running /overload skill calls for it, never on your own initiative. Reviews an L spec for correctness and challenges its premises; read-only.
+description: Internal step of the Workflow Overload workflow. Use only when the running /overload:task skill calls for it, never on your own initiative. Reviews an L spec for correctness and challenges its premises; read-only.
 tools: Read, Grep, Glob, Bash
 model: opus
 effort: high

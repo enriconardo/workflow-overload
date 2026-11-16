@@ -1,6 +1,6 @@
 ---
 name: code-explorer
-description: Internal step of the Workflow Overload workflow. Use only when the running /overload skill calls for it, never on your own initiative. Maps the code a request touches; read-only.
+description: Internal step of the Workflow Overload workflow. Use only when the running /overload:task skill calls for it, never on your own initiative. Maps the code a request touches; read-only.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 effort: medium

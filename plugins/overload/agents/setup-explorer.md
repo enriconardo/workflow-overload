@@ -1,6 +1,6 @@
 ---
 name: setup-explorer
-description: Internal step of the Workflow Overload workflow. Use only when the running /overload skill calls for it, never on your own initiative. Reads a project and proposes its .workflow/config and what its rule files lack; read-only.
+description: Internal step of the Workflow Overload workflow. Use only when the running /overload:setup skill calls for it, never on your own initiative. Reads a project and proposes its .workflow/config and what its rule files lack; read-only.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 effort: high

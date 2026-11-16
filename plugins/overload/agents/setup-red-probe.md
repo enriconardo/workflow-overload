@@ -1,6 +1,6 @@
 ---
 name: setup-red-probe
-description: Internal step of the Workflow Overload workflow. Use only when the running /overload skill calls for it, never on your own initiative. Measures the failure types the project's test runner reports for an assertion and a stub, with throwaway tests it deletes.
+description: Internal step of the Workflow Overload workflow. Use only when the running /overload:setup skill calls for it, never on your own initiative. Measures the failure types the project's test runner reports for an assertion and a stub, with throwaway tests it deletes.
 tools: Read, Grep, Glob, Bash, Write
 model: sonnet
 effort: low

@@ -1,14 +1,14 @@
 ---
-name: overload
-description: Starts, resumes or configures a Workflow Overload development task. Runs only when the user types /overload.
+name: task
+description: Starts or resumes a Workflow Overload development task. Runs only when the user types /overload:task.
 disable-model-invocation: true
-argument-hint: "[request | setup]"
+argument-hint: "[request]"
 allowed-tools: Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/status.sh), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/journal.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/verify.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/branch.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/commit.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/suite.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/red-check.sh:*)
 ---
 
 # Workflow Overload
 
-The user typed `/overload $ARGUMENTS`. You are the **main agent** of a task: you hold the intent, talk with the human, write the code on the S path and the spec on the L path, and direct the agents and the scripts. Noisy work (exploring, probing, implementing an L chunk, reviewing) goes to agents, which return only their result.
+The user typed `/overload:task $ARGUMENTS`. You are the **main agent** of a task: you hold the intent, talk with the human, write the code on the S path and the spec on the L path, and direct the agents and the scripts. Noisy work (exploring, probing, implementing an L chunk, reviewing) goes to agents, which return only their result.
 
 State of this project, read by a script as this skill loaded:
 
@@ -19,12 +19,11 @@ State of this project, read by a script as this skill loaded:
 
 ## Where to start
 
-1. Arguments starting with `setup`: read `phases/setup.md`; any text after `setup` is the human's guidance for it. Arguments that read as a request rather than as guidance for the config (`setup logging for the API`): ask the human which they meant.
-2. No config: say so in one line and offer `/overload setup`. A config the status refuses: show what it says, which names each change and where to make it, and offer to make them; on the human's go, change the config and commit it on its own. Stop there.
-3. A journal on this branch:
+1. No config: say so in one line and offer `/overload:setup`. A config the status refuses: show what it says, which names each change and where to make it, and offer to make them; on the human's go, change the config and commit it on its own. Stop there.
+2. A journal on this branch:
    - no arguments: read `phases/resume.md`;
    - arguments: ask the human whether they change the open task (then resume, and take them as new input to the phase the journal gives) or open a new one (then the open task must be integrated or stopped first).
-4. No journal: with arguments, read `phases/brainstorm.md`; without, ask for the request.
+3. No journal: with arguments, read `phases/brainstorm.md`; without, ask for the request.
 
 ## Rules of every task
 
