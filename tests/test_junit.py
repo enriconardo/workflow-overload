@@ -8,7 +8,7 @@ import os
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SPEC = importlib.util.spec_from_file_location("junit", os.path.join(HERE, "..", "plugins", "workflow-overload", "scripts", "junit.py"))
+SPEC = importlib.util.spec_from_file_location("junit", os.path.join(HERE, "..", "plugins", "overload", "scripts", "junit.py"))
 junit = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(junit)
 
