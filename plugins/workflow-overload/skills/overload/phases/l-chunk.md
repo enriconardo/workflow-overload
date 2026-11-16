@@ -20,9 +20,14 @@ Run the `workflow-overload:step-test-author` agent with the spec's path, the chu
 
 ### 3. Implementation — `l/chunk-<n>/implement`
 
-Run the `workflow-overload:step-implementer` agent with the spec's path, the chunk's number, the recorded test files (`suite.sh files`), the config's `rules`, and, on a later round, the findings to fix. It writes the code that makes the tests pass and no test: commit.sh refuses a tree where a recorded test changed, or, on a test-first chunk, any other test file. A case it reports missing goes to the test-author, who records the suite again, and the red check runs again.
+Run the `workflow-overload:step-implementer` agent with the spec's path, the chunk's number, the recorded test files (`suite.sh files`), the config's `rules`, and, on a later round, the findings to fix. It writes the code that makes the tests pass and no test: commit.sh refuses a tree where a recorded test changed, or, on a test-first chunk, any other test file.
 
-When it reports a test it thinks wrong, decide on the spec (*A test reported wrong*).
+Read its report before verify, heading by heading:
+
+- **No report**, one without the headings of its *Output* (an empty or one-word answer): do not redo its work or its checks yourself. Ask it once for the report, continuing it with `SendMessage` when you can, else running it again on the chunk with a note that the working tree holds its work; still none, `phases/escalate.md`.
+- **Not done**: each item is settled before verify. One the implementer can finish goes back to it; one it cannot goes under *Open findings*, for the human.
+- **Cases missing**: to the test-author, who records the suite again, and the red check runs again.
+- **Tests wrong**: decide on the spec (*A test reported wrong*).
 
 ### 4. Verify — `l/chunk-<n>/verify`
 
