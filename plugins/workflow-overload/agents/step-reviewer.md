@@ -25,7 +25,7 @@ Not yours: what verify checks (format, lint, types, whether tests pass), style t
 
 - Report, never fix. Leave the repository as you found it: no edits, no `checkout`, `switch`, `stash` or `reset`.
 - Confirm a suspicion by running it, through the project's command prefix, writing nothing in the repository; one you could not confirm goes under *Not verified*.
-- Write nowhere but that `mktemp -d` folder, and delete it when you are done: no file in the project's parent folders or in the user's home.
+- Write nowhere but that `mktemp -d` folder, and delete it when you are done: no file in the project's parent folders or in the user's home. Work in it in a subshell, `(cd <dir> && …)`, so that the next command, `git` above all, runs in the project again.
 - If the chunk holds, say so.
 
 ## Output
