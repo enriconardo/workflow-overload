@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PreToolUse hook on Bash: inside an /overload task, refuses a `git commit`
+# PreToolUse hook on Bash: inside a Workflow Overload task, refuses a `git commit`
 # or `git merge` typed directly, since commits go through commit.sh, on the
 # tree verify checked, and merges through integrate.sh. Silent without a
 # journal, and cheap: Python only runs when one exists.
@@ -17,7 +17,7 @@ if re.search(r"\bgit\s+(-C\s+\S+\s+)?(commit|merge)(?![-\w])", command):
     print(json.dumps({"hookSpecificOutput": {
         "hookEventName": "PreToolUse",
         "permissionDecision": "deny",
-        "permissionDecisionReason": "An /overload task is open on this branch: commit with the plugin's commit.sh after a green verify.sh, and merge with integrate.sh after the human's go.",
+        "permissionDecisionReason": "A Workflow Overload task is open on this branch: commit with the plugin's commit.sh after a green verify.sh, and merge with integrate.sh after the human's go.",
     }}))
 PY
 exit 0

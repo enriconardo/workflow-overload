@@ -38,7 +38,7 @@ test_config_refuses_a_key_it_does_not_know() {
 
 test_config_missing_points_to_setup() {
   rm .workflow/config
-  expect_fail "run /overload setup first" bash "$SCRIPTS/verify.sh"
+  expect_fail "run /overload:setup first" bash "$SCRIPTS/verify.sh"
 }
 
 test_config_refuses_a_config_without_check() {
@@ -406,7 +406,7 @@ session_start() {
 test_session_start_speaks_only_inside_a_task() {
   expect_eq "$(session_start startup)" ""
   open_task
-  [[ "$(session_start startup)" == *"continues only when the user types /overload"* ]] || fail "startup"
+  [[ "$(session_start startup)" == *"continues only when the user types /overload:task"* ]] || fail "startup"
   [[ "$(session_start clear)" == *"phase s/implement"* ]] || fail "clear"
   [[ "$(session_start compact)" == *"reread .workflow/journal.md"* ]] || fail "compact"
   expect_eq "$(session_start resume)" "" "a resumed session holds the task"

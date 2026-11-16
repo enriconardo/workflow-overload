@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-# What the /overload skill reads before it decides what to do: the config,
-# the branch, the journal's header and whether the tree is verified. Never
-# fails, so that the skill always loads.
+# What the skills read before they decide what to do: the config, the
+# branch, the journal's header and whether the tree is verified. Never
+# fails, so that a skill always loads.
 
 # shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"

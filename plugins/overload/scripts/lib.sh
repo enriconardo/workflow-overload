@@ -110,7 +110,7 @@ config_problems_found() {
 }
 
 require_config() {
-  [[ -f "$CONFIG_FILE" ]] || die "no $CONFIG_FILE in this project: run /overload setup first."
+  [[ -f "$CONFIG_FILE" ]] || die "no $CONFIG_FILE in this project: run /overload:setup first."
   local problems
   problems="$(config_problems)"
   [[ -z "$problems" ]] || die "$CONFIG_FILE is refused:
@@ -137,7 +137,7 @@ on_task_branch() {
   branch="$(current_branch)"
   main="$(cfg main)"
   [[ -n "$branch" && "$branch" != "$main" ]] || die "on '${branch:-a detached HEAD}': this runs on a task's branch."
-  [[ -f "$JOURNAL_FILE" ]] || die "'$branch' has no $JOURNAL_FILE: it is not an /overload task."
+  [[ -f "$JOURNAL_FILE" ]] || die "'$branch' has no $JOURNAL_FILE: it is not a Workflow Overload task."
 }
 
 # The plugin's state for this clone: verified trees and run logs. Inside .git,
