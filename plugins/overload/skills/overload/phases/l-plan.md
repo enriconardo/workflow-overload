@@ -4,7 +4,7 @@ Produces a reviewed spec, split into chunks, that the human approves before any 
 
 ## 1. Spec — phase `l/spec`
 
-You write it, because you hold the discussion with the human: an agent given a summary would lose the intent. Start from the explorer's map, which the spec reviewer and the splitter read too: if the brainstorming logged none, run the `workflow-overload:code-explorer` agent now, as `phases/brainstorm.md` says, and log the map's path. Write it at `.workflow/specs/<YYYY-MM-DD>-<description>.md` and record its path: `journal.sh set spec <path>`.
+You write it, because you hold the discussion with the human: an agent given a summary would lose the intent. Start from the explorer's map, which the spec reviewer and the splitter read too: if the brainstorming logged none, run the `overload:code-explorer` agent now, as `phases/brainstorm.md` says, and log the map's path. Write it at `.workflow/specs/<YYYY-MM-DD>-<description>.md` and record its path: `journal.sh set spec <path>`.
 
 ```
 ---
@@ -36,11 +36,11 @@ A decision that outlives the task also gets a decision record, in a folder of th
 
 ## 2. Probe — phase `l/probe`, only when the spec rests on external facts not yet checked
 
-Versions, APIs, a dependency's behavior. Run the `workflow-overload:prober` agent with the questions, one per line. It answers each with the commands it ran and their output. Update the spec, and note in *Decisions* what the probe settled.
+Versions, APIs, a dependency's behavior. Run the `overload:prober` agent with the questions, one per line. It answers each with the commands it ran and their output. Update the spec, and note in *Decisions* what the probe settled.
 
 ## 3. Spec review — phase `l/spec-review`
 
-Run the `workflow-overload:spec-reviewer` agent with the spec's path and the explorer map's path (write the map to a file outside the repository first), and the config's `rules`. Never a summary of the discussion. Increment `spec_review_rounds` in the journal.
+Run the `overload:spec-reviewer` agent with the spec's path and the explorer map's path (write the map to a file outside the repository first), and the config's `rules`. Never a summary of the discussion. Increment `spec_review_rounds` in the journal.
 
 For each objection: accept it and fix the spec, or reject it with a reason, which goes under *Open findings*. A new question about external facts goes back to 2; a question only the human can answer goes to them now. The loop ends when the reviewer's last round raises no blocking objection you accept. A minor one you fix, or reject, without another round; an accepted blocking one fixes the spec and calls for another round. At most three rounds, then `phases/escalate.md`; past the third, every round ends there again while a blocking objection stays open.
 
@@ -50,7 +50,7 @@ A chunk stays under about 6–7 files touched or 10–15 test cases, so that its
 
 ## 5. Split — phase `l/split`
 
-Run the `workflow-overload:spec-splitter` agent with the spec's path and the map's path. It returns the fewest chunks, each able to leave the repository green alone, each with its type. Write them in the spec's *Chunks*.
+Run the `overload:spec-splitter` agent with the spec's path and the map's path. It returns the fewest chunks, each able to leave the repository green alone, each with its type. Write them in the spec's *Chunks*.
 
 ## 6. Summary and checkpoint 1 — phase `l/checkpoint`
 

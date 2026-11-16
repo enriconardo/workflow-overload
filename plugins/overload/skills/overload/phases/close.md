@@ -1,10 +1,10 @@
 # Close
 
-Both paths end here: one final review, one round of lessons, the human's go, the merge. On the S path you fix what the review finds; on the L path the `workflow-overload:step-implementer` does, from a test that reproduces the finding.
+Both paths end here: one final review, one round of lessons, the human's go, the merge. On the S path you fix what the review finds; on the L path the `overload:step-implementer` does, from a test that reproduces the finding.
 
 ## 1. Final review — phase `close/review`
 
-Run the `workflow-overload:code-reviewer` agent with:
+Run the `overload:code-reviewer` agent with:
 
 - the intent or the spec: on S, the journal's path and its section *Intent*; on L, the spec's path (the journal's `spec`);
 - the range: first round `<base>..HEAD`, with `base` from the journal; a later round, the previous findings and `<sha>..HEAD`, `sha` being the HEAD the previous round reviewed;
@@ -23,7 +23,7 @@ A round that still finds blocking issues after the third goes to `phases/escalat
 
 Only for a problem of this task, planning included, that got past the step meant to catch it (the review or check of its own step did not) and could recur beyond this task's area. A defect of the workflow itself goes to the checkpoint as such, not as a lesson. The candidates are in the journal's *Lesson candidates*. Prefer a check, a script or a lint rule to written text; propose also to retire a rule of the area that proved useless or superseded. No proposal: skip to 3.
 
-Write the proposals to a file outside the repository, one per lesson: its text as it would land, where it lands (file and section, or the check and what it refuses), the evidence (a commit, a finding quoted as it came, a check's output, a `file:line`), and the step that found the problem and the one meant to catch it. Run the `workflow-overload:lesson-critic` agent with that path only. Apply the verdicts you accept; a `revise` or `drop` you reject keeps its reason.
+Write the proposals to a file outside the repository, one per lesson: its text as it would land, where it lands (file and section, or the check and what it refuses), the evidence (a commit, a finding quoted as it came, a check's output, a `file:line`), and the step that found the problem and the one meant to catch it. Run the `overload:lesson-critic` agent with that path only. Apply the verdicts you accept; a `revise` or `drop` you reject keeps its reason.
 
 ## 3. Summary and checkpoint — phase `close/checkpoint`
 

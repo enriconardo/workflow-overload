@@ -4,7 +4,7 @@ Writes `.workflow/config`, the only place where this project differs from any ot
 
 ## 1. Propose
 
-Run the `workflow-overload:setup-explorer` agent with the text after `setup`, the human's guidance, if any, and the scripts' folder. It reads the project and returns the proposal whole: a value for each key with its source and certainty, what it could not confirm of `check`, its questions, and the conventions the rule files lack, with the text to add. Do not read the files it read.
+Run the `overload:setup-explorer` agent with the text after `setup`, the human's guidance, if any, and the scripts' folder. It reads the project and returns the proposal whole: a value for each key with its source and certainty, what it could not confirm of `check`, its questions, and the conventions the rule files lack, with the text to add. Do not read the files it read.
 
 ## 2. Settle
 
@@ -18,7 +18,7 @@ Then run `bash <scripts>/verify.sh` on the main branch. It must be green: a red 
 
 ## 4. Measure `red_types`
 
-With `run_tests` set, run the `workflow-overload:setup-red-probe` agent with the config's `run_tests` and `tests_glob`, and the scripts' folder. It runs three throwaway tests twice and deletes them. Write the `red_types` it returns. When it finds the measure unreliable, set `run_tests` empty instead and give the human its diagnosis: the red check is then skipped, and logged as such. Change nothing else on its word.
+With `run_tests` set, run the `overload:setup-red-probe` agent with the config's `run_tests` and `tests_glob`, and the scripts' folder. It runs three throwaway tests twice and deletes them. Write the `red_types` it returns. When it finds the measure unreliable, set `run_tests` empty instead and give the human its diagnosis: the red check is then skipped, and logged as such. Change nothing else on its word.
 
 ## 5. Commit
 

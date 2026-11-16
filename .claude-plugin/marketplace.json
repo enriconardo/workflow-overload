@@ -6,8 +6,8 @@
   },
   "plugins": [
     {
-      "name": "workflow-overload",
-      "source": "./plugins/workflow-overload",
+      "name": "overload",
+      "source": "./plugins/overload",
       "description": "Takes a request to a verified merge on an S or an L path, with reviewers that never saw the code being written and scripts for every mechanical check."
     }
   ]

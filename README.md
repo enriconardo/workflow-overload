@@ -1,6 +1,6 @@
 # Workflow Overload
 
-A development workflow for [Claude Code](https://claude.com/claude-code), packaged as the plugin `workflow-overload`. It takes a request to a verified merge, spends agents and checks in proportion to the task, and starts only when you type `/overload`.
+A development workflow for [Claude Code](https://claude.com/claude-code), packaged as the plugin `overload` of the marketplace `workflow-overload`. It takes a request to a verified merge, spends agents and checks in proportion to the task, and starts only when you type `/overload`.
 
 ## What this is and why it exists
 
@@ -27,7 +27,7 @@ You need Claude Code, `bash`, `git` and `python3` (3.8 or later, standard librar
 
    ```
    /plugin marketplace add enriconardo/workflow-overload
-   /plugin install workflow-overload@workflow-overload
+   /plugin install overload@workflow-overload
    ```
 
 2. **Set up the project.** On its main branch, with a clean tree:
@@ -148,7 +148,7 @@ Branch names and commit messages follow the project's rules (its CLAUDE.md, its 
 
 ### Measures
 
-Each integrated task adds a line to `.workflow/metrics.jsonl`. `plugins/workflow-overload/scripts/metrics.py` also reads the Claude Code transcripts of a project and the merges of its history, to compare a workflow with the one before it:
+Each integrated task adds a line to `.workflow/metrics.jsonl`. `plugins/overload/scripts/metrics.py` also reads the Claude Code transcripts of a project and the merges of its history, to compare a workflow with the one before it:
 
 ```
 metrics.py transcripts --repo ~/code/project > t.jsonl
@@ -231,7 +231,7 @@ A loop that reaches its third round without converging, a stuck step, a finding 
 
 ### The agents
 
-All are internal to `/overload` and called as `workflow-overload:<name>`.
+All are internal to `/overload` and called as `overload:<name>`.
 
 | Agent | Model | Role |
 | --- | --- | --- |
@@ -254,8 +254,8 @@ Workflow Overload is maintained by one person and integrates by local merge, wit
 ### Layout
 
 ```
-.claude-plugin/marketplace.json   the marketplace: one plugin, ./plugins/workflow-overload
-plugins/workflow-overload/        what an install copies
+.claude-plugin/marketplace.json   the marketplace: one plugin, ./plugins/overload
+plugins/overload/        what an install copies
   .claude-plugin/plugin.json      name, version
   skills/overload/SKILL.md        the only entry: /overload
   skills/overload/phases/         one file per phase, read by the entry skill
@@ -276,7 +276,7 @@ docs/                             design and probes
 ### Checks
 
 ```
-shellcheck -x plugins/workflow-overload/scripts/*.sh tests/*.sh
+shellcheck -x plugins/overload/scripts/*.sh tests/*.sh
 tests/run.sh
 python3 -m unittest discover -s tests
 claude plugin validate .
@@ -288,7 +288,7 @@ CI runs them on every push. A change to a script starts with a test in `tests/sc
 
 - Branch: `<type>/<scope>/<description>`, types `feature`, `fix`, `refactor`, `test`, `docs`, `chore`; scope `scripts`, `skill`, `agents`, `hooks`, `metrics` or `repo`.
 - Commit: `[<scope>] <type>: <summary>`, the type one of `feat`, `fix`, `refactor`, `perf`, `test`, `docs`, `build`, `ci`, `chore`; summary imperative, lowercase, no trailing period, at most 72 characters in all; a body when the why is not obvious.
-- A release bumps `version` in `plugins/workflow-overload/.claude-plugin/plugin.json`; a change that breaks existing configs bumps the minor version.
+- A release bumps `version` in `plugins/overload/.claude-plugin/plugin.json`; a change that breaks existing configs bumps the minor version.
 
 ## Roadmap
 

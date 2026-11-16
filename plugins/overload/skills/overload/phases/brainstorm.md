@@ -3,7 +3,7 @@
 Turns the request into an understood problem and a tier the human confirms, without touching a file. It runs on the main branch; the task's branch opens at its end.
 
 1. **Understand.** Restate the request: the problem, the goal, the constraints. Note what is ambiguous, for the questions.
-2. **Explore**, unless the request is plainly S: step 4's criteria hold on its face, as for a docs-only change or a small change in files the request names. In doubt, explore. Run the `workflow-overload:code-explorer` agent with the restated request and the config's `rules`. It returns a short map with `file:line`: the code to change, who uses it, the rules it touches. Do not read the code it read: its map is what you need.
+2. **Explore**, unless the request is plainly S: step 4's criteria hold on its face, as for a docs-only change or a small change in files the request names. In doubt, explore. Run the `overload:code-explorer` agent with the restated request and the config's `rules`. It returns a short map with `file:line`: the code to change, who uses it, the rules it touches. Do not read the code it read: its map is what you need.
 
    On a plainly S request, read the files to change yourself, since you will read them to change them anyway, and find their callers with `git grep`. When what you read makes the request no longer plainly S, run the explorer before you ask.
 3. **Ask.** Targeted questions on requirements, edge cases, errors and trade-offs, from the map or from what you read. One message, the most important first. No code.
