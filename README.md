@@ -1,6 +1,6 @@
 # Workflow Overload
 
-A development workflow for [Claude Code](https://claude.com/claude-code), packaged as the plugin `overload` of the marketplace `workflow-overload`. It takes a request to a verified merge, spends agents and checks in proportion to the task, and starts only when you type `/overload`.
+A development workflow for [Claude Code](https://claude.com/claude-code), packaged as the plugin `overload` of the marketplace `workflow-overload`. It takes a request to a verified merge, spends agents and checks in proportion to the task, and starts only when you type `/overload:task`.
 
 ## What this is and why it exists
 
@@ -8,7 +8,7 @@ An agent left alone on a change writes the code, writes the tests that confirm i
 
 Workflow Overload splits those roles. The main agent holds the intent and talks with you; agents with a clean context explore, write tests from the spec without reading the code under change, implement, and review; scripts do every mechanical check, so a commit takes only the tree a green check just saw. A small change goes through a short path (S) with one review; anything that a consumer sees, or that spans areas, goes through a long one (L) with a reviewed spec, chunks written test-first, and a review per chunk. You decide the tier, the result and what the task leaves behind.
 
-It is a plugin with a single entry point: without `/overload`, a session works as it would without it.
+It is a plugin with two commands, `/overload:setup` to configure a project once and `/overload:task` to work on a request: without them, a session works as it would without the plugin.
 
 ### Principles
 
@@ -16,7 +16,7 @@ It is a plugin with a single entry point: without `/overload`, a session works a
 - **The main agent holds the intent and stays light.** Exploring, probing, implementing an L chunk and reviewing go to agents, which return only their result. On a plainly small change it reads the files it changes itself, since it would read them anyway.
 - **Mechanical checks are scripts.** Verify is green or red, a commit takes only the tree verify just checked, and a test-first suite must fail for the right reason before any code is written.
 - **The human decides where it matters**: the tier, the result, the lessons and backlog items to keep, and every loop that does not converge in three rounds.
-- **The workflow starts only with `/overload`.** The model cannot invoke the skill, the agents declare themselves internal, and the hooks stay silent on a branch without a task.
+- **The workflow starts only with `/overload:task`.** The model cannot invoke the skills, the agents declare themselves internal, and the hooks stay silent on a branch without a task.
 - **The project keeps its own conventions.** Its commands, branch names and commit messages live in its config and rule files; the plugin owns only when a check runs and the process around it.
 
 ## Quick start
@@ -30,23 +30,25 @@ You need Claude Code, `bash`, `git` and `python3` (3.8 or later, standard librar
    /plugin install overload@workflow-overload
    ```
 
+   From 0.4 or earlier, where the plugin was named `workflow-overload`: `/plugin uninstall workflow-overload@workflow-overload` first. A project's config stays as it is.
+
 2. **Set up the project.** On its main branch, with a clean tree:
 
    ```
-   /overload setup
+   /overload:setup
    ```
 
-   An agent reads the project and proposes `.workflow/config`, each value with its source, plus the conventions your rule files lack. Answer its questions, accept or change the values; it then runs your `check` on main, which must be green, measures how your test runner reports a failure, and commits the config on your go. Guidance helps when the project is unusual: `/overload setup take the commands from the Makefile`.
+   An agent reads the project and proposes `.workflow/config`, each value with its source, plus the conventions your rule files lack. Answer its questions, accept or change the values; it then runs your `check` on main, which must be green, measures how your test runner reports a failure, and commits the config on your go. Guidance helps when the project is unusual: `/overload:setup take the commands from the Makefile`.
 
 3. **Run a first task**, something small:
 
    ```
-   /overload fix the typo in the install section of the README
+   /overload:task fix the typo in the install section of the README
    ```
 
    It restates the request, asks what is unclear, and proposes S. On your confirmation it opens a branch, makes the change, verifies, commits, runs the final review, and stops at a checkpoint with a summary. Give the go: it merges into main with `--no-ff` and deletes the branch.
 
-That is the whole loop. A larger request goes the same way, through the L path. If a session ends halfway, `/overload` on the task's branch resumes it from its journal.
+That is the whole loop. A larger request goes the same way, through the L path. If a session ends halfway, `/overload:task` on the task's branch resumes it from its journal.
 
 ## Configuration and usage
 
@@ -54,15 +56,15 @@ That is the whole loop. A larger request goes the same way, through the L path. 
 
 | Command | What it does |
 | --- | --- |
-| `/overload setup [guidance]` | Proposes `.workflow/config` and the conventions your rule files lack; you settle it. Then verify must be green on main, a second agent measures `red_types` with throwaway tests, and it commits on your go. No branch, no journal. |
-| `/overload <request>` | Opens a task: brainstorming, then the S or the L path. |
-| `/overload` | Resumes the task of the current branch from its journal, after an interruption or a `/clear`. |
+| `/overload:setup [guidance]` | Proposes `.workflow/config` and the conventions your rule files lack; you settle it. Then verify must be green on main, a second agent measures `red_types` with throwaway tests, and it commits on your go. No branch, no journal. |
+| `/overload:task <request>` | Opens a task: brainstorming, then the S or the L path. |
+| `/overload:task` | Resumes the task of the current branch from its journal, after an interruption or a `/clear`. |
 
-Inside a task, the scripts that open the branch, update the journal, verify, commit and handle the suite run without a permission prompt; `integrate.sh` asks each time, on top of your go at the checkpoint. While a task is open, a hook refuses a `git commit` or `git merge` typed directly. On a branch with an open task, a new session is told the task waits for `/overload`, and a compacted one is told to reread the journal.
+Inside a task, the scripts that open the branch, update the journal, verify, commit and handle the suite run without a permission prompt; `integrate.sh` asks each time, on top of your go at the checkpoint. While a task is open, a hook refuses a `git commit` or `git merge` typed directly. On a branch with an open task, a new session is told the task waits for `/overload:task`, and a compacted one is told to reread the journal.
 
 ### `.workflow/config`
 
-The config holds what is the project's own, as `key = value` lines that scripts read without executing; `/overload setup` writes it.
+The config holds what is the project's own, as `key = value` lines that scripts read without executing; `/overload:setup` writes it.
 
 ```
 version    = 1
@@ -127,7 +129,7 @@ Run it twice: the same result both times, in a time you would wait for at every 
 
 `run_tests` runs the test files named in `{files}` and prints JUnit XML on stdout, inside the same container or wrapper as `check`: vitest `--reporter=junit`, jest with `jest-junit` to stdout, pytest `--continue-on-collection-errors --junitxml=/dev/stdout` with its default traceback, go `gotestsum --junitfile /dev/stdout`. Without it, the red check is skipped and every task logs that.
 
-`red_types` names the failure types the runner reports for a failed assertion and for a stub's not-implemented error (`NotImplementedError` in Python). `/overload setup` measures it with throwaway tests; when it finds the measure unreliable it leaves `run_tests` empty and says why.
+`red_types` names the failure types the runner reports for a failed assertion and for a stub's not-implemented error (`NotImplementedError` in Python). `/overload:setup` measures it with throwaway tests; when it finds the measure unreliable it leaves `run_tests` empty and says why.
 
 ### Names, messages and hooks
 
@@ -161,7 +163,7 @@ Claude Code deletes transcripts after 30 days: set `"cleanupPeriodDays"` in `~/.
 ## The workflow explained
 
 ```
-/overload <request>
+/overload:task <request>
   └─ brainstorming ── triage: S or L, you confirm
        ├─ S: branch → implement → verify → commit ─────────────────────────┐
        └─ L: branch → spec → probe → spec review → split → checkpoint 1    │
@@ -171,7 +173,7 @@ Claude Code deletes transcripts after 30 days: set `"cleanupPeriodDays"` in `~/.
                   close: final review → lessons → checkpoint → integrate
 ```
 
-Every step is a phase recorded in the branch's journal, so a task survives an interruption, a `/clear` or a compaction: `/overload` reads the journal and resumes where it stopped.
+Every step is a phase recorded in the branch's journal, so a task survives an interruption, a `/clear` or a compaction: `/overload:task` reads the journal and resumes where it stopped.
 
 ### Brainstorming and triage
 
@@ -203,7 +205,7 @@ A task that turns out bigger goes to the L path on your go: its commits stay, un
 2. **Probe** (`prober`), only for external facts the spec rests on (versions, APIs, a dependency's behavior), in a temporary folder outside the repository.
 3. **Spec review** (`spec-reviewer`): correctness, and a critique of the premises: was the problem seen, what is the strongest alternative, what is missing. It gets the spec and the code map, never a summary of the discussion.
 4. **Split** (`spec-splitter`), above about 6–7 files or 10–15 test cases: the fewest chunks, each green alone, each test-first or not.
-5. **Checkpoint 1**: you approve the plan, and the spec is committed. This is the moment for `/clear` and `/overload`: the next session resumes from the journal and the spec with a small context.
+5. **Checkpoint 1**: you approve the plan, and the spec is committed. This is the moment for `/clear` and `/overload:task`: the next session resumes from the journal and the spec with a small context.
 
 ### The L path: chunks
 
@@ -227,11 +229,11 @@ Both paths end the same way.
 
 ### Escalation
 
-A loop that reaches its third round without converging, a stuck step, a finding that needs judgment, or a conflict at integration stops and comes to you, with what was tried and three choices: **retry** one more round, **skip** and record the problem (never on a red verify), or **stop**, leaving the branch and its journal for a later `/overload`.
+A loop that reaches its third round without converging, a stuck step, a finding that needs judgment, or a conflict at integration stops and comes to you, with what was tried and three choices: **retry** one more round, **skip** and record the problem (never on a red verify), or **stop**, leaving the branch and its journal for a later `/overload:task`.
 
 ### The agents
 
-All are internal to `/overload` and called as `overload:<name>`.
+All are internal to the two skills and called as `overload:<name>`.
 
 | Agent | Model | Role |
 | --- | --- | --- |
@@ -255,11 +257,12 @@ Workflow Overload is maintained by one person and integrates by local merge, wit
 
 ```
 .claude-plugin/marketplace.json   the marketplace: one plugin, ./plugins/overload
-plugins/overload/        what an install copies
+plugins/overload/                 what an install copies
   .claude-plugin/plugin.json      name, version
-  skills/overload/SKILL.md        the only entry: /overload
-  skills/overload/phases/         one file per phase, read by the entry skill
-  agents/                         the agents, all internal to /overload
+  skills/task/SKILL.md            /overload:task, opens or resumes a task
+  skills/task/phases/             one file per phase, read by the task skill
+  skills/setup/SKILL.md           /overload:setup, writes .workflow/config
+  agents/                         the agents, all internal to the two skills
   hooks/hooks.json                hooks, silent without a journal
   scripts/                        bash for the steps, python3 for parsing
 tests/                            tests of the scripts, outside the install
@@ -268,7 +271,7 @@ docs/                             design and probes
 
 ### Rules of the plugin
 
-- **One entry point.** No second skill, no agent whose description invites delegation, no hook that acts on a branch without `.workflow/journal.md`.
+- **Only the human starts the workflow.** Every skill has `disable-model-invocation`, only `/overload:task` opens a task, no agent's description invites delegation, no hook that acts on a branch without `.workflow/journal.md`.
 - **Scripts need only bash, git and python3** (3.8+, standard library), and find their files from `BASH_SOURCE`, since the model's Bash has no `CLAUDE_PLUGIN_ROOT`.
 - **A new config key** goes in `lib.sh`'s `CONFIG_KEYS` with its default in `config_default`, in the key list of `agents/setup-explorer.md`, and in this README's *Configuration*; a test refuses a phase or an agent that names a key `lib.sh` does not know.
 - **Phases and agents are instructions to a model**: imperative, short, one place per rule.
@@ -295,7 +298,7 @@ CI runs them on every push. A change to a script starts with a test in `tests/sc
 Setup, brainstorming, triage, the S path, the L path, resume and integration by local merge all work today. Next, each to be designed before it is built (details in [the backlog](.workflow/backlog.md)):
 
 - **Integration by pull or merge request** on GitHub, GitLab and Bitbucket, for projects whose main branch takes no local merge.
-- **`/overload bootstrap`**, to start a project that has no code yet: no `check`, no test runner, nothing for setup to read.
+- **`/overload:bootstrap`**, to start a project that has no code yet: no `check`, no test runner, nothing for setup to read.
 - **A level above the task**, a roadmap or epic that carries architecture and order across tasks, for building a whole application.
 
 ## License
