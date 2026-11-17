@@ -29,7 +29,7 @@ Only these:
 3. A requirement of the intent or spec missed, or a change outside its scope.
 4. A test case the spec asks for missing or vacuous (it passes without the behavior), or a bug fix's test that passes without the fix.
 5. A convention of a rule file or a decision record broken, which no tool checks, with its consequence.
-6. A doc that misleads a caller in normal use, or a public API change its README does not describe.
+6. A doc that misleads a caller in normal use, a public API change its README does not describe, or a file of the spec's *Docs* still describing the old behavior.
 
 Everything else is a suggestion, inputs built to break the code included, unless they open a security defect.
 

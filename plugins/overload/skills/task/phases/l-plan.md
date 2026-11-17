@@ -27,6 +27,9 @@ Each decision, the alternatives weighed (doing nothing included) and why this on
 ## Test cases
 The cases that prove the behavior, each one line: input, expected result.
 
+## Docs
+The files that describe this behavior and change with it (a README, API docs, a guide), or none.
+
 ## Chunks
 - [ ] 1. <title> (test-first | no test-first): the files, the test cases it covers[; signatures: the existing declarations whose signature changes][; inputs: those its code must match as they are]
 ```

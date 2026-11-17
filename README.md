@@ -197,7 +197,7 @@ A task that turns out bigger goes to the L path on your go: its commits stay, un
 
 ### The L path: planning
 
-1. **Spec**, written by the main agent, which held the discussion: why, what, decisions with their alternatives, test cases, chunks. A decision that outlives the task also gets a decision record.
+1. **Spec**, written by the main agent, which held the discussion: why, what, decisions with their alternatives, test cases, the docs that change with the behavior, chunks. A decision that outlives the task also gets a decision record.
 2. **Probe** (`prober`), only for external facts the spec rests on (versions, APIs, a dependency's behavior), in a temporary folder outside the repository.
 3. **Spec review** (`spec-reviewer`): correctness, and a critique of the premises: was the problem seen, what is the strongest alternative, what is missing. It gets the spec and the code map, never a summary of the discussion.
 4. **Split** (`spec-splitter`), above about 6–7 files or 10–15 test cases: the fewest chunks, each green alone, each test-first or not.

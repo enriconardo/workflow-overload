@@ -21,7 +21,7 @@ The spec's path and the explorer's map (a path).
 - **An input to see as it is, is named.** A chunk whose code must match an input as it is (a mockup, a sample format) lists it after `inputs:`, from the spec's `inputs`; a brief the spec already translates is not cited.
 - **A new dependency is named.** A test-first chunk whose code needs a package the project lacks lists it after `dependencies:`: its tests cannot load before the package is installed.
 - **Order by dependency**: interfaces before their users; the refactor that makes room before the behavior that uses it.
-- Every test case of the spec belongs to exactly one chunk; every file of the map that changes, to at least one.
+- Every test case of the spec belongs to exactly one chunk; every file of the map that changes, to at least one; every file of the spec's *Docs*, to the chunk that changes the behavior it describes, or to a last docs-only chunk when it describes the whole.
 - No changes to the spec's content: if the spec cannot be split this way, say why.
 
 ## Output

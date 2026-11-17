@@ -22,7 +22,7 @@ The spec's path, the explorer's map (a path), the inputs the human gave (paths: 
 
 - Was the problem seen (a commit, a finding, a failing test, a measured cost), or only stated?
 - For each decision: what the existing rules already cover, the strongest alternative (doing nothing included), what it costs.
-- What the spec lacks: an error, an edge case, a caller, a migration, a doc.
+- What the spec lacks: an error, an edge case, a caller, a migration, a file that describes the behavior and is missing from *Docs*.
 
 A decision the human took is no evidence by itself, and the problem as the main agent states it is a claim to check.
 
