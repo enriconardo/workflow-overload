@@ -246,7 +246,7 @@ test_red_check_without_run_tests_is_skipped() {
   bash "$SCRIPTS/suite.sh" record >/dev/null
   out="$(bash "$SCRIPTS/red-check.sh")"
   [[ "$out" == *"red check skipped"* ]] || fail "$out"
-  grep -q $'\tred-check\tskipped' "$(git rev-parse --git-path overload)/runs.log" || fail "not logged"
+  [[ ! -e "$(git rev-parse --git-path overload)/runs.log" ]] || fail "run log written"
 }
 
 test_junit_types_found_prints_what_the_runner_reported() {

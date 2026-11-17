@@ -75,9 +75,7 @@ mkdir -p "$(dirname "$JOURNAL_FILE")"
   echo "phase: $([[ "$tier" == S ]] && echo s/implement || echo l/spec)"
   echo "base: $(git rev-parse --short HEAD)"
   echo "started: $(now)"
-  echo "review_rounds: 0"
   echo "verify_red_streak: 0"
-  echo "escalations: 0"
   echo
   echo "## Intent"
   echo

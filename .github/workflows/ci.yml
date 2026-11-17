@@ -13,7 +13,7 @@ jobs:
         run: shellcheck -x plugins/overload/scripts/*.sh tests/*.sh
       - name: scripts
         run: bash tests/run.sh
-      - name: measures
+      - name: python
         run: python3 -m unittest discover -s tests
       - name: json
         run: |

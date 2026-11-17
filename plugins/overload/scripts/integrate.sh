@@ -3,8 +3,8 @@ set -euo pipefail
 
 # Integrates a task's branch after the human's go at the last checkpoint:
 # refuses a tree that is not the verified one, merges with --no-ff into main
-# without the journal and with the task's line of measures, repeats verify on
-# the merge's result when main moved, and deletes the branch and its records.
+# without the journal, repeats verify on the merge's result when main moved,
+# and deletes the branch and its records.
 # A conflict or a red verify aborts the merge and leaves main as it was.
 #
 #   integrate.sh
@@ -20,7 +20,7 @@ main="$(cfg main)"
 mode="$(cfg integrate)"
 [[ "$mode" == merge ]] || die "integrate = '$mode' is not supported yet: this version merges locally (integrate = merge)."
 
-dirty="$(git status --porcelain -- . ":(exclude)$JOURNAL_FILE" ":(exclude)$METRICS_FILE")"
+dirty="$(git status --porcelain -- . ":(exclude)$JOURNAL_FILE")"
 [[ -z "$dirty" ]] || die "the working tree has uncommitted changes: verify and commit them first.
 $dirty"
 
@@ -40,15 +40,6 @@ $(grep '^- \[ \]' "$spec")"
   fi
   grep -qx 'status: done' "$spec" || die "$spec is not 'status: done': set it, verify and commit, then integrate."
 fi
-
-# The journal leaves with the branch; the measures read it first.
-journal_copy="$(mktemp)"
-cp "$JOURNAL_FILE" "$journal_copy"
-measures="$(mktemp)"
-trap 'rm -f "$journal_copy" "$measures"' EXIT
-python3 "$OVERLOAD_SCRIPTS/metrics.py" record --branch "$branch" --main "$main" \
-  --journal "$journal_copy" --runs "$(state_dir)/runs.log" >"$measures" ||
-  die "the measures of '$branch' could not be computed; nothing was merged."
 
 # The journal is tracked on the branch: a local edit to it would block the
 # switch, and the merge drops the file anyway.
@@ -77,9 +68,6 @@ $conflicts"
 fi
 
 git rm -q -f --ignore-unmatch -- "$JOURNAL_FILE"
-mkdir -p "$(dirname "$METRICS_FILE")"
-cat "$measures" >>"$METRICS_FILE"
-git add -- "$METRICS_FILE"
 
 if ((moved)); then
   echo "'$main' moved since the branch started: verifying the merge's result."

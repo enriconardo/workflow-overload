@@ -3,8 +3,7 @@ set -euo pipefail
 
 # Runs the config's `check` and, when it is green, records the hash of the
 # tree it checked: commit.sh and integrate.sh refuse any other tree. A check changes no file: a run that changed one git does
-# not ignore is red, whatever its exit. Every run, green or red, goes to the
-# clone's run log, which the measures read.
+# not ignore is red, whatever its exit.
 #
 #   verify.sh [--lines <n>]
 #
@@ -32,10 +31,8 @@ branch="$(current_branch)"
 tree="$(work_tree_hash)"
 
 # A project with no check of its own: the tree is recorded, so that commits
-# still take only the tree the step looked at, and the run log says that
-# nothing was checked.
+# still take only the tree the step looked at.
 if [[ -z "$command" ]]; then
-  printf '%s\t%s\t%s\t%s\t%s\n' "$(now)" "${branch:-HEAD}" "$tree" none 0 >>"$state/runs.log"
   printf '%s %s %s\n' "$tree" "${branch:-HEAD}" "$(now)" >"$(verified_file)"
   echo "verify: the config has no 'check' command, nothing checked; tree ${tree:0:12} recorded."
   exit 0
@@ -57,7 +54,6 @@ after="$(work_tree_hash)"
 
 result=red
 ((status == 0)) && [[ -z "$changed" ]] && result=green
-printf '%s\t%s\t%s\t%s\t%s\n' "$(now)" "${branch:-HEAD}" "$tree" "$result" "$seconds" >>"$state/runs.log"
 
 task=0
 if [[ -f "$JOURNAL_FILE" && -n "$branch" && "$branch" != "$(cfg main)" ]]; then

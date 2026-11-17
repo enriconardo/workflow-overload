@@ -39,7 +39,6 @@ esac
 
 command="$(cfg run_tests)"
 if [[ -z "$command" ]]; then
-  printf '%s\t%s\t%s\t%s\n' "$(now)" "$(current_branch)" "red-check" skipped >>"$(state_dir)/runs.log"
   echo "red check skipped: the config has no 'run_tests', the command that runs given test files and prints JUnit XML."
   exit 0
 fi
@@ -60,7 +59,6 @@ for file in "${files[@]}"; do
   fi
 done
 if ((${#present[@]} == 0)); then
-  printf '%s\t%s\t%s\t%s\n' "$(now)" "$(current_branch)" "red-check" valid >>"$(state_dir)/runs.log"
   echo "red check: the suite only deletes test files, nothing to run."
   exit 0
 fi
@@ -188,7 +186,6 @@ trap - EXIT
 status=0
 rm -f "$state/red-check-green.txt"
 python3 "$OVERLOAD_SCRIPTS/junit.py" --types "$(cfg red_types)" --existing "$existing" --green "$state/red-check-green.txt" "$output" "${files[@]}" || status=$?
-printf '%s\t%s\t%s\t%s\n' "$(now)" "$branch" "red-check" "$([[ $status == 0 ]] && echo valid || echo invalid)" >>"$state/runs.log"
 if ((status == 0 && !without_code)); then
   git update-ref "$base_ref" "$(git commit-tree "$(source_tree)" -p HEAD -m "stubs state of $branch")"
 fi

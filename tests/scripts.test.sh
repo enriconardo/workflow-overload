@@ -53,6 +53,7 @@ test_branch_opens_task_with_journal() {
   expect_eq "$(git branch --show-current)" "docs/readme/describe-project"
   expect_eq "$(bash "$SCRIPTS/journal.sh" get tier)" "S"
   expect_eq "$(bash "$SCRIPTS/journal.sh" get phase)" "s/implement"
+  expect_eq "$(sed -n '/^## /q; /^[a-z_]*: [0-9]*$/p' .workflow/journal.md)" "verify_red_streak: 0" "the only counter"
   grep -q "Goal: say what the project does." .workflow/journal.md || fail "intent missing from the journal"
 }
 
@@ -111,7 +112,7 @@ test_journal_set_inc_log() {
   open_task
   bash "$SCRIPTS/journal.sh" set phase s/review
   expect_eq "$(bash "$SCRIPTS/journal.sh" get phase)" "s/review"
-  expect_eq "$(bash "$SCRIPTS/journal.sh" inc review_rounds)" "1"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" inc verify_red_streak)" "1"
   bash "$SCRIPTS/journal.sh" set lessons 2
   expect_eq "$(bash "$SCRIPTS/journal.sh" get lessons)" "2"
   bash "$SCRIPTS/journal.sh" log "review found nothing"
@@ -137,7 +138,7 @@ test_verify_green_records_the_tree_and_red_does_not() {
   expect_fail "verify: red" bash "$SCRIPTS/verify.sh"
   is_verified && fail "a red run left the tree verified"
   expect_eq "$(bash "$SCRIPTS/journal.sh" get verify_red_streak)" "1"
-  grep -c $'\tred\t' "$(git rev-parse --git-path overload)/runs.log" | grep -qx 1 || fail "red run not logged"
+  [[ ! -e "$(git rev-parse --git-path overload)/runs.log" ]] || fail "run log written"
 }
 
 test_verify_without_a_command_records_the_tree_unchecked() {
@@ -149,7 +150,7 @@ test_verify_without_a_command_records_the_tree_unchecked() {
   [[ "$out" == *"no 'check' command"*"nothing checked"* ]] || fail "$out"
   source_lib
   is_verified || fail "tree not recorded"
-  grep -q $'\tnone\t' "$(git rev-parse --git-path overload)/runs.log" || fail "run not logged as none"
+  [[ ! -e "$(git rev-parse --git-path overload)/runs.log" ]] || fail "run log written"
   bash "$SCRIPTS/commit.sh" "$(message 'docs(readme): say more')" >/dev/null
 }
 
@@ -266,7 +267,7 @@ verified_commit() {
   bash "$SCRIPTS/commit.sh" "$(message "docs(readme): $1")" >/dev/null
 }
 
-test_integrate_merges_without_journal_and_with_measures() {
+test_integrate_merges_without_journal() {
   open_task
   verified_commit "more"
   bash "$SCRIPTS/journal.sh" log "checkpoint: go"
@@ -277,16 +278,7 @@ test_integrate_merges_without_journal_and_with_measures() {
   expect_eq "$(git log -1 --format=%s)" "Merge branch 'docs/readme/describe-project'"
   expect_eq "$(git rev-list --count HEAD^1..HEAD^2)" "1"
   [[ -f .workflow/journal.md ]] && fail "journal on main"
-  python3 - <<'PY' || fail "bad measures"
-import json
-rows = [json.loads(l) for l in open(".workflow/metrics.jsonl")]
-assert len(rows) == 1, rows
-r = rows[0]
-assert r["branch"] == "docs/readme/describe-project", r
-assert r["journal"]["tier"] == "S", r
-assert r["verify"]["runs"] == 1 and r["verify"]["red"] == 0 and r["verify"]["red_checks"] == 0, r
-assert r["commits"] == 1 and r["files"] == 2, r
-PY
+  [[ ! -e .workflow/metrics.jsonl ]] || fail "measures written"
   [[ -z "$(git status --porcelain)" ]] || fail "dirty after integrate"
 }
 
@@ -356,7 +348,7 @@ test_integrate_reverifies_when_main_moved() {
   # Captured, not piped to grep -q, whose early exit would cut the script.
   out="$(bash "$SCRIPTS/integrate.sh")"
   [[ "$out" == *"verifying the merge's result"* ]] || fail "no re-verify: $out"
-  [[ -f other.txt && -f .workflow/metrics.jsonl ]] || fail "merge incomplete"
+  [[ -f other.txt ]] || fail "merge incomplete"
 }
 
 test_integrate_red_on_merge_result_leaves_main_intact() {
