@@ -30,7 +30,7 @@ The cases that prove the behavior, each one line: input, expected result.
 - [ ] 1. <title> (test-first | no test-first): the files, the test cases it covers[; signatures: the existing declarations whose signature changes]
 ```
 
-A decision that outlives the task also gets a decision record, in a folder of the config's `rules` that already holds decision records. With no such folder, write none: the human hears it at checkpoint 1.
+A decision that outlives the task also gets a decision record, in a folder of the config's `rules` that already holds decision records. With no such folder, write none and create none: the human hears it at checkpoint 1, with `/overload:setup`, which proposes one.
 
 **Chunk types.** Test-first: a new or changed behavior of the public API, domain logic, a bug, whose tests fail at runtime against its stubs. No test-first: a refactor (the existing tests stay green unchanged), wiring (tested afterwards by the implementer), docs, config, a chunk whose code is only declarations (types, interfaces: its stub is its code, and its tests fail only in the type checker), and a chunk that changes no source file (it only adds tests).
 
@@ -54,7 +54,7 @@ Run the `overload:spec-splitter` agent with the spec's path and the map's path. 
 
 ## 6. Summary and checkpoint 1 — phase `l/checkpoint`
 
-One message to the human: what changes according to the spec, how it splits into chunks and their types, the decision record if any, and a decision left without one because `rules` holds no folder of them, the facts the prober checked, the spec reviewer's objections still open and those you rejected, each with its title and reason, the risks and the questions. Then stop and wait.
+One message to the human: what changes according to the spec, how it splits into chunks and their types, the decision record if any, and a decision left without one because `rules` holds no folder of them (`/overload:setup` proposes one), the facts the prober checked, the spec reviewer's objections still open and those you rejected, each with its title and reason, the risks and the questions. Then stop and wait.
 
 The human approves, or sends the spec back for corrections (to 1, then 3), or the requirements back to the brainstorming. Log their words.
 

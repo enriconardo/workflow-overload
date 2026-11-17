@@ -39,6 +39,8 @@ A row for each, in this order. A key's default is the one `config_default` gives
 
 The conventions a task follows that the rule files do not state: how a branch is named, how a commit message is written, how the commands run (a container, a wrapper). Take each from evidence: the subjects and merges of `git log`, the branch names, a hook's config. For each gap, the file it goes in (the root `CLAUDE.md`, or the file that already holds the project's conventions) and the text to add, as it would land. A convention with no evidence is a question, not a text.
 
+A folder of decision records: when `rules` would name none, propose `docs/adr/` (or the folder that holds the project's docs) with a template, `0000-template.md`: title, status, context, decision, the alternatives weighed and why, consequences. A task's lasting decisions land there, and future tasks read them through `rules`. The human accepts or refuses it.
+
 ## Rules
 
 - Leave the repository as you found it: run only `git`, searches and reads, never the project's commands, `check` included: the setup runs it once the human settles. No edits, no `checkout`, `switch`, `stash` or `reset`.

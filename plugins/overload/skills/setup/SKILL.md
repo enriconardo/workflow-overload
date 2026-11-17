@@ -33,7 +33,7 @@ Show the human the proposal as it came. They answer the questions, counter-propo
 
 ## 3. Write and verify
 
-On their acceptance, write `.workflow/config`: a `key = value` line for each key of the table, in its order, `check` even when empty (a config without it is refused); `red_types` waits for 4. A value never holds ` #`, which starts a comment: a command that needs one goes in a script of the project. Write an empty backlog file at `backlog` if there is none, and the accepted text in the rule files. Remove nothing the project already had.
+On their acceptance, write `.workflow/config`: a `key = value` line for each key of the table, in its order, `check` even when empty (a config without it is refused); `red_types` waits for 4. A value never holds ` #`, which starts a comment: a command that needs one goes in a script of the project. Write an empty backlog file at `backlog` if there is none, and the accepted text in the rule files. An accepted folder of decision records: create it with its template, and add it to `rules`. Remove nothing the project already had.
 
 Then run `bash <scripts>/verify.sh` on the main branch. It must be green: a red main makes every task red. A red goes to the human with its last lines; fix the config with them and run it again. No agent for one command. A session that cannot reach the project's container sets `OVERLOAD_CHECK` and `OVERLOAD_RUN_TESTS` to commands that run without it; the config keeps the project's.
 
@@ -45,5 +45,5 @@ With `run_tests` set, run the `overload:setup-red-probe` agent with the config's
 
 Show the human the final config, verify's result and the probe's, in a few lines. On their go, commit on the main branch, each subject as the project's rules say, or else in the imperative and at most 72 characters; when one of its hooks refuses a message, change the message, never bypass the hook:
 
-1. the text added to the rule files, in a commit of its own;
+1. the text added to the rule files and the folder of decision records, in a commit of its own;
 2. the config and the backlog file, in one commit (`chore: adopt workflow overload`, or the project's equivalent; on a later run, `chore: update the workflow config`). Nothing else goes in it.

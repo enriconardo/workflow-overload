@@ -38,7 +38,7 @@ You need Claude Code, `bash`, `git` and `python3` (3.8 or later, standard librar
    /overload:setup
    ```
 
-   An agent reads the project and proposes `.workflow/config`, each value with its source, plus the conventions your rule files lack. Answer its questions, accept or change the values; it then runs your `check` on main, which must be green, measures how your test runner reports a failure, and commits the config on your go. Guidance helps when the project is unusual: `/overload:setup take the commands from the Makefile`.
+   An agent reads the project and proposes `.workflow/config`, each value with its source, plus the conventions your rule files lack and, when they name none, a folder for decision records with a template. Answer its questions, accept or change the values; it then runs your `check` on main, which must be green, measures how your test runner reports a failure, and commits the config on your go. Guidance helps when the project is unusual: `/overload:setup take the commands from the Makefile`.
 
    In a repository with no commit (after `git init`), setup lays only the workflow's skeleton: `check` and `run_tests` empty, the backlog, the branch and commit conventions you settle, and the first commit on the main branch. It chooses no language or tool: the first task does, with its review and decision records, and writes `check` and `run_tests` in the config in its own diff. Until then every commit passes unchecked, and each task says so. After that task, run `/overload:setup` again to measure `red_types`.
 
