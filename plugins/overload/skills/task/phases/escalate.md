@@ -5,7 +5,8 @@ The human decides when a step cannot close by itself:
 - a loop reaches its third round without converging (a red verify, a review that keeps finding blocking issues);
 - you are stuck: verify will not turn green, or the approach does not work;
 - a review finding needs a judgment;
-- integrate meets a conflict, or a red verify on the merge's result.
+- taking in main meets a conflict, or a red that main shows on its own;
+- integrate refuses for a reason its message does not tell you to fix.
 
 Explain the problem in a few lines, with what you tried, and offer three choices with your recommendation:
 

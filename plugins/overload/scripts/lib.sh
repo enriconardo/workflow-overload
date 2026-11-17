@@ -14,7 +14,7 @@ REFERENCE_DIR=".workflow/reference"
 CONFIG_VERSION=1
 # Every key of this version. `check` has no default: a config without it is
 # refused, and a project with no checks writes `check =`, empty, on purpose.
-CONFIG_KEYS="version check run_tests main integrate rules backlog tests_glob red_types"
+CONFIG_KEYS="version check check_integrate run_tests main integrate rules backlog tests_glob red_types"
 
 die() {
   echo "overload: $*" >&2
@@ -127,6 +127,17 @@ run_project() {
   bash -o pipefail -c "$1"
 }
 
+# with_files <command> <file>...: the command with its {files} replaced by
+# the files, each quoted for bash.
+with_files() {
+  local command="$1" quoted="" file
+  shift
+  for file in "$@"; do
+    quoted+="$(printf '%q' "$file") "
+  done
+  printf '%s\n' "${command//\{files\}/${quoted% }}"
+}
+
 current_branch() {
   git branch --show-current
 }
@@ -137,6 +148,22 @@ on_task_branch() {
   main="$(cfg main)"
   [[ -n "$branch" && "$branch" != "$main" ]] || die "on '${branch:-a detached HEAD}': this runs on a task's branch."
   [[ -f "$JOURNAL_FILE" ]] || die "'$branch' has no $JOURNAL_FILE: it is not a Workflow Overload task."
+}
+
+# Brings the local main up to its upstream, fast-forward only, without
+# switching to it. Nothing to do without an upstream, or when main is ahead.
+main_from_upstream() {
+  local main="$1" remote old new
+  remote="$(git config "branch.$main.remote" || true)"
+  [[ -n "$remote" ]] || return 0
+  git fetch --quiet "$remote" || die "cannot fetch '$main' from '$remote': settle that, then run this again."
+  new="$(git rev-parse -q --verify "$main@{upstream}")" || return 0
+  old="$(git rev-parse "refs/heads/$main")"
+  [[ "$old" != "$new" ]] || return 0
+  git merge-base --is-ancestor "$new" "$old" && return 0
+  git merge-base --is-ancestor "$old" "$new" ||
+    die "'$main' and its upstream have diverged: settle that by hand, then run this again."
+  git update-ref "refs/heads/$main" "$new" "$old"
 }
 
 # The plugin's state for this clone: the verified tree and the runs' output.
@@ -185,6 +212,14 @@ commit_tree_hash() {
 
 verified_file() {
   printf '%s/verified\n' "$(state_dir)"
+}
+
+# The last green `verify.sh --integrate`, check_integrate included, as
+# `<tree> <branch> <time> <main's commit>`: integrate.sh wants one on the
+# branch since main last moved, not one on every tree, so that the slow tests
+# run once per task and again after a sync, not after every fix.
+integrated_file() {
+  printf '%s/verified-integrate\n' "$(state_dir)"
 }
 
 # Succeeds when the working tree is the one the last green verify checked.

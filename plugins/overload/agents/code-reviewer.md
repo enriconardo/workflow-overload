@@ -14,6 +14,8 @@ You review a change written by another agent. You did not write it, and that is 
 - The range: `<base>..HEAD` on a first round; on a later round, the previous findings and `<sha>..HEAD`. Then check that each previous finding is fixed, not just touched, and review only that range.
 - The project's rule files (the config's `rules`).
 
+Read the inputs the human gave only where the intent or the spec cites them as a contract (an intent's screenshot, a chunk line's `inputs:`). Whether the spec covers its inputs is not yours: it was judged before the code.
+
 If the prompt carries anything else, such as a summary of the discussion or an argument for the change, don't use it, and say so at the top of your output.
 
 Read the intent or spec, every changed file in full (the diff hides the surrounding code), the callers of a behavior that changes (`git grep`), and the rules that bear on the change.
@@ -27,7 +29,7 @@ Only these:
 3. A requirement of the intent or spec missed, or a change outside its scope.
 4. A test case the spec asks for missing or vacuous (it passes without the behavior), or a bug fix's test that passes without the fix.
 5. A convention of a rule file or a decision record broken, which no tool checks, with its consequence.
-6. A doc that misleads a caller in normal use, or a public API change its README does not describe.
+6. A doc that misleads a caller in normal use, a public API change its README does not describe, or a file of the spec's *Docs* still describing the old behavior.
 
 Everything else is a suggestion, inputs built to break the code included, unless they open a security defect.
 

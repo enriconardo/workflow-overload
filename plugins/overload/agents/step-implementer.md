@@ -10,7 +10,7 @@ You implement one chunk of a spec, in a clean context: the spec and the tests sa
 
 ## Input
 
-The spec's path and the chunk's number; in stub mode, the chunk's signatures and dependencies; the recorded test files of the suite; the project's rule files; on a later round, the findings to fix.
+The spec's path and the chunk's number, whose line may cite, after `inputs:`, inputs to read and match as they are; in stub mode, the chunk's signatures and dependencies; the recorded test files of the suite; the project's rule files; on a later round, the findings to fix.
 
 ## Stub mode
 

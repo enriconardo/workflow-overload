@@ -4,6 +4,7 @@
   junit.py --types "AssertionError, NotImplemented" [--existing <names-file>] [--green <file>] <output-file> <test-file>...
   junit.py --list <output-file> <test-file>...
   junit.py --types-found <output-file> <test-file>...
+  junit.py --passes <output-file> <test-file>...
 
 <output-file> holds what the test command printed: the JUnit XML is the
 part from the first `<?xml` or `<testsuites` to the last `</testsuites>`, so
@@ -34,6 +35,10 @@ tests.
 failure's type by rule 3, LOAD ERROR by rule 1, `skipped` or `passes`, and
 each file the report lacks. The setup's red probe reads it to measure
 red_types.
+
+--passes judges a run that must be green, the recorded suites run again by
+verify.sh: every file in the report, no load error, no failure; a skipped
+test is counted. Exit 0 when green, 1 when not.
 
 Exit 0 when the run is a valid red, 1 when it is not, 2 when the output
 holds no JUnit XML. Python 3.8+, standard library only.
@@ -128,6 +133,37 @@ def types_found(xml_text, files):
     return lines
 
 
+def passes(xml_text, files):
+    """Whether a run is green: every file in the report, no load error, no
+    failure; a skipped test is counted, not refused."""
+    problems = []
+    lines = []
+    passed = skipped = 0
+    for f, cases in collect(xml_text, files).items():
+        if not cases:
+            problems.append(f)
+            lines.append("%s: not in the runner's report" % f)
+        for case in cases:
+            label = "%s > %s" % (f, case.get("name"))
+            failure = case.find("failure")
+            if load_error(case, f):
+                problems.append(label)
+                node = case.find("error") if case.find("error") is not None else failure
+                message = (node.get("message") if node is not None else "") or ""
+                lines.append("%s: LOAD ERROR, %s" % (label, message.splitlines()[0][:160] if message else "no message"))
+            elif failure is not None:
+                problems.append(label)
+                message = (failure.get("message") or "").splitlines()
+                lines.append("%s: fails, %s%s" % (label, failure_type(failure) or "no type", (": " + message[0][:160]) if message else ""))
+            elif case.find("skipped") is not None:
+                skipped += 1
+            else:
+                passed += 1
+    if not problems:
+        lines.append("%d passed, %d skipped, in %d file%s" % (passed, skipped, len(files), "" if len(files) == 1 else "s"))
+    return problems, lines
+
+
 def judge(xml_text, files, types, existing=frozenset()):
     found = collect(xml_text, files)
     problems = []
@@ -188,6 +224,7 @@ def main():
     parser.add_argument("--green", help="a file for the new testcases that pass already, one per line")
     parser.add_argument("--list", action="store_true", help="print each testcase as <test-file>\\t<name>")
     parser.add_argument("--types-found", action="store_true", help="print each testcase's failure type, judging nothing")
+    parser.add_argument("--passes", action="store_true", help="judge a run that must be green")
     parser.add_argument("output")
     parser.add_argument("files", nargs="+")
     args = parser.parse_args()
@@ -195,7 +232,7 @@ def main():
     with open(args.output, encoding="utf-8", errors="replace") as handle:
         xml_text = extract_xml(handle.read())
     if xml_text is None:
-        print("red check: the test command printed no JUnit XML; check the config's run_tests.")
+        print("%s: the test command printed no JUnit XML; check the config's run_tests." % ("verify" if args.passes else "red check"))
         return 2
     try:
         if args.list:
@@ -207,6 +244,11 @@ def main():
             for line in types_found(xml_text, args.files):
                 print(line)
             return 0
+        if args.passes:
+            problems, lines = passes(xml_text, args.files)
+            for line in lines:
+                print(line)
+            return 1 if problems else 0
         problems, lines, green = judge(xml_text, args.files, types, read_existing(args.existing))
     except ET.ParseError as error:
         print("red check: the JUnit XML does not parse (%s)." % error)

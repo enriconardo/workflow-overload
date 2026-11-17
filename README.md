@@ -21,7 +21,7 @@ It is a plugin with two commands, `/overload:setup` to configure a project once 
 
 ## Quick start
 
-You need Claude Code, `bash`, `git` and `python3` (3.8 or later, standard library only), and a git project whose checks pass on its main branch. With git older than 2.36, a task's merge subject is not checked against the project's `commit-msg` hook before the task starts.
+You need Claude Code, `bash`, `git` and `python3` (3.8 or later, standard library only), and a git project whose checks pass on its main branch, or a new one with no commit yet. With git older than 2.36, a task's merge subject is not checked against the project's `commit-msg` hook before the task starts.
 
 1. **Install** the plugin, from Claude Code:
 
@@ -38,7 +38,9 @@ You need Claude Code, `bash`, `git` and `python3` (3.8 or later, standard librar
    /overload:setup
    ```
 
-   An agent reads the project and proposes `.workflow/config`, each value with its source, plus the conventions your rule files lack. Answer its questions, accept or change the values; it then runs your `check` on main, which must be green, measures how your test runner reports a failure, and commits the config on your go. Guidance helps when the project is unusual: `/overload:setup take the commands from the Makefile`.
+   An agent reads the project and proposes `.workflow/config`, each value with its source, plus the conventions your rule files lack and, when they name none, a folder for decision records with a template. Answer its questions, accept or change the values; it then runs your `check` on main, which must be green, measures how your test runner reports a failure, and commits the config on your go. Guidance helps when the project is unusual: `/overload:setup take the commands from the Makefile`.
+
+   In a repository with no commit (after `git init`), setup lays only the workflow's skeleton: `check` and `run_tests` empty, the backlog, the branch and commit conventions you settle, and the first commit on the main branch. It chooses no language or tool: the first task does, with its review and decision records, and writes `check` and `run_tests` in the config in its own diff. Until then every commit passes unchecked, and each task says so. After that task, run `/overload:setup` again to measure `red_types`.
 
 3. **Run a first task**, something small:
 
@@ -57,31 +59,33 @@ That is the whole loop. A larger request goes the same way, through the L path. 
 | Command | What it does |
 | --- | --- |
 | `/overload:setup [guidance]` | Proposes `.workflow/config` and the conventions your rule files lack; you settle it. Then verify must be green on main, a second agent measures `red_types` with throwaway tests, and it commits on your go. No branch, no journal. |
-| `/overload:task <request>` | Opens a task: brainstorming, then the S or the L path. |
+| `/overload:task <request>` | Opens a task: brainstorming, then the S or the L path. Name the documents that go with the request (a brief, a mockup, a sample format): they land in `.workflow/inputs/`. |
 | `/overload:task` | Resumes the task of the current branch from its journal, after an interruption or a `/clear`. |
 
-Inside a task, the scripts that open the branch, update the journal, verify, commit and handle the suite run without a permission prompt; `integrate.sh` asks each time, on top of your go at the checkpoint. While a task is open, a hook refuses a `git commit` or `git merge` typed directly. On a branch with an open task, a new session is told the task waits for `/overload:task`, and a compacted one is told to reread the journal.
+Inside a task, the scripts that open the branch, update the journal, verify, commit, handle the suite and take in a moved main run without a permission prompt; `integrate.sh` asks each time, on top of your go at the checkpoint. While a task is open, a hook refuses a `git commit` or `git merge` typed directly. On a branch with an open task, a new session is told the task waits for `/overload:task`, and a compacted one is told to reread the journal.
 
 ### `.workflow/config`
 
 The config holds what is the project's own, as `key = value` lines that scripts read without executing; `/overload:setup` writes it.
 
 ```
-version    = 1
-check      = pnpm check                                 # the commit gate, see *check*; empty: nothing checked
-run_tests  = pnpm vitest run --reporter=junit {files}   # runs the given test files, prints JUnit XML; empty: no red check
-main       = main
-integrate  = merge
-rules      = CLAUDE.md, docs/adr/
-backlog    = .workflow/backlog.md
-tests_glob = **/__tests__/**
-red_types  = AssertionError, NotImplemented
+version         = 1
+check           = pnpm check                                # the commit gate, see *check*; empty: nothing checked
+check_integrate = pnpm test:e2e                             # the slow local tests, see *check_integrate*; empty: none
+run_tests       = pnpm vitest run --reporter=junit {files}  # runs the given test files, prints JUnit XML; empty: no red check
+main            = main
+integrate       = merge
+rules           = CLAUDE.md, docs/adr/
+backlog         = .workflow/backlog.md
+tests_glob      = **/__tests__/**
+red_types       = AssertionError, NotImplemented
 ```
 
 | Key | Default | What it holds |
 | --- | --- | --- |
 | `version` | none, required | `1` |
 | `check` | none, required, may be empty | the command that checks the whole tree before every commit |
+| `check_integrate` | empty: nothing more runs | the slow but local tests (integration, end-to-end without external services), once per task before the final review and again after a sync with main |
 | `run_tests` | empty: the red check is skipped | the command that runs the test files in `{files}` and prints JUnit XML |
 | `main` | `main` | the branch tasks start from and merge into |
 | `integrate` | `merge` | how a task lands: a local `--no-ff` merge, the only mode so far |
@@ -96,7 +100,7 @@ Any key can be overridden for one session by `OVERLOAD_<KEY>`, even to empty: a 
 
 ### `check`
 
-`check` is the commit gate: `verify.sh` runs it before every commit, and on the merge's result when main moved, and `commit.sh` takes only a tree it found green. It is a local subset of what the CI runs, and it:
+`check` is the commit gate: `verify.sh` runs it before every commit, and `commit.sh` takes only a tree it found green. It is a local subset of what the CI runs, and it:
 
 - exits 0 on green, anything else on red;
 - ends on its own: no watch mode, no prompt;
@@ -105,7 +109,7 @@ Any key can be overridden for one session by `OVERLOAD_<KEY>`, even to empty: a 
 - is fast enough to run before every commit, and gives the same result on the same tree;
 - prints the cause of a red in its last lines, the ones `verify.sh` shows.
 
-It checks the whole tree, never only what changed: on main, at the first verify and on the merge's result, a scoped command would check nothing. Some examples:
+It checks the whole tree, never only what changed: on main at the first verify, and after main is taken into a branch, a scoped command would check nothing. Some examples:
 
 ```
 check = make check
@@ -125,9 +129,13 @@ git status --short          # still nothing: the check changed no file
 
 Run it twice: the same result both times, in a time you would wait for at every commit.
 
+### `check_integrate`
+
+`check_integrate` runs the tests too slow for every commit but still local: integration, end-to-end with no external service. It follows `check`'s rules but speed. `verify.sh --integrate` runs it after a green `check`, once per task before the final review, and again after the task takes in a moved main; `integrate.sh` refuses a branch where it has not run green since main last moved. Tests that need services or secrets stay in the project's CI, out of both commands. Empty, nothing more runs.
+
 ### `run_tests` and `red_types`
 
-`run_tests` runs the test files named in `{files}` and prints JUnit XML on stdout, inside the same container or wrapper as `check`: vitest `--reporter=junit`, jest with `jest-junit` to stdout, pytest `--continue-on-collection-errors --junitxml=/dev/stdout` with its default traceback, go `gotestsum --junitfile /dev/stdout`. Without it, the red check is skipped and every task logs that.
+`run_tests` runs the test files named in `{files}` and prints JUnit XML on stdout, inside the same container or wrapper as `check`: vitest `--reporter=junit`, jest with `jest-junit` to stdout, pytest `--continue-on-collection-errors --junitxml=/dev/stdout` with its default traceback, go `gotestsum --junitfile /dev/stdout`. The red check runs it on a chunk's new suite, which must fail for the right reason; `verify.sh` runs it on every suite recorded on the branch, which must pass, so that a test `check` leaves out still runs at each later chunk. Without it, the red check is skipped and every task logs that, and verify runs `check` alone.
 
 `red_types` names the failure types the runner reports for a failed assertion and for a stub's not-implemented error (`NotImplementedError` in Python). `/overload:setup` measures it with throwaway tests; when it finds the measure unreliable it leaves `run_tests` empty and says why.
 
@@ -143,6 +151,7 @@ Branch names and commit messages follow the project's rules (its CLAUDE.md, its 
 | `.workflow/backlog.md` | main | the items you approved at a checkpoint |
 | `.workflow/journal.md` | the task's branch | phase, intent, candidates, open findings; dropped at the merge |
 | `.workflow/specs/` | main | the L specs, ticked chunk by chunk |
+| `.workflow/inputs/<slug>/` | main | the documents given with a request, named as the spec or task that uses them |
 | `.workflow/reference/` | the working tree, briefly | the test-author's throwaway model of a type-level case; deleted before its suite is recorded |
 | `.git/overload/` | the clone | the verified tree and the output of the last verify and red check |
 | `refs/overload/suite/<branch>/<n>` | the clone | the test-author's recorded suites, outside every branch; deleted at the merge |
@@ -157,14 +166,14 @@ Branch names and commit messages follow the project's rules (its CLAUDE.md, its 
               └─ per chunk: stubs → tests → red check → implement          │
                             → verify → step review → commit ───────────────┤
                                                                            ▼
-                  close: final review → lessons → checkpoint → integrate
+       close: slow tests → final review → lessons → checkpoint → integrate
 ```
 
 Every step is a phase recorded in the branch's journal, so a task survives an interruption, a `/clear` or a compaction: `/overload:task` reads the journal and resumes where it stopped.
 
 ### Brainstorming and triage
 
-The main agent restates the request (the problem, the goal, the constraints) and maps the code it touches through `code-explorer`, which returns a short map with `file:line`; on a plainly small change it reads the files and their callers itself. It asks its questions in one message, then proposes a tier with a line of reasons.
+The main agent restates the request (the problem, the goal, the constraints) and maps the code it touches through `code-explorer`, which returns a short map with `file:line`; on a plainly small change it reads the files and their callers itself. It asks its questions in one message, then proposes a tier with a line of reasons. The documents you give with the request (a brief, a mockup, a sample format) are copied into `.workflow/inputs/<slug>/` when the branch opens and reach main with the task, so that a later session finds them; it tells you which, and one you leave out stays out. The spec translates them, and the spec reviewer checks that each of their points is covered or out of scope.
 
 **S** when all of these hold:
 
@@ -188,7 +197,7 @@ A task that turns out bigger goes to the L path on your go: its commits stay, un
 
 ### The L path: planning
 
-1. **Spec**, written by the main agent, which held the discussion: why, what, decisions with their alternatives, test cases, chunks. A decision that outlives the task also gets a decision record.
+1. **Spec**, written by the main agent, which held the discussion: why, what, decisions with their alternatives, test cases, the docs that change with the behavior, chunks. A decision that outlives the task also gets a decision record.
 2. **Probe** (`prober`), only for external facts the spec rests on (versions, APIs, a dependency's behavior), in a temporary folder outside the repository.
 3. **Spec review** (`spec-reviewer`): correctness, and a critique of the premises: was the problem seen, what is the strongest alternative, what is missing. It gets the spec and the code map, never a summary of the discussion.
 4. **Split** (`spec-splitter`), above about 6–7 files or 10–15 test cases: the fewest chunks, each green alone, each test-first or not.
@@ -202,21 +211,22 @@ Each chunk ends in one green commit, written by agents that did not write the sp
 2. **Tests** (`step-test-author`), from the spec, never reading the code under change; it records its suite with `suite.sh`, outside every branch.
 3. **Red check** (`red-check.sh`): every new test must fail on an assertion or a stub's not-implemented error, never on an import or load error, read from the runner's JUnit XML. A new test that passes already goes to the step reviewer, who checks it fails under a mutant.
 4. **Implement** (`step-implementer`) until the tests pass. It cannot touch the recorded tests: `commit.sh` refuses. A test it thinks wrong goes to the main agent, who decides on the spec, or asks you when the spec is silent.
-5. **Verify**, then the **step review** (`step-reviewer`): the code does what the chunk asks, and the tests cover it.
+5. **Verify**, `check` and every suite recorded on the branch, then the **step review** (`step-reviewer`): the code does what the chunk asks, and the tests cover it.
 6. **Commit** the chunk, its tests, its code and its tick in the spec.
 
 ### Close
 
 Both paths end the same way.
 
-1. **Final review** (`code-reviewer`) of the whole range against the intent or the spec. Only six cases block: a bug a plausible caller meets, a security defect, a requirement missed or out of scope, a missing or vacuous test, a broken convention no tool checks, a misleading doc. Findings below confidence 80 are counted, not reported. Fixes are commits of their own, and a new round reviews only what changed.
-2. **Lessons** (`lesson-critic`): rules proposed only for problems that got past the step meant to catch them, judged against the rules they would join before you see them.
-3. **Checkpoint**: a summary of the change, the last verify, the findings that need your judgment, the backlog candidates and the lessons. You give the go and pick what to keep, or ask for changes.
-4. **Integrate** (`integrate.sh`): merges with `--no-ff` without the journal, re-verifies the merge's result when main moved, deletes the branch and its suite, and leaves main untouched on a conflict or a red verify.
+1. **Sync and integration check**: when main moved, `sync.sh` merges it into the branch without committing; `verify.sh --integrate` then runs `check` and `check_integrate`, the slow local tests. A red is fixed on the branch like any other, and the merge is committed with its fixes; a red that main shows alone, or a conflict, comes to you.
+2. **Final review** (`code-reviewer`) of the whole range against the intent or the spec. Only six cases block: a bug a plausible caller meets, a security defect, a requirement missed or out of scope, a missing or vacuous test, a broken convention no tool checks, a misleading doc. Findings below confidence 80 are counted, not reported. Fixes are commits of their own, and a new round reviews only what changed.
+3. **Lessons** (`lesson-critic`): rules proposed only for problems that got past the step meant to catch them, judged against the rules they would join before you see them.
+4. **Checkpoint**: a summary of the change, the last verify, the findings that need your judgment, the backlog candidates and the lessons. You give the go and pick what to keep, or ask for changes.
+5. **Integrate** (`integrate.sh`): brings main up to its upstream, refuses a branch that does not hold it (back to the sync) or where `check_integrate` has not run since, merges with `--no-ff` without the journal, and deletes the branch and its suite.
 
 ### Escalation
 
-A loop that reaches its third round without converging, a stuck step, a finding that needs judgment, or a conflict at integration stops and comes to you, with what was tried and three choices: **retry** one more round, **skip** and record the problem (never on a red verify), or **stop**, leaving the branch and its journal for a later `/overload:task`.
+A loop that reaches its third round without converging, a stuck step, a finding that needs judgment, or a conflict when taking in main stops and comes to you, with what was tried and three choices: **retry** one more round, **skip** and record the problem (never on a red verify), or **stop**, leaving the branch and its journal for a later `/overload:task`.
 
 ### The agents
 
@@ -282,10 +292,9 @@ CI runs them on every push. A change to a script starts with a test in `tests/sc
 
 ## Roadmap
 
-Setup, brainstorming, triage, the S path, the L path, resume and integration by local merge all work today. Next, each to be designed before it is built (details in [the backlog](.workflow/backlog.md)):
+Setup, of a new repository too, brainstorming, triage, the S path, the L path, resume and integration by local merge all work today. Next, each to be designed before it is built (details in [the backlog](.workflow/backlog.md)):
 
 - **Integration by pull or merge request** on GitHub, GitLab and Bitbucket, for projects whose main branch takes no local merge.
-- **`/overload:bootstrap`**, to start a project that has no code yet: no `check`, no test runner, nothing for setup to read.
 - **A level above the task**, a roadmap or epic that carries architecture and order across tasks, for building a whole application.
 
 ## License

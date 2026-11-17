@@ -4,7 +4,7 @@ For small changes: no spec, one reviewer, one checkpoint. The journal's *Intent*
 
 ## 1. Implement — phase `s/implement`
 
-Write the change, following the project's rules. A bug fix starts with a test that reproduces the bug and fails with its symptom; run it red before the fix. A task that works an item of the backlog removes the item in a commit of its own; the backlog file stays, even empty.
+Write the change, following the project's rules. A change of behavior updates the docs that describe it in the same commit. A bug fix starts with a test that reproduces the bug and fails with its symptom; run it red before the fix. A task that works an item of the backlog removes the item in a commit of its own; the backlog file stays, even empty.
 
 ## 2. Verify
 

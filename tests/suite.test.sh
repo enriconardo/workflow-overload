@@ -274,6 +274,58 @@ test_red_check_without_xml_says_so() {
   expect_fail "printed no JUnit XML" bash "$SCRIPTS/red-check.sh"
 }
 
+test_verify_runs_every_recorded_suite_of_the_branch() {
+  fake_runner
+  open_l_task
+  write_test first.test.ts "case a pass" "case s skip"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"verify: green"*"the recorded tests"* ]] || fail "$out"
+  grep -q "1 passed, 1 skipped, in 1 file" "$(git rev-parse --git-path overload)/verify-output.txt" || fail "no count"
+  bash "$SCRIPTS/commit.sh" "$(message 'feat(greet): first')" >/dev/null
+  # the next chunk: its suite and the first one run together
+  write_test second.test.ts "case b assert"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  if out="$(bash "$SCRIPTS/verify.sh" 2>&1)"; then fail "green: $out"; fi
+  [[ "$out" == *"second.test.ts > b: fails, AssertionError"*"verify: red"*"the recorded tests"* ]] || fail "$out"
+  # shellcheck source=../plugins/overload/scripts/lib.sh
+  source "$SCRIPTS/lib.sh"
+  is_verified && fail "a red suite left the tree verified"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get verify_red_streak)" "1"
+}
+
+test_verify_is_red_on_a_runner_that_fails_or_prints_no_xml() {
+  fake_runner
+  set_config run_tests 'echo no xml here {files}'
+  git add -A && git commit -qm "chore(repo): a runner without xml"
+  open_l_task
+  write_test a.test.ts "case a pass"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  expect_fail "printed no JUnit XML" bash "$SCRIPTS/verify.sh"
+  set_config run_tests 'python3 runner.py {files}; exit 3'
+  expect_fail "exited 3" bash "$SCRIPTS/verify.sh"
+}
+
+test_verify_without_run_tests_or_a_suite_runs_check_only() {
+  open_l_task
+  write_test a.test.ts "case a assert"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"verify: green"* && "$out" != *"recorded tests"* ]] || fail "$out"
+}
+
+test_verify_leaves_out_the_test_files_a_suite_deletes() {
+  fake_runner
+  write_test gone.test.ts "case g pass"
+  git add -A && git commit -qm "test(greet): gone"
+  open_l_task
+  git rm -q __tests__/gone.test.ts
+  write_test kept.test.ts "case k pass"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"verify: green"*"the recorded tests"* ]] || fail "$out"
+}
+
 test_integrate_clears_the_suite() {
   open_l_task
   write_test greet.test.ts "case a assert"

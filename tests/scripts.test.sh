@@ -53,7 +53,8 @@ test_branch_opens_task_with_journal() {
   expect_eq "$(git branch --show-current)" "docs/readme/describe-project"
   expect_eq "$(bash "$SCRIPTS/journal.sh" get tier)" "S"
   expect_eq "$(bash "$SCRIPTS/journal.sh" get phase)" "s/implement"
-  expect_eq "$(sed -n '/^## /q; /^[a-z_]*: [0-9]*$/p' .workflow/journal.md)" "verify_red_streak: 0" "the only counter"
+  # base is a short sha, which may be all digits
+  expect_eq "$(sed -n '/^## /q; /^base:/d; /^[a-z_]*: [0-9]*$/p' .workflow/journal.md)" "verify_red_streak: 0" "the only counter"
   grep -q "Goal: say what the project does." .workflow/journal.md || fail "intent missing from the journal"
 }
 
@@ -106,6 +107,37 @@ test_without_hooks_no_name_or_subject_is_too_long() {
   echo "More." >>README.md
   bash "$SCRIPTS/verify.sh" >/dev/null
   bash "$SCRIPTS/commit.sh" "$(message "docs(readme): $(printf 'x%.0s' {1..90})")" >/dev/null
+}
+
+test_branch_copies_the_inputs_into_their_folder() {
+  mkdir -p "$WORK/in" "$WORK/other"
+  printf 'The brief.\n' >"$WORK/in/brief.md"
+  printf '\x89PNG\x00\x01' >"$WORK/in/mock up.png"
+  bash "$SCRIPTS/branch.sh" L feature/greet/default-name "$(intent)" \
+    --inputs 2026-11-17-greet "$WORK/in/brief.md" "$WORK/in/mock up.png" >/dev/null
+  cmp -s "$WORK/in/brief.md" .workflow/inputs/2026-11-17-greet/brief.md || fail "brief not copied"
+  cmp -s "$WORK/in/mock up.png" ".workflow/inputs/2026-11-17-greet/mock up.png" || fail "mockup not copied"
+  expect_eq "$(sed -n '/^## Inputs/,/^## Open/p' .workflow/journal.md | grep '^- ')" \
+    "$(printf -- '- .workflow/inputs/2026-11-17-greet/brief.md\n- .workflow/inputs/2026-11-17-greet/mock up.png')"
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): spec')" >/dev/null
+  git cat-file -e "HEAD:.workflow/inputs/2026-11-17-greet/brief.md" || fail "inputs not committed"
+}
+
+test_branch_refuses_inputs_it_cannot_take() {
+  mkdir -p "$WORK/in" "$WORK/other"
+  echo a >"$WORK/in/brief.md"
+  echo b >"$WORK/other/brief.md"
+  expect_fail "Usage" bash "$SCRIPTS/branch.sh" S docs/x "$(intent)" --inputs only-a-slug
+  expect_fail "Usage" bash "$SCRIPTS/branch.sh" S docs/x "$(intent)" --input slug "$WORK/in/brief.md"
+  expect_fail "not a file" bash "$SCRIPTS/branch.sh" S docs/x "$(intent)" --inputs slug "$WORK/in/missing.md"
+  expect_fail "not a file" bash "$SCRIPTS/branch.sh" S docs/x "$(intent)" --inputs slug "$WORK/in"
+  expect_fail "two inputs named 'brief.md'" bash "$SCRIPTS/branch.sh" S docs/x "$(intent)" --inputs slug "$WORK/in/brief.md" "$WORK/other/brief.md"
+  expect_fail "not a folder name" bash "$SCRIPTS/branch.sh" S docs/x "$(intent)" --inputs ../up "$WORK/in/brief.md"
+  mkdir -p .workflow/inputs/taken && echo x >.workflow/inputs/taken/old.md
+  git add -A && git commit -qm "chore(repo): an older input"
+  expect_fail "exists already" bash "$SCRIPTS/branch.sh" S docs/x "$(intent)" --inputs taken "$WORK/in/brief.md"
+  expect_eq "$(git branch --show-current)" "main" "no branch for refused inputs"
 }
 
 test_journal_set_inc_log() {
@@ -328,6 +360,60 @@ test_integrate_refused_commit_leaves_main_intact() {
   [[ -z "$(git status --porcelain)" ]] || fail "dirty: $(git status --porcelain)"
 }
 
+slow_check() {
+  cat >slow.sh <<'EOF'
+echo "slow tests"
+if [[ -f slow-red ]]; then echo "Failed: slow-red exists"; exit 1; fi
+EOF
+  set_config check_integrate 'bash slow.sh'
+  git add -A && git commit -qm "chore(repo): slow tests"
+}
+
+test_verify_integrate_runs_check_integrate_after_check() {
+  slow_check
+  open_task
+  echo "More." >>README.md
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"verify: green"* && "$out" != *"check_integrate"* ]] || fail "a plain verify: $out"
+  out="$(bash "$SCRIPTS/verify.sh" --integrate)"
+  [[ "$out" == *"verify: green"*"check_integrate"* ]] || fail "$out"
+  touch slow-red
+  if out="$(bash "$SCRIPTS/verify.sh" --integrate 2>&1)"; then fail "green: $out"; fi
+  [[ "$out" == *"slow-red exists"*"verify: red"*"check_integrate"* ]] || fail "$out"
+  source_lib
+  is_verified && fail "a red check_integrate left the tree verified"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get verify_red_streak)" "1"
+  touch red
+  if out="$(bash "$SCRIPTS/verify.sh" --integrate 2>&1)"; then fail "green: $out"; fi
+  [[ "$out" != *"slow tests"* ]] || fail "check_integrate ran after a red check: $out"
+}
+
+test_verify_integrate_without_check_integrate_runs_check_only() {
+  open_task
+  echo "More." >>README.md
+  out="$(bash "$SCRIPTS/verify.sh" --integrate)"
+  [[ "$out" == *"verify: green"*"no 'check_integrate'"* ]] || fail "$out"
+  expect_fail "usage" bash "$SCRIPTS/verify.sh" --integrated
+}
+
+test_integrate_needs_check_integrate_green_since_main_last_moved() {
+  slow_check
+  open_task
+  verified_commit "more"
+  expect_fail "verify.sh --integrate" bash "$SCRIPTS/integrate.sh"
+  bash "$SCRIPTS/verify.sh" --integrate >/dev/null
+  # a fix after the run needs check, not the slow tests again
+  verified_commit "again"
+  move_main
+  bash "$SCRIPTS/sync.sh" >/dev/null
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message "Merge branch 'main'")" >/dev/null
+  expect_fail "since 'main' last moved" bash "$SCRIPTS/integrate.sh"
+  bash "$SCRIPTS/verify.sh" --integrate >/dev/null
+  out="$(bash "$SCRIPTS/integrate.sh")"
+  [[ "$out" == *"integrated"* ]] || fail "not integrated: $out"
+}
+
 test_integrate_refuses_an_unverified_head() {
   open_task
   verified_commit "more"
@@ -338,43 +424,95 @@ test_integrate_refuses_an_unverified_head() {
   expect_fail "not the tree the last green verify checked" bash "$SCRIPTS/integrate.sh"
 }
 
-test_integrate_reverifies_when_main_moved() {
-  open_task
-  verified_commit "more"
+move_main() {
   git switch -q main
-  echo "other" >other.txt
-  git add other.txt && git commit -qm "chore(repo): other"
+  echo "${2:-other}" >"${1:-other.txt}"
+  git add -A && git commit -qm "chore(repo): move main"
   git switch -q docs/readme/describe-project
-  # Captured, not piped to grep -q, whose early exit would cut the script.
-  out="$(bash "$SCRIPTS/integrate.sh")"
-  [[ "$out" == *"verifying the merge's result"* ]] || fail "no re-verify: $out"
-  [[ -f other.txt ]] || fail "merge incomplete"
 }
 
-test_integrate_red_on_merge_result_leaves_main_intact() {
+test_integrate_refuses_a_main_that_moved_and_leaves_it_intact() {
   open_task
   verified_commit "more"
-  git switch -q main
-  touch red && git add red && git commit -qm "chore(repo): break main"
+  move_main
   before="$(git rev-parse main)"
-  git switch -q docs/readme/describe-project
-  expect_fail "verify is red on the merge's result" bash "$SCRIPTS/integrate.sh"
+  bash "$SCRIPTS/journal.sh" log "an edit to keep"
+  expect_fail "sync.sh" bash "$SCRIPTS/integrate.sh"
   expect_eq "$(git rev-parse main)" "$before"
   expect_eq "$(git branch --show-current)" "docs/readme/describe-project"
-  [[ -f .workflow/journal.md ]] || fail "journal lost"
+  grep -q "an edit to keep" .workflow/journal.md || fail "the journal's edit lost"
 }
 
-test_integrate_conflict_leaves_main_intact() {
+test_sync_takes_in_a_moved_main_and_commit_records_the_merge() {
+  open_task
+  verified_commit "more"
+  move_main
+  head="$(git rev-parse HEAD)"
+  out="$(bash "$SCRIPTS/sync.sh")"
+  [[ "$out" == *"not committed"* ]] || fail "$out"
+  expect_eq "$(git rev-parse HEAD)" "$head" "nothing committed"
+  [[ -f other.txt ]] || fail "main not taken in"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get base)" "$(git rev-parse --short main)" "the base is main's commit"
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message "Merge branch 'main' into docs/readme/describe-project")" >/dev/null
+  expect_eq "$(git rev-list --parents -n 1 HEAD | wc -w)" "3" "a merge commit"
+  expect_eq "$(git diff --name-only "$(bash "$SCRIPTS/journal.sh" get base)" HEAD -- . ':(exclude).workflow')" "README.md" "the range from the base holds the branch's changes only"
+  out="$(bash "$SCRIPTS/integrate.sh")"
+  [[ "$out" == *"integrated"* ]] || fail "not integrated: $out"
+  [[ -f other.txt ]] || fail "main's change lost"
+}
+
+test_sync_with_main_already_in_does_nothing() {
+  open_task
+  verified_commit "more"
+  out="$(bash "$SCRIPTS/sync.sh")"
+  [[ "$out" == *"nothing to take in"* ]] || fail "$out"
+  [[ ! -f "$(git rev-parse --git-path MERGE_HEAD)" ]] || fail "a merge started"
+}
+
+test_sync_commits_a_merge_that_changes_nothing() {
+  open_task
+  echo "same" >other.txt
+  verified_commit "more"
+  move_main other.txt same
+  bash "$SCRIPTS/sync.sh" >/dev/null
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message "Merge branch 'main'")" >/dev/null
+  git merge-base --is-ancestor main HEAD || fail "main not in the branch"
+}
+
+test_sync_conflict_waits_for_a_resolution_or_an_abort() {
   open_task
   verified_commit "branch line"
+  base="$(bash "$SCRIPTS/journal.sh" get base)"
   git switch -q main
   echo "main line" >>README.md && git commit -qam "chore(repo): conflict"
-  before="$(git rev-parse main)"
   git switch -q docs/readme/describe-project
-  expect_fail "conflicts" bash "$SCRIPTS/integrate.sh"
-  expect_eq "$(git rev-parse main)" "$before"
-  expect_eq "$(git branch --show-current)" "docs/readme/describe-project"
-  [[ -z "$(git status --porcelain -- README.md)" ]] || fail "merge left behind"
+  head="$(git rev-parse HEAD)"
+  out="$(bash "$SCRIPTS/sync.sh" 2>&1)" && fail "no conflict: $out"
+  [[ "$out" == *"conflicts"*"README.md"*"sync.sh --abort"* ]] || fail "$out"
+  [[ -f "$(git rev-parse --git-path MERGE_HEAD)" ]] || fail "the merge was not left to resolve"
+  expect_fail "a merge is under way" bash "$SCRIPTS/sync.sh"
+  bash "$SCRIPTS/sync.sh" --abort >/dev/null
+  [[ ! -f "$(git rev-parse --git-path MERGE_HEAD)" ]] || fail "the merge is still there"
+  expect_eq "$(git rev-parse HEAD)" "$head"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get base)" "$base" "the base put back"
+  expect_eq "$(git status --porcelain -- README.md)" "" "README.md as it was"
+  expect_fail "no sync under way" bash "$SCRIPTS/sync.sh" --abort
+}
+
+test_sync_and_integrate_bring_main_up_to_its_upstream() {
+  git init -q --bare "$WORK/remote.git"
+  git remote add origin "$WORK/remote.git"
+  git push -q -u origin main
+  open_task
+  verified_commit "more"
+  git clone -q "$WORK/remote.git" "$WORK/other"
+  (cd "$WORK/other" && echo "upstream" >upstream.txt && git add -A && git commit -qm "chore(repo): upstream" && git push -q)
+  expect_fail "sync.sh" bash "$SCRIPTS/integrate.sh"
+  expect_eq "$(git rev-parse main)" "$(git rev-parse origin/main)" "main fast-forwarded"
+  bash "$SCRIPTS/sync.sh" >/dev/null
+  [[ -f upstream.txt ]] || fail "the upstream's change not taken in"
 }
 
 guard() {
@@ -415,6 +553,35 @@ test_status_reports_config_journal_and_verify() {
   [[ "$out" == *"tier: S"* && "$out" == *"working tree: verified"* ]] || fail "$out"
   rm .workflow/config
   [[ "$(bash "$SCRIPTS/status.sh")" == *"config: none"* ]] || fail "no config not reported"
+}
+
+empty_repo() {
+  mkdir -p "$WORK/empty" && cd "$WORK/empty" && git init -q
+  mkdir -p .workflow
+  printf 'version = 1\ncheck =\nrun_tests =\n' >.workflow/config
+}
+
+test_status_reports_a_repository_without_commit_and_an_empty_check() {
+  out="$(bash "$SCRIPTS/status.sh")"
+  [[ "$out" != *"no commit yet"* && "$out" != *"unchecked"* ]] || fail "$out"
+  empty_repo
+  out="$(bash "$SCRIPTS/status.sh")"
+  [[ "$out" == *"repository: no commit yet"* ]] || fail "$out"
+  [[ "$out" == *"check is empty: every commit passes unchecked"* ]] || fail "$out"
+}
+
+test_verify_runs_before_the_first_commit() {
+  empty_repo
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"nothing checked"* ]] || fail "$out"
+  printf 'version = 1\ncheck = test -f .workflow/config\n' >.workflow/config
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"verify: green"* ]] || fail "$out"
+}
+
+test_branch_refuses_a_main_without_commit() {
+  empty_repo
+  expect_fail "no commit yet" bash "$SCRIPTS/branch.sh" S docs/readme "$(intent)"
 }
 
 test_branch_carries_the_first_config_of_init() {

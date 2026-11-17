@@ -6,7 +6,8 @@ set -euo pipefail
 # commit is one logical change, so code, review fixes and lessons are
 # separate runs of verify and of this script. The message is the model's,
 # written to the project's rules; the project's hooks judge it, and a commit
-# whose tree a pre-commit hook changed is undone.
+# whose tree a pre-commit hook changed is undone. With a sync under way
+# (sync.sh), the commit is the merge's.
 #
 #   commit.sh <message-file>
 
@@ -26,7 +27,9 @@ message="$1"
 subject="$(grep -v -m 1 -e '^#' -e '^[[:space:]]*$' "$message" || true)"
 [[ -n "$subject" ]] || die "the message has no subject line."
 
-if [[ -z "$(git status --porcelain)" ]]; then
+# A sync's merge is committed even when it changes no file: main must be in
+# the branch's history.
+if [[ -z "$(git status --porcelain)" && ! -f "$(git rev-parse --git-path MERGE_HEAD)" ]]; then
   die "nothing to commit."
 fi
 is_verified || die "the working tree is not the one the last green verify checked: run verify.sh first."
@@ -51,7 +54,10 @@ verified_tree="$(cut -d' ' -f1 "$(verified_file)")"
 committed="$(commit_tree_hash HEAD)"
 if [[ "$committed" != "$verified_tree" ]]; then
   changed="$(git diff --name-only --no-renames "$verified_tree" "$committed")"
+  # A sync's merge undone stays a merge under way.
+  other="$(git rev-parse -q --verify HEAD^2 || true)"
   git reset -q --soft HEAD^
+  [[ -z "$other" ]] || printf '%s\n' "$other" >"$(git rev-parse --git-path MERGE_HEAD)"
   die "a hook changed the commit's tree after verify checked it: the commit is undone, the hook's changes are in the working tree. Verify them, then commit again. The files it changed:
 $changed"
 fi
