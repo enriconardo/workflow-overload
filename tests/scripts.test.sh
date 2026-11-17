@@ -524,6 +524,35 @@ test_status_reports_config_journal_and_verify() {
   [[ "$(bash "$SCRIPTS/status.sh")" == *"config: none"* ]] || fail "no config not reported"
 }
 
+empty_repo() {
+  mkdir -p "$WORK/empty" && cd "$WORK/empty" && git init -q
+  mkdir -p .workflow
+  printf 'version = 1\ncheck =\nrun_tests =\n' >.workflow/config
+}
+
+test_status_reports_a_repository_without_commit_and_an_empty_check() {
+  out="$(bash "$SCRIPTS/status.sh")"
+  [[ "$out" != *"no commit yet"* && "$out" != *"unchecked"* ]] || fail "$out"
+  empty_repo
+  out="$(bash "$SCRIPTS/status.sh")"
+  [[ "$out" == *"repository: no commit yet"* ]] || fail "$out"
+  [[ "$out" == *"check is empty: every commit passes unchecked"* ]] || fail "$out"
+}
+
+test_verify_runs_before_the_first_commit() {
+  empty_repo
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"nothing checked"* ]] || fail "$out"
+  printf 'version = 1\ncheck = test -f .workflow/config\n' >.workflow/config
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"verify: green"* ]] || fail "$out"
+}
+
+test_branch_refuses_a_main_without_commit() {
+  empty_repo
+  expect_fail "no commit yet" bash "$SCRIPTS/branch.sh" S docs/readme "$(intent)"
+}
+
 test_branch_carries_the_first_config_of_init() {
   git rm -q --cached .workflow/config
   git commit -qm "chore(repo): no config yet"

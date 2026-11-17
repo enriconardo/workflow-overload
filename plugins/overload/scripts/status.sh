@@ -16,6 +16,7 @@ cd "$root" || exit 0
 
 echo "- scripts: $OVERLOAD_SCRIPTS"
 echo "- branch: $(current_branch || echo '(detached)')"
+git rev-parse -q --verify HEAD >/dev/null || echo "- repository: no commit yet"
 if [[ ! -f "$CONFIG_FILE" ]]; then
   echo "- config: none ($CONFIG_FILE is missing)"
 else
@@ -28,6 +29,7 @@ else
     for key in $CONFIG_KEYS; do
       printf '  - %s = %s\n' "$key" "$(cfg "$key")"
     done
+    [[ -n "$(cfg check)" ]] || echo "  - check is empty: every commit passes unchecked, until a task brings the project's checks"
     for key in $CONFIG_KEYS; do
       var="OVERLOAD_$(printf '%s' "$key" | tr '[:lower:]' '[:upper:]')"
       [[ -n "${!var+x}" ]] && echo "  - ($key comes from \$$var)"

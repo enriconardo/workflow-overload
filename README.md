@@ -21,7 +21,7 @@ It is a plugin with two commands, `/overload:setup` to configure a project once 
 
 ## Quick start
 
-You need Claude Code, `bash`, `git` and `python3` (3.8 or later, standard library only), and a git project whose checks pass on its main branch. With git older than 2.36, a task's merge subject is not checked against the project's `commit-msg` hook before the task starts.
+You need Claude Code, `bash`, `git` and `python3` (3.8 or later, standard library only), and a git project whose checks pass on its main branch, or a new one with no commit yet. With git older than 2.36, a task's merge subject is not checked against the project's `commit-msg` hook before the task starts.
 
 1. **Install** the plugin, from Claude Code:
 
@@ -39,6 +39,8 @@ You need Claude Code, `bash`, `git` and `python3` (3.8 or later, standard librar
    ```
 
    An agent reads the project and proposes `.workflow/config`, each value with its source, plus the conventions your rule files lack. Answer its questions, accept or change the values; it then runs your `check` on main, which must be green, measures how your test runner reports a failure, and commits the config on your go. Guidance helps when the project is unusual: `/overload:setup take the commands from the Makefile`.
+
+   In a repository with no commit (after `git init`), setup lays only the workflow's skeleton: `check` and `run_tests` empty, the backlog, the branch and commit conventions you settle, and the first commit on the main branch. It chooses no language or tool: the first task does, with its review and decision records, and writes `check` and `run_tests` in the config in its own diff. Until then every commit passes unchecked, and each task says so. After that task, run `/overload:setup` again to measure `red_types`.
 
 3. **Run a first task**, something small:
 
@@ -289,10 +291,9 @@ CI runs them on every push. A change to a script starts with a test in `tests/sc
 
 ## Roadmap
 
-Setup, brainstorming, triage, the S path, the L path, resume and integration by local merge all work today. Next, each to be designed before it is built (details in [the backlog](.workflow/backlog.md)):
+Setup, of a new repository too, brainstorming, triage, the S path, the L path, resume and integration by local merge all work today. Next, each to be designed before it is built (details in [the backlog](.workflow/backlog.md)):
 
 - **Integration by pull or merge request** on GitHub, GitLab and Bitbucket, for projects whose main branch takes no local merge.
-- **`/overload:bootstrap`**, to start a project that has no code yet: no `check`, no test runner, nothing for setup to read.
 - **A level above the task**, a roadmap or epic that carries architecture and order across tasks, for building a whole application.
 
 ## License
