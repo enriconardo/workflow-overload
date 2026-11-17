@@ -53,7 +53,8 @@ test_branch_opens_task_with_journal() {
   expect_eq "$(git branch --show-current)" "docs/readme/describe-project"
   expect_eq "$(bash "$SCRIPTS/journal.sh" get tier)" "S"
   expect_eq "$(bash "$SCRIPTS/journal.sh" get phase)" "s/implement"
-  expect_eq "$(sed -n '/^## /q; /^[a-z_]*: [0-9]*$/p' .workflow/journal.md)" "verify_red_streak: 0" "the only counter"
+  # base is a short sha, which may be all digits
+  expect_eq "$(sed -n '/^## /q; /^base:/d; /^[a-z_]*: [0-9]*$/p' .workflow/journal.md)" "verify_red_streak: 0" "the only counter"
   grep -q "Goal: say what the project does." .workflow/journal.md || fail "intent missing from the journal"
 }
 
