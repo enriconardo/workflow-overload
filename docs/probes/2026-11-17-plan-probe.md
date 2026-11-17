@@ -21,15 +21,25 @@ On the way it also sees: whether each item leaves main green and coherent, wheth
 Today's task knows no plan, so the human plays the parts 0.6.0 would automate. Each one is marked *(stands for …)*.
 
 1. `git init` the new repository, then `/overload:setup`: the skeleton, `check` empty, the conventions, `docs/adr/` if proposed.
-2. **Item 0, the plan lands** *(stands for a task that brings a plan)*: `/overload:task` with the plan file as input, asking to add it as `.workflow/plans/lists.md` with `status: approved` and its decisions as records. Before it, the human reviews the plan, in place of plan-reviewer; the decisions D1–D7 are proposals until then.
+2. **Item 0, the plan lands** *(stands for a task that brings a plan)*: `/overload:task` with the plan file as input, asking to add it as `.workflow/plans/lists.md` with `status: approved` and its decisions as records. Before it, an agent with a clean context reviews the plan with plan-reviewer's questions from the design *(stands for plan-reviewer)*, and the human settles the findings; see *Plan review*.
 3. **Items 1 to 7**, one at a time, each in a fresh session:
    - note the start time, then `/overload:task item <n> of .workflow/plans/lists.md; tick it in the task's diff`;
    - on L, take the `/clear` recommended after the spec's commit and note its time: before it is what 0.6.0's `task` would do, after it what `build` would do *(stands for the split into two merges)*;
    - at the final checkpoint, before the go, fill the item's row below from the journal and the diff, and answer: does what this item found change a later item? Yes: a plan revision, as its own S task, recorded as a row too *(stands for a revision through task)*;
    - after the merge, note the end time and run `check` and `check_integrate` on main.
-   - Before item 6 is merged: copy the database aside, for acceptance step F6, N1.
 4. **Acceptance** *(stands for `build <plan>`)*: the human runs the plan's *Acceptance* on main, in order, timing it. A failure the triage would call S is fixed by an S task, starting from a test that reproduces it; a larger one becomes a new item. Each step's result goes in the second table.
 5. **Reading**: tokens per item come from the session transcripts, the main session's and its agents', summed between the noted times; no counter in the plugin.
+
+## Plan review
+
+2026-11-17, one round, before item 0. A general-purpose agent got the plan, spec-reviewer's criterion on decisions, the tier rules and the design's seven questions for plan-reviewer, and nothing of the discussion. About 48,000 tokens, 4 tool calls, under two minutes.
+
+- **1 blocking, accepted.** D1 promised one language "for the browser script too" with no build: a browser runs no TypeScript. The browser script is now JavaScript under `// @ts-check`. The plan's author had missed it, and item 3 would have hit it.
+- **11 minor, all accepted, two of them in part.** The tsconfig flags that keep vitest and `node` in agreement. The rendering path: server fragments, one renderer. Dependencies: item 6 on 4, which also closes F4 with notes; item 7 on 6. Notes kept out of the export. Access from other devices out of scope. N2 as a Playwright test. A seed script for N4 in item 3. N1's old database built at acceptance from the commit before item 6, not saved ahead of time. Acceptance run at the plan's end. The database path in `LISTS_DB`, opened by item 1. SSE's six-connection limit noted.
+- **The parts rejected**: weighing htmx and polling again, since the human ruled the decisions irrelevant to a throwaway project; and a rule for a database newer than the code, which went to *Out of scope*.
+- **Its size estimate**: no item above about 3 chunks (items 2 and 3); item 5 is one chunk, L only for its new URL. To compare with what the splitter counts.
+
+So, at plan level, the reviewer found a defect in a cross-cutting decision before any code, and four of its minor findings were about the cut between items (dependencies, which item closes what, what an item changes in an earlier one): the parts no spec-reviewer of a single item would see.
 
 ## Items
 
