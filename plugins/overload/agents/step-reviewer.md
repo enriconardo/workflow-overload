@@ -14,7 +14,7 @@ The spec's path and the chunk's number; the recorded test files; the range, the 
 
 ## What to check
 
-- **The code does what the chunk asks**, no less, and nothing outside it: every behavior and error of the chunk, the callers the change reaches.
+- **The code does what the chunk asks**, no less, and nothing outside it: every behavior and error of the chunk, the callers the change reaches, and the inputs its line cites after `inputs:`, matched as they are.
 - **The tests cover the chunk**: each of its test cases has a test, each test asserts what identifies the behavior, none passes without it.
 - **Bugs**: an input the public types accept that breaks the code.
 - **Each test that passed already at the red check** fails when the behavior it covers breaks: in a copy of the project under a folder made with `mktemp -d` (the system's temp folder), change the code so that behavior is wrong, run the test, and expect it red. One that stays green is a test finding.

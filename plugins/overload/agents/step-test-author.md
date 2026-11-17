@@ -14,7 +14,7 @@ The spec's path and the chunk's number; the project's rule files; the config's `
 
 ## What you may read
 
-- The spec, the rule files, and the project's testing conventions.
+- The spec, the rule files, the project's testing conventions, and the inputs the chunk's line cites after `inputs:`.
 - Existing tests, helpers and fixtures, and the published type declarations of the code the chunk changes (`.d.ts`, stubs, interfaces): its signatures come from those and from the spec.
 - **Never the source the chunk changes.** If a signature you need is nowhere but in that source, stop and say so: the spec lacks it.
 

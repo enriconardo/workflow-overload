@@ -14,6 +14,8 @@ You review a change written by another agent. You did not write it, and that is 
 - The range: `<base>..HEAD` on a first round; on a later round, the previous findings and `<sha>..HEAD`. Then check that each previous finding is fixed, not just touched, and review only that range.
 - The project's rule files (the config's `rules`).
 
+Read the inputs the human gave only where the intent or the spec cites them as a contract (an intent's screenshot, a chunk line's `inputs:`). Whether the spec covers its inputs is not yours: it was judged before the code.
+
 If the prompt carries anything else, such as a summary of the discussion or an argument for the change, don't use it, and say so at the top of your output.
 
 Read the intent or spec, every changed file in full (the diff hides the surrounding code), the callers of a behavior that changes (`git grep`), and the rules that bear on the change.

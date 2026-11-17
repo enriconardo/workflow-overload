@@ -109,6 +109,37 @@ test_without_hooks_no_name_or_subject_is_too_long() {
   bash "$SCRIPTS/commit.sh" "$(message "docs(readme): $(printf 'x%.0s' {1..90})")" >/dev/null
 }
 
+test_branch_copies_the_inputs_into_their_folder() {
+  mkdir -p "$WORK/in" "$WORK/other"
+  printf 'The brief.\n' >"$WORK/in/brief.md"
+  printf '\x89PNG\x00\x01' >"$WORK/in/mock up.png"
+  bash "$SCRIPTS/branch.sh" L feature/greet/default-name "$(intent)" \
+    --inputs 2026-11-17-greet "$WORK/in/brief.md" "$WORK/in/mock up.png" >/dev/null
+  cmp -s "$WORK/in/brief.md" .workflow/inputs/2026-11-17-greet/brief.md || fail "brief not copied"
+  cmp -s "$WORK/in/mock up.png" ".workflow/inputs/2026-11-17-greet/mock up.png" || fail "mockup not copied"
+  expect_eq "$(sed -n '/^## Inputs/,/^## Open/p' .workflow/journal.md | grep '^- ')" \
+    "$(printf -- '- .workflow/inputs/2026-11-17-greet/brief.md\n- .workflow/inputs/2026-11-17-greet/mock up.png')"
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): spec')" >/dev/null
+  git cat-file -e "HEAD:.workflow/inputs/2026-11-17-greet/brief.md" || fail "inputs not committed"
+}
+
+test_branch_refuses_inputs_it_cannot_take() {
+  mkdir -p "$WORK/in" "$WORK/other"
+  echo a >"$WORK/in/brief.md"
+  echo b >"$WORK/other/brief.md"
+  expect_fail "Usage" bash "$SCRIPTS/branch.sh" S docs/x "$(intent)" --inputs only-a-slug
+  expect_fail "Usage" bash "$SCRIPTS/branch.sh" S docs/x "$(intent)" --input slug "$WORK/in/brief.md"
+  expect_fail "not a file" bash "$SCRIPTS/branch.sh" S docs/x "$(intent)" --inputs slug "$WORK/in/missing.md"
+  expect_fail "not a file" bash "$SCRIPTS/branch.sh" S docs/x "$(intent)" --inputs slug "$WORK/in"
+  expect_fail "two inputs named 'brief.md'" bash "$SCRIPTS/branch.sh" S docs/x "$(intent)" --inputs slug "$WORK/in/brief.md" "$WORK/other/brief.md"
+  expect_fail "not a folder name" bash "$SCRIPTS/branch.sh" S docs/x "$(intent)" --inputs ../up "$WORK/in/brief.md"
+  mkdir -p .workflow/inputs/taken && echo x >.workflow/inputs/taken/old.md
+  git add -A && git commit -qm "chore(repo): an older input"
+  expect_fail "exists already" bash "$SCRIPTS/branch.sh" S docs/x "$(intent)" --inputs taken "$WORK/in/brief.md"
+  expect_eq "$(git branch --show-current)" "main" "no branch for refused inputs"
+}
+
 test_journal_set_inc_log() {
   open_task
   bash "$SCRIPTS/journal.sh" set phase s/review

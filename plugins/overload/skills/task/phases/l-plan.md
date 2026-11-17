@@ -4,12 +4,13 @@ Produces a reviewed spec, split into chunks, that the human approves before any 
 
 ## 1. Spec — phase `l/spec`
 
-You write it, because you hold the discussion with the human: an agent given a summary would lose the intent. Start from the explorer's map, which the spec reviewer and the splitter read too: if the brainstorming logged none, run the `overload:code-explorer` agent now, as `phases/brainstorm.md` says, and log the map's path. Write it at `.workflow/specs/<YYYY-MM-DD>-<description>.md` and record its path: `journal.sh set spec <path>`.
+You write it, because you hold the discussion with the human: an agent given a summary would lose the intent. Start from the explorer's map, which the spec reviewer and the splitter read too: if the brainstorming logged none, run the `overload:code-explorer` agent now, as `phases/brainstorm.md` says, and log the map's path. Write it at `.workflow/specs/<YYYY-MM-DD>-<description>.md`, or, with inputs (the journal's *Inputs*), at `.workflow/specs/<slug>.md`, named as their folder, and record its path: `journal.sh set spec <path>`. The inputs stay the source and the spec translates them: each point of an input becomes a behavior of *What* or a case of *Test cases*, or is named out of scope in *What*.
 
 ```
 ---
 status: draft
 branch: <branch>
+inputs: <the inputs' paths, or none>
 ---
 
 # <What changes, in a line>
@@ -27,7 +28,7 @@ Each decision, the alternatives weighed (doing nothing included) and why this on
 The cases that prove the behavior, each one line: input, expected result.
 
 ## Chunks
-- [ ] 1. <title> (test-first | no test-first): the files, the test cases it covers[; signatures: the existing declarations whose signature changes]
+- [ ] 1. <title> (test-first | no test-first): the files, the test cases it covers[; signatures: the existing declarations whose signature changes][; inputs: those its code must match as they are]
 ```
 
 A decision that outlives the task also gets a decision record, in a folder of the config's `rules` that already holds decision records. With no such folder, write none and create none: the human hears it at checkpoint 1, with `/overload:setup`, which proposes one.
@@ -40,7 +41,7 @@ Versions, APIs, a dependency's behavior. Run the `overload:prober` agent with th
 
 ## 3. Spec review — phase `l/spec-review`
 
-Run the `overload:spec-reviewer` agent with the spec's path and the explorer map's path (write the map to a file outside the repository first), and the config's `rules`. Never a summary of the discussion. Log the round: `journal.sh log "spec review round <n>: <k> blocking"`.
+Run the `overload:spec-reviewer` agent with the spec's path, the explorer map's path (write the map to a file outside the repository first), the inputs' paths, and the config's `rules`. Never a summary of the discussion. Log the round: `journal.sh log "spec review round <n>: <k> blocking"`.
 
 For each objection: accept it and fix the spec, or reject it with a reason, which goes under *Open findings*. A new question about external facts goes back to 2; a question only the human can answer goes to them now. The loop ends when the reviewer's last round raises no blocking objection you accept. A minor one you fix, or reject, without another round; an accepted blocking one fixes the spec and calls for another round. At most three rounds, then `phases/escalate.md`; past the third, every round ends there again while a blocking objection stays open.
 

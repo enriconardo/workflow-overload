@@ -4,27 +4,50 @@ set -euo pipefail
 # Opens a task after the triage: checks the name, creates the branch from an
 # up-to-date main, and writes the journal with the tier and the intent.
 #
-#   branch.sh <tier> <name> <intent-file>
+#   branch.sh <tier> <name> <intent-file> [--inputs <slug> <file>...]
 #
 # <tier> is S or L; <name> is the branch's whole name, which the model writes
 # following the project's rules: no part of it is read, so only git and the
 # project's commit-msg hook judge it. <intent-file> holds the intent the
 # brainstorming wrote (problem, goal, constraints, decisions), copied into
-# the journal.
+# the journal. The inputs the human gave (a brief, a mockup, a sample) are
+# copied into .workflow/inputs/<slug>/, which the journal's *Inputs* lists:
+# the first commit takes them to the branch, and the merge to main, where a
+# later session finds them. <slug> is the name of the spec that will use
+# them, or the task's.
 
 # shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 in_project
 require_config
 
-if (($# != 3)); then
-  echo "Usage: branch.sh <S|L> <name> <intent-file>" >&2
+usage() {
+  echo "Usage: branch.sh <S|L> <name> <intent-file> [--inputs <slug> <file>...]" >&2
   exit 2
-fi
+}
+(($# == 3 || $# >= 6)) || usage
 tier="$1" branch="$2" intent="$3"
+slug="" inputs=()
+if (($# > 3)); then
+  [[ "$4" == --inputs ]] || usage
+  slug="$5"
+  inputs=("${@:6}")
+fi
+INPUTS_DIR=".workflow/inputs"
 
 [[ "$tier" == S || "$tier" == L ]] || die "the tier is S or L, not '$tier'."
 [[ -s "$intent" ]] || die "the intent file '$intent' is missing or empty."
+if [[ -n "$slug" ]]; then
+  [[ "$slug" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || die "'$slug' is not a folder name for the inputs: letters, digits, '.', '_' and '-'."
+  declare -A seen=()
+  for file in "${inputs[@]}"; do
+    [[ -f "$file" ]] || die "the input '$file' is not a file."
+    name="$(basename -- "$file")"
+    [[ -z "${seen[$name]:-}" ]] || die "two inputs named '$name': rename one."
+    seen["$name"]=1
+  done
+  [[ ! -e "$INPUTS_DIR/$slug" ]] || die "$INPUTS_DIR/$slug exists already: choose another name."
+fi
 git check-ref-format --branch "$branch" >/dev/null 2>&1 || die "'$branch' is not a valid branch name."
 
 main="$(cfg main)"
@@ -67,6 +90,13 @@ fi
 
 git switch --quiet -c "$branch"
 
+copied=()
+for file in ${inputs[@]+"${inputs[@]}"}; do
+  mkdir -p "$INPUTS_DIR/$slug"
+  cp -- "$file" "$INPUTS_DIR/$slug/"
+  copied+=("$INPUTS_DIR/$slug/$(basename -- "$file")")
+done
+
 mkdir -p "$(dirname "$JOURNAL_FILE")"
 {
   echo "# Task journal"
@@ -83,6 +113,12 @@ mkdir -p "$(dirname "$JOURNAL_FILE")"
   # Its headings go below the journal's sections, which the scripts read.
   sed -E 's/^(#+ )/##\1/' "$intent"
   echo
+  if ((${#copied[@]})); then
+    echo "## Inputs"
+    echo
+    printf -- '- %s\n' "${copied[@]}"
+    echo
+  fi
   echo "## Open findings"
   echo
   echo "## Lesson candidates"

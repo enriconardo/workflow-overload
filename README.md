@@ -59,7 +59,7 @@ That is the whole loop. A larger request goes the same way, through the L path. 
 | Command | What it does |
 | --- | --- |
 | `/overload:setup [guidance]` | Proposes `.workflow/config` and the conventions your rule files lack; you settle it. Then verify must be green on main, a second agent measures `red_types` with throwaway tests, and it commits on your go. No branch, no journal. |
-| `/overload:task <request>` | Opens a task: brainstorming, then the S or the L path. |
+| `/overload:task <request>` | Opens a task: brainstorming, then the S or the L path. Name the documents that go with the request (a brief, a mockup, a sample format): they land in `.workflow/inputs/`. |
 | `/overload:task` | Resumes the task of the current branch from its journal, after an interruption or a `/clear`. |
 
 Inside a task, the scripts that open the branch, update the journal, verify, commit, handle the suite and take in a moved main run without a permission prompt; `integrate.sh` asks each time, on top of your go at the checkpoint. While a task is open, a hook refuses a `git commit` or `git merge` typed directly. On a branch with an open task, a new session is told the task waits for `/overload:task`, and a compacted one is told to reread the journal.
@@ -151,6 +151,7 @@ Branch names and commit messages follow the project's rules (its CLAUDE.md, its 
 | `.workflow/backlog.md` | main | the items you approved at a checkpoint |
 | `.workflow/journal.md` | the task's branch | phase, intent, candidates, open findings; dropped at the merge |
 | `.workflow/specs/` | main | the L specs, ticked chunk by chunk |
+| `.workflow/inputs/<slug>/` | main | the documents given with a request, named as the spec or task that uses them |
 | `.workflow/reference/` | the working tree, briefly | the test-author's throwaway model of a type-level case; deleted before its suite is recorded |
 | `.git/overload/` | the clone | the verified tree and the output of the last verify and red check |
 | `refs/overload/suite/<branch>/<n>` | the clone | the test-author's recorded suites, outside every branch; deleted at the merge |
@@ -172,7 +173,7 @@ Every step is a phase recorded in the branch's journal, so a task survives an in
 
 ### Brainstorming and triage
 
-The main agent restates the request (the problem, the goal, the constraints) and maps the code it touches through `code-explorer`, which returns a short map with `file:line`; on a plainly small change it reads the files and their callers itself. It asks its questions in one message, then proposes a tier with a line of reasons.
+The main agent restates the request (the problem, the goal, the constraints) and maps the code it touches through `code-explorer`, which returns a short map with `file:line`; on a plainly small change it reads the files and their callers itself. It asks its questions in one message, then proposes a tier with a line of reasons. The documents you give with the request (a brief, a mockup, a sample format) are copied into `.workflow/inputs/<slug>/` when the branch opens and reach main with the task, so that a later session finds them; it tells you which, and one you leave out stays out. The spec translates them, and the spec reviewer checks that each of their points is covered or out of scope.
 
 **S** when all of these hold:
 

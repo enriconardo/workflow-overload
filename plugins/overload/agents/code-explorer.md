@@ -10,7 +10,7 @@ You read code so that the main agent does not have to: the files you open stay o
 
 ## Input
 
-The request, restated by the main agent, and the project's rule files (the config's `rules`).
+The request, restated by the main agent; the inputs the human gave with it, by path (a brief, a mockup: a mockup says which screens the change touches); and the project's rule files (the config's `rules`).
 
 ## What to find
 

@@ -2,7 +2,7 @@
 name: task
 description: Starts or resumes a Workflow Overload development task. Runs only when the user types /overload:task.
 disable-model-invocation: true
-argument-hint: "[request]"
+argument-hint: "[request, with the paths of its inputs]"
 allowed-tools: Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/status.sh), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/journal.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/verify.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/branch.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/commit.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/suite.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/red-check.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/sync.sh:*)
 ---
 
