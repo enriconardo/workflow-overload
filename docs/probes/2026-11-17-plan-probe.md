@@ -82,4 +82,8 @@ Read before the results, so that the results do not pick the reading.
 
 ## Results
 
-To be written as the items run.
+To be written as the items run. Observations as they come:
+
+- **Setup on an empty repository** (2026-11-17): it chose `master` from git's default, wrote the config with `check`, `check_integrate` and `run_tests` empty, the rules in `CLAUDE.md` and `docs/adr/` with a template, and committed. The first run stopped before any change, because Claude Code's auto-mode permission check did not answer; not the plugin's doing. A stale cache had also installed the set-aside roadmap build in place of the checkout: removing `~/.claude/plugins/cache/workflow-overload` before the install fixed it.
+- **The backlog setup writes is empty, 0 bytes**, and item 0's main agent reported "no backlog file": Claude Code's Read refuses an empty file, which reads as a missing one. A candidate fix in the plugin: setup writes the backlog with a heading.
+- **Item 0**, the plan and seven decision records, docs only, triaged S: code-reviewer ran two rounds and found one blocking defect, an alternative in a decision record that the plan never weighed. The 0.6.0 design closes a docs-only task without code-reviewer and has plan-reviewer judge the documents that land with the plan; this says that judgment is not a formality: plan-reviewer must read each record against the plan.
