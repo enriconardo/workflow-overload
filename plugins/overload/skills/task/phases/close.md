@@ -1,8 +1,12 @@
 # Close
 
-Both paths end here: one final review, one round of lessons, the human's go, the merge. On the S path you fix what the review finds; on the L path the `overload:step-implementer` does, from a test that reproduces the finding.
+Both paths end here: the slow tests, one final review, one round of lessons, the human's go, the merge. On the S path you fix what the review finds; on the L path the `overload:step-implementer` does, from a test that reproduces the finding.
 
-## 1. Final review — phase `close/review`
+## 1. Integration check — phase `close/check`
+
+`bash <scripts>/verify.sh --integrate`: `check`, then the config's `check_integrate`, the tests too slow for every commit. With no `check_integrate` it runs `check` alone. Red: fix it (you on S, the step-implementer on L, from a test that reproduces it when the slow test does not already), verify with `--integrate` again and commit the fix on its own. The script stops you at the third red in a row: `phases/escalate.md`.
+
+## 2. Final review — phase `close/review`
 
 Run the `overload:code-reviewer` agent with:
 
@@ -19,18 +23,18 @@ At every round, log the round with the HEAD it reviewed (`journal.sh log "review
 
 A round that still finds blocking issues after the third goes to `phases/escalate.md`. You may reject a finding: write why under *Open findings*, and the human sees it.
 
-## 2. Lessons — phase `close/lessons`
+## 3. Lessons — phase `close/lessons`
 
-Only for a problem of this task, planning included, that got past the step meant to catch it (the review or check of its own step did not) and could recur beyond this task's area. A defect of the workflow itself goes to the checkpoint as such, not as a lesson. The candidates are in the journal's *Lesson candidates*. Prefer a check, a script or a lint rule to written text; propose also to retire a rule of the area that proved useless or superseded. No proposal: skip to 3.
+Only for a problem of this task, planning included, that got past the step meant to catch it (the review or check of its own step did not) and could recur beyond this task's area. A defect of the workflow itself goes to the checkpoint as such, not as a lesson. The candidates are in the journal's *Lesson candidates*. Prefer a check, a script or a lint rule to written text; propose also to retire a rule of the area that proved useless or superseded. No proposal: skip to 4.
 
 Write the proposals to a file outside the repository, one per lesson: its text as it would land, where it lands (file and section, or the check and what it refuses), the evidence (a commit, a finding quoted as it came, a check's output, a `file:line`), and the step that found the problem and the one meant to catch it. Run the `overload:lesson-critic` agent with that path only. Apply the verdicts you accept; a `revise` or `drop` you reject keeps its reason.
 
-## 3. Summary and checkpoint — phase `close/checkpoint`
+## 4. Summary and checkpoint — phase `close/checkpoint`
 
 One message to the human:
 
 - what changes and why, in a few lines, and the diff's stat (`git diff --stat <base>..HEAD`); on L, the chunks as the spec ticks them;
-- the last verify's result;
+- the last verify's result, and `check_integrate`'s;
 - the findings that need their judgment, and those you rejected, with the reason;
 - the backlog candidates, each with its source, after you compared them with the config's `backlog` file: a candidate that matches an item says so, already there or already dropped, with the item's date and reason;
 - the lessons the critic kept, each with its verdict; a dropped one as a single line, so they can take it back.
@@ -38,12 +42,12 @@ One message to the human:
 
 Then stop and wait. The human gives the go and picks the lessons and backlog items to keep, or asks for changes: on S you are back in `s/implement`; on L you add the changes to the spec as one more chunk, and it goes through `phases/l-chunk.md`, then this file again from 1. Log their words.
 
-## 4. Lessons and backlog — phase `close/write`
+## 5. Lessons and backlog — phase `close/write`
 
 Write the approved lessons where they land, apply the approved retirements, and add the approved backlog items to the config's `backlog` file (create it if missing) where its own rules put a new item, its header or its sections, else at its end; one item per entry: what, why, source. The rule, not its story: `git blame` gives the task and the date. Verify and commit the lessons on their own, then the backlog items on their own. A lesson that stays red goes to the human: retry, or skip, and the lesson leaves the task as a backlog item.
 
 On L, set the spec's `status: done` in the last of these commits, or in a commit of its own when nothing was approved.
 
-## 5. Integrate — phase `close/integrate`
+## 6. Integrate — phase `close/integrate`
 
-`bash <scripts>/integrate.sh`. It asks the human's permission; it merges with `--no-ff`, drops the journal and deletes the branch and its suite. On a conflict or a red verify on the merge's result it leaves main as it was: go to `phases/escalate.md`. Then tell the human it is merged, in one line, with the merge's subject.
+`bash <scripts>/integrate.sh`. It asks the human's permission; it merges with `--no-ff`, drops the journal and deletes the branch and its suite. It refuses a branch where `check_integrate` has not run green since main last moved: run step 1 again, then integrate. On a conflict or a red verify on the merge's result it leaves main as it was: go to `phases/escalate.md`. Then tell the human it is merged, in one line, with the merge's subject.

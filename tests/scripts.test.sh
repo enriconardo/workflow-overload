@@ -329,6 +329,60 @@ test_integrate_refused_commit_leaves_main_intact() {
   [[ -z "$(git status --porcelain)" ]] || fail "dirty: $(git status --porcelain)"
 }
 
+slow_check() {
+  cat >slow.sh <<'EOF'
+echo "slow tests"
+if [[ -f slow-red ]]; then echo "Failed: slow-red exists"; exit 1; fi
+EOF
+  set_config check_integrate 'bash slow.sh'
+  git add -A && git commit -qm "chore(repo): slow tests"
+}
+
+test_verify_integrate_runs_check_integrate_after_check() {
+  slow_check
+  open_task
+  echo "More." >>README.md
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"verify: green"* && "$out" != *"check_integrate"* ]] || fail "a plain verify: $out"
+  out="$(bash "$SCRIPTS/verify.sh" --integrate)"
+  [[ "$out" == *"verify: green"*"check_integrate"* ]] || fail "$out"
+  touch slow-red
+  if out="$(bash "$SCRIPTS/verify.sh" --integrate 2>&1)"; then fail "green: $out"; fi
+  [[ "$out" == *"slow-red exists"*"verify: red"*"check_integrate"* ]] || fail "$out"
+  source_lib
+  is_verified && fail "a red check_integrate left the tree verified"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get verify_red_streak)" "1"
+  touch red
+  if out="$(bash "$SCRIPTS/verify.sh" --integrate 2>&1)"; then fail "green: $out"; fi
+  [[ "$out" != *"slow tests"* ]] || fail "check_integrate ran after a red check: $out"
+}
+
+test_verify_integrate_without_check_integrate_runs_check_only() {
+  open_task
+  echo "More." >>README.md
+  out="$(bash "$SCRIPTS/verify.sh" --integrate)"
+  [[ "$out" == *"verify: green"*"no 'check_integrate'"* ]] || fail "$out"
+  expect_fail "usage" bash "$SCRIPTS/verify.sh" --integrated
+}
+
+test_integrate_needs_check_integrate_green_since_main_last_moved() {
+  slow_check
+  open_task
+  verified_commit "more"
+  expect_fail "verify.sh --integrate" bash "$SCRIPTS/integrate.sh"
+  bash "$SCRIPTS/verify.sh" --integrate >/dev/null
+  # a fix after the run needs check, not the slow tests again
+  verified_commit "again"
+  git switch -q main
+  echo "other" >other.txt
+  git add other.txt && git commit -qm "chore(repo): other"
+  git switch -q docs/readme/describe-project
+  expect_fail "since 'main' last moved" bash "$SCRIPTS/integrate.sh"
+  git switch -q main && git reset -q --hard HEAD^ && git switch -q docs/readme/describe-project
+  out="$(bash "$SCRIPTS/integrate.sh")"
+  [[ "$out" == *"integrated"* ]] || fail "not integrated: $out"
+}
+
 test_integrate_refuses_an_unverified_head() {
   open_task
   verified_commit "more"

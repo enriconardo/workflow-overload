@@ -2,7 +2,8 @@
 set -euo pipefail
 
 # Integrates a task's branch after the human's go at the last checkpoint:
-# refuses a tree that is not the verified one, merges with --no-ff into main
+# refuses a tree that is not the verified one, or, when the config has a
+# `check_integrate`, not the one `verify.sh --integrate` saw green; merges with --no-ff into main
 # without the journal, repeats verify on the merge's result when main moved,
 # and deletes the branch and its records.
 # A conflict or a red verify aborts the merge and leaves main as it was.
@@ -27,6 +28,14 @@ $dirty"
 verified="$(verified_file)"
 [[ -f "$verified" && "$(cut -d' ' -f1 "$verified")" == "$(commit_tree_hash HEAD)" ]] ||
   die "HEAD is not the tree the last green verify checked: run verify.sh first."
+# The slow but local tests, when the project has them, ran green on this
+# branch since main last moved: once per task, again after a sync.
+integrated="$(integrated_file)"
+if [[ -n "$(cfg check_integrate)" ]]; then
+  read -r _ ran_on _ ran_with 2>/dev/null <"$integrated" || ran_on="" ran_with=""
+  [[ "$ran_on" == "$branch" && "$ran_with" == "$(git rev-parse -q --verify "refs/heads/$main" || echo none)" ]] ||
+    die "check_integrate has not run green on '$branch' since '$main' last moved: run verify.sh --integrate, then integrate again."
+fi
 
 git show-ref --verify --quiet "refs/heads/$main" || die "no local '$main' to integrate into."
 
@@ -90,5 +99,5 @@ git branch -q -D "$branch"
 for ref in $(git for-each-ref --format='%(refname)' "refs/overload/suite/$branch" "refs/overload/base/$branch"); do
   git update-ref -d "$ref"
 done
-rm -f "$verified"
+rm -f "$verified" "$integrated"
 git log -1 --format="integrated '$branch' into '$main' as %h %s"

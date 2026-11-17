@@ -67,21 +67,23 @@ Inside a task, the scripts that open the branch, update the journal, verify, com
 The config holds what is the project's own, as `key = value` lines that scripts read without executing; `/overload:setup` writes it.
 
 ```
-version    = 1
-check      = pnpm check                                 # the commit gate, see *check*; empty: nothing checked
-run_tests  = pnpm vitest run --reporter=junit {files}   # runs the given test files, prints JUnit XML; empty: no red check
-main       = main
-integrate  = merge
-rules      = CLAUDE.md, docs/adr/
-backlog    = .workflow/backlog.md
-tests_glob = **/__tests__/**
-red_types  = AssertionError, NotImplemented
+version         = 1
+check           = pnpm check                                # the commit gate, see *check*; empty: nothing checked
+check_integrate = pnpm test:e2e                             # the slow local tests, see *check_integrate*; empty: none
+run_tests       = pnpm vitest run --reporter=junit {files}  # runs the given test files, prints JUnit XML; empty: no red check
+main            = main
+integrate       = merge
+rules           = CLAUDE.md, docs/adr/
+backlog         = .workflow/backlog.md
+tests_glob      = **/__tests__/**
+red_types       = AssertionError, NotImplemented
 ```
 
 | Key | Default | What it holds |
 | --- | --- | --- |
 | `version` | none, required | `1` |
 | `check` | none, required, may be empty | the command that checks the whole tree before every commit |
+| `check_integrate` | empty: nothing more runs | the slow but local tests (integration, end-to-end without external services), once per task before the final review and again after a sync with main |
 | `run_tests` | empty: the red check is skipped | the command that runs the test files in `{files}` and prints JUnit XML |
 | `main` | `main` | the branch tasks start from and merge into |
 | `integrate` | `merge` | how a task lands: a local `--no-ff` merge, the only mode so far |
@@ -125,6 +127,10 @@ git status --short          # still nothing: the check changed no file
 
 Run it twice: the same result both times, in a time you would wait for at every commit.
 
+### `check_integrate`
+
+`check_integrate` runs the tests too slow for every commit but still local: integration, end-to-end with no external service. It follows `check`'s rules but speed. `verify.sh --integrate` runs it after a green `check`, once per task before the final review, and again after the task takes in a moved main; `integrate.sh` refuses a branch where it has not run green since main last moved. Tests that need services or secrets stay in the project's CI, out of both commands. Empty, nothing more runs.
+
 ### `run_tests` and `red_types`
 
 `run_tests` runs the test files named in `{files}` and prints JUnit XML on stdout, inside the same container or wrapper as `check`: vitest `--reporter=junit`, jest with `jest-junit` to stdout, pytest `--continue-on-collection-errors --junitxml=/dev/stdout` with its default traceback, go `gotestsum --junitfile /dev/stdout`. Without it, the red check is skipped and every task logs that.
@@ -157,7 +163,7 @@ Branch names and commit messages follow the project's rules (its CLAUDE.md, its 
               └─ per chunk: stubs → tests → red check → implement          │
                             → verify → step review → commit ───────────────┤
                                                                            ▼
-                  close: final review → lessons → checkpoint → integrate
+       close: slow tests → final review → lessons → checkpoint → integrate
 ```
 
 Every step is a phase recorded in the branch's journal, so a task survives an interruption, a `/clear` or a compaction: `/overload:task` reads the journal and resumes where it stopped.
@@ -209,10 +215,11 @@ Each chunk ends in one green commit, written by agents that did not write the sp
 
 Both paths end the same way.
 
-1. **Final review** (`code-reviewer`) of the whole range against the intent or the spec. Only six cases block: a bug a plausible caller meets, a security defect, a requirement missed or out of scope, a missing or vacuous test, a broken convention no tool checks, a misleading doc. Findings below confidence 80 are counted, not reported. Fixes are commits of their own, and a new round reviews only what changed.
-2. **Lessons** (`lesson-critic`): rules proposed only for problems that got past the step meant to catch them, judged against the rules they would join before you see them.
-3. **Checkpoint**: a summary of the change, the last verify, the findings that need your judgment, the backlog candidates and the lessons. You give the go and pick what to keep, or ask for changes.
-4. **Integrate** (`integrate.sh`): merges with `--no-ff` without the journal, re-verifies the merge's result when main moved, deletes the branch and its suite, and leaves main untouched on a conflict or a red verify.
+1. **Integration check**: `verify.sh --integrate` runs `check`, then `check_integrate`, the slow local tests. A red is fixed like any other, in a commit of its own.
+2. **Final review** (`code-reviewer`) of the whole range against the intent or the spec. Only six cases block: a bug a plausible caller meets, a security defect, a requirement missed or out of scope, a missing or vacuous test, a broken convention no tool checks, a misleading doc. Findings below confidence 80 are counted, not reported. Fixes are commits of their own, and a new round reviews only what changed.
+3. **Lessons** (`lesson-critic`): rules proposed only for problems that got past the step meant to catch them, judged against the rules they would join before you see them.
+4. **Checkpoint**: a summary of the change, the last verify, the findings that need your judgment, the backlog candidates and the lessons. You give the go and pick what to keep, or ask for changes.
+5. **Integrate** (`integrate.sh`): merges with `--no-ff` without the journal, re-verifies the merge's result when main moved, deletes the branch and its suite, and leaves main untouched on a conflict or a red verify.
 
 ### Escalation
 

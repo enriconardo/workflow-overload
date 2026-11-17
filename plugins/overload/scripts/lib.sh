@@ -14,7 +14,7 @@ REFERENCE_DIR=".workflow/reference"
 CONFIG_VERSION=1
 # Every key of this version. `check` has no default: a config without it is
 # refused, and a project with no checks writes `check =`, empty, on purpose.
-CONFIG_KEYS="version check run_tests main integrate rules backlog tests_glob red_types"
+CONFIG_KEYS="version check check_integrate run_tests main integrate rules backlog tests_glob red_types"
 
 die() {
   echo "overload: $*" >&2
@@ -185,6 +185,14 @@ commit_tree_hash() {
 
 verified_file() {
   printf '%s/verified\n' "$(state_dir)"
+}
+
+# The last green `verify.sh --integrate`, check_integrate included, as
+# `<tree> <branch> <time> <main's commit>`: integrate.sh wants one on the
+# branch since main last moved, not one on every tree, so that the slow tests
+# run once per task and again after a sync, not after every fix.
+integrated_file() {
+  printf '%s/verified-integrate\n' "$(state_dir)"
 }
 
 # Succeeds when the working tree is the one the last green verify checked.
