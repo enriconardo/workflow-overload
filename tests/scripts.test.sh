@@ -373,12 +373,12 @@ test_integrate_needs_check_integrate_green_since_main_last_moved() {
   bash "$SCRIPTS/verify.sh" --integrate >/dev/null
   # a fix after the run needs check, not the slow tests again
   verified_commit "again"
-  git switch -q main
-  echo "other" >other.txt
-  git add other.txt && git commit -qm "chore(repo): other"
-  git switch -q docs/readme/describe-project
+  move_main
+  bash "$SCRIPTS/sync.sh" >/dev/null
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message "Merge branch 'main'")" >/dev/null
   expect_fail "since 'main' last moved" bash "$SCRIPTS/integrate.sh"
-  git switch -q main && git reset -q --hard HEAD^ && git switch -q docs/readme/describe-project
+  bash "$SCRIPTS/verify.sh" --integrate >/dev/null
   out="$(bash "$SCRIPTS/integrate.sh")"
   [[ "$out" == *"integrated"* ]] || fail "not integrated: $out"
 }
@@ -393,43 +393,95 @@ test_integrate_refuses_an_unverified_head() {
   expect_fail "not the tree the last green verify checked" bash "$SCRIPTS/integrate.sh"
 }
 
-test_integrate_reverifies_when_main_moved() {
-  open_task
-  verified_commit "more"
+move_main() {
   git switch -q main
-  echo "other" >other.txt
-  git add other.txt && git commit -qm "chore(repo): other"
+  echo "${2:-other}" >"${1:-other.txt}"
+  git add -A && git commit -qm "chore(repo): move main"
   git switch -q docs/readme/describe-project
-  # Captured, not piped to grep -q, whose early exit would cut the script.
-  out="$(bash "$SCRIPTS/integrate.sh")"
-  [[ "$out" == *"verifying the merge's result"* ]] || fail "no re-verify: $out"
-  [[ -f other.txt ]] || fail "merge incomplete"
 }
 
-test_integrate_red_on_merge_result_leaves_main_intact() {
+test_integrate_refuses_a_main_that_moved_and_leaves_it_intact() {
   open_task
   verified_commit "more"
-  git switch -q main
-  touch red && git add red && git commit -qm "chore(repo): break main"
+  move_main
   before="$(git rev-parse main)"
-  git switch -q docs/readme/describe-project
-  expect_fail "verify is red on the merge's result" bash "$SCRIPTS/integrate.sh"
+  bash "$SCRIPTS/journal.sh" log "an edit to keep"
+  expect_fail "sync.sh" bash "$SCRIPTS/integrate.sh"
   expect_eq "$(git rev-parse main)" "$before"
   expect_eq "$(git branch --show-current)" "docs/readme/describe-project"
-  [[ -f .workflow/journal.md ]] || fail "journal lost"
+  grep -q "an edit to keep" .workflow/journal.md || fail "the journal's edit lost"
 }
 
-test_integrate_conflict_leaves_main_intact() {
+test_sync_takes_in_a_moved_main_and_commit_records_the_merge() {
+  open_task
+  verified_commit "more"
+  move_main
+  head="$(git rev-parse HEAD)"
+  out="$(bash "$SCRIPTS/sync.sh")"
+  [[ "$out" == *"not committed"* ]] || fail "$out"
+  expect_eq "$(git rev-parse HEAD)" "$head" "nothing committed"
+  [[ -f other.txt ]] || fail "main not taken in"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get base)" "$(git rev-parse --short main)" "the base is main's commit"
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message "Merge branch 'main' into docs/readme/describe-project")" >/dev/null
+  expect_eq "$(git rev-list --parents -n 1 HEAD | wc -w)" "3" "a merge commit"
+  expect_eq "$(git diff --name-only "$(bash "$SCRIPTS/journal.sh" get base)" HEAD -- . ':(exclude).workflow')" "README.md" "the range from the base holds the branch's changes only"
+  out="$(bash "$SCRIPTS/integrate.sh")"
+  [[ "$out" == *"integrated"* ]] || fail "not integrated: $out"
+  [[ -f other.txt ]] || fail "main's change lost"
+}
+
+test_sync_with_main_already_in_does_nothing() {
+  open_task
+  verified_commit "more"
+  out="$(bash "$SCRIPTS/sync.sh")"
+  [[ "$out" == *"nothing to take in"* ]] || fail "$out"
+  [[ ! -f "$(git rev-parse --git-path MERGE_HEAD)" ]] || fail "a merge started"
+}
+
+test_sync_commits_a_merge_that_changes_nothing() {
+  open_task
+  echo "same" >other.txt
+  verified_commit "more"
+  move_main other.txt same
+  bash "$SCRIPTS/sync.sh" >/dev/null
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message "Merge branch 'main'")" >/dev/null
+  git merge-base --is-ancestor main HEAD || fail "main not in the branch"
+}
+
+test_sync_conflict_waits_for_a_resolution_or_an_abort() {
   open_task
   verified_commit "branch line"
+  base="$(bash "$SCRIPTS/journal.sh" get base)"
   git switch -q main
   echo "main line" >>README.md && git commit -qam "chore(repo): conflict"
-  before="$(git rev-parse main)"
   git switch -q docs/readme/describe-project
-  expect_fail "conflicts" bash "$SCRIPTS/integrate.sh"
-  expect_eq "$(git rev-parse main)" "$before"
-  expect_eq "$(git branch --show-current)" "docs/readme/describe-project"
-  [[ -z "$(git status --porcelain -- README.md)" ]] || fail "merge left behind"
+  head="$(git rev-parse HEAD)"
+  out="$(bash "$SCRIPTS/sync.sh" 2>&1)" && fail "no conflict: $out"
+  [[ "$out" == *"conflicts"*"README.md"*"sync.sh --abort"* ]] || fail "$out"
+  [[ -f "$(git rev-parse --git-path MERGE_HEAD)" ]] || fail "the merge was not left to resolve"
+  expect_fail "a merge is under way" bash "$SCRIPTS/sync.sh"
+  bash "$SCRIPTS/sync.sh" --abort >/dev/null
+  [[ ! -f "$(git rev-parse --git-path MERGE_HEAD)" ]] || fail "the merge is still there"
+  expect_eq "$(git rev-parse HEAD)" "$head"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get base)" "$base" "the base put back"
+  expect_eq "$(git status --porcelain -- README.md)" "" "README.md as it was"
+  expect_fail "no sync under way" bash "$SCRIPTS/sync.sh" --abort
+}
+
+test_sync_and_integrate_bring_main_up_to_its_upstream() {
+  git init -q --bare "$WORK/remote.git"
+  git remote add origin "$WORK/remote.git"
+  git push -q -u origin main
+  open_task
+  verified_commit "more"
+  git clone -q "$WORK/remote.git" "$WORK/other"
+  (cd "$WORK/other" && echo "upstream" >upstream.txt && git add -A && git commit -qm "chore(repo): upstream" && git push -q)
+  expect_fail "sync.sh" bash "$SCRIPTS/integrate.sh"
+  expect_eq "$(git rev-parse main)" "$(git rev-parse origin/main)" "main fast-forwarded"
+  bash "$SCRIPTS/sync.sh" >/dev/null
+  [[ -f upstream.txt ]] || fail "the upstream's change not taken in"
 }
 
 guard() {

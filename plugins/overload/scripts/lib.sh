@@ -139,6 +139,22 @@ on_task_branch() {
   [[ -f "$JOURNAL_FILE" ]] || die "'$branch' has no $JOURNAL_FILE: it is not a Workflow Overload task."
 }
 
+# Brings the local main up to its upstream, fast-forward only, without
+# switching to it. Nothing to do without an upstream, or when main is ahead.
+main_from_upstream() {
+  local main="$1" remote old new
+  remote="$(git config "branch.$main.remote" || true)"
+  [[ -n "$remote" ]] || return 0
+  git fetch --quiet "$remote" || die "cannot fetch '$main' from '$remote': settle that, then run this again."
+  new="$(git rev-parse -q --verify "$main@{upstream}")" || return 0
+  old="$(git rev-parse "refs/heads/$main")"
+  [[ "$old" != "$new" ]] || return 0
+  git merge-base --is-ancestor "$new" "$old" && return 0
+  git merge-base --is-ancestor "$old" "$new" ||
+    die "'$main' and its upstream have diverged: settle that by hand, then run this again."
+  git update-ref "refs/heads/$main" "$new" "$old"
+}
+
 # The plugin's state for this clone: the verified tree and the runs' output.
 # Inside .git, so that it never lands in a commit.
 state_dir() {

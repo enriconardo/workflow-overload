@@ -3,7 +3,7 @@ name: task
 description: Starts or resumes a Workflow Overload development task. Runs only when the user types /overload:task.
 disable-model-invocation: true
 argument-hint: "[request]"
-allowed-tools: Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/status.sh), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/journal.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/verify.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/branch.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/commit.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/suite.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/red-check.sh:*)
+allowed-tools: Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/status.sh), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/journal.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/verify.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/branch.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/commit.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/suite.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/red-check.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/sync.sh:*)
 ---
 
 # Workflow Overload
@@ -14,7 +14,7 @@ State of this project, read by a script as this skill loaded:
 
 !`bash ${CLAUDE_PLUGIN_ROOT}/scripts/status.sh`
 
-- Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/`. Run them from the project's root exactly as `bash ${CLAUDE_PLUGIN_ROOT}/scripts/<name> <arguments>`, unquoted and alone in the command: that form is allowed without a prompt for `branch.sh`, `journal.sh`, `verify.sh`, `commit.sh`, `suite.sh` and `red-check.sh`. `<scripts>` in the phases' files means this folder. `integrate.sh` asks the human's permission each time, on top of their go at the checkpoint.
+- Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/`. Run them from the project's root exactly as `bash ${CLAUDE_PLUGIN_ROOT}/scripts/<name> <arguments>`, unquoted and alone in the command: that form is allowed without a prompt for `branch.sh`, `journal.sh`, `verify.sh`, `commit.sh`, `suite.sh`, `red-check.sh` and `sync.sh`. `<scripts>` in the phases' files means this folder. `integrate.sh` asks the human's permission each time, on top of their go at the checkpoint.
 - Phases: `${CLAUDE_SKILL_DIR}/phases/`. Read a phase's file in full when you enter it, and follow it.
 
 ## Where to start
@@ -27,7 +27,7 @@ State of this project, read by a script as this skill loaded:
 
 ## Rules of every task
 
-- **Scripts do the mechanical steps**: `branch.sh` opens the task, `verify.sh` checks the tree, `commit.sh` commits the verified tree, `suite.sh` records the test-author's suite, `red-check.sh` checks it fails for the right reason, `integrate.sh` merges. Never `git commit` or `git merge` yourself: a hook refuses them while a journal exists. The scripts print only what you need: never pipe their output.
+- **Scripts do the mechanical steps**: `branch.sh` opens the task, `verify.sh` checks the tree, `commit.sh` commits the verified tree, `suite.sh` records the test-author's suite, `red-check.sh` checks it fails for the right reason, `sync.sh` takes a moved main into the branch, `integrate.sh` merges. Never `git commit` or `git merge` yourself: a hook refuses them while a journal exists. The scripts print only what you need: never pipe their output.
 - **Every commit is green and holds one logical change.** Code, review fixes, lessons and backlog items are separate rounds of verify and commit.
 - **Who writes does not judge.** Reviewers report and never fix. You fix on the S path. Give an agent exactly what its definition says it receives, and never a summary of your discussion with the human, which carries your drift toward their ideas.
 - **Three rounds at most.** Any automatic loop (a red verify, a review that keeps finding blocking issues) stops at its third round and goes to the human, as `phases/escalate.md` says.

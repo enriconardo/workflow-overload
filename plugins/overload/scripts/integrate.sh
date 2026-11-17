@@ -2,11 +2,12 @@
 set -euo pipefail
 
 # Integrates a task's branch after the human's go at the last checkpoint:
-# refuses a tree that is not the verified one, or, when the config has a
-# `check_integrate`, not the one `verify.sh --integrate` saw green; merges with --no-ff into main
-# without the journal, repeats verify on the merge's result when main moved,
-# and deletes the branch and its records.
-# A conflict or a red verify aborts the merge and leaves main as it was.
+# refuses a tree that is not the verified one; a branch that does not hold
+# main, brought up to its upstream first (sync.sh takes it in); and, when the
+# config has a `check_integrate`, a branch where `verify.sh --integrate` has
+# not run green since main last moved. Then merges with --no-ff into main
+# without the journal, whose result is the branch's verified tree, and
+# deletes the branch and its records. A refusal leaves main as it was.
 #
 #   integrate.sh
 
@@ -28,6 +29,12 @@ $dirty"
 verified="$(verified_file)"
 [[ -f "$verified" && "$(cut -d' ' -f1 "$verified")" == "$(commit_tree_hash HEAD)" ]] ||
   die "HEAD is not the tree the last green verify checked: run verify.sh first."
+
+git show-ref --verify --quiet "refs/heads/$main" || die "no local '$main' to integrate into."
+main_from_upstream "$main"
+git merge-base --is-ancestor "$main" HEAD ||
+  die "'$main' moved since '$branch' last took it in: run sync.sh, verify and commit the merge, then integrate again."
+
 # The slow but local tests, when the project has them, ran green on this
 # branch since main last moved: once per task, again after a sync.
 integrated="$(integrated_file)"
@@ -36,8 +43,6 @@ if [[ -n "$(cfg check_integrate)" ]]; then
   [[ "$ran_on" == "$branch" && "$ran_with" == "$(git rev-parse -q --verify "refs/heads/$main" || echo none)" ]] ||
     die "check_integrate has not run green on '$branch' since '$main' last moved: run verify.sh --integrate, then integrate again."
 fi
-
-git show-ref --verify --quiet "refs/heads/$main" || die "no local '$main' to integrate into."
 
 # An L task's spec is done: every chunk ticked, its status set.
 spec="$(journal_get spec)"
@@ -54,20 +59,11 @@ fi
 # switch, and the merge drops the file anyway.
 git checkout --quiet -- "$JOURNAL_FILE" 2>/dev/null || true
 git switch --quiet "$main"
-if git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' >/dev/null 2>&1; then
-  git pull --ff-only --quiet || {
-    git switch --quiet "$branch"
-    die "'$main' cannot fast-forward to its upstream: settle that by hand, then run this again."
-  }
-fi
 
 back_to_branch() {
   git merge --abort 2>/dev/null || true
   git switch --quiet "$branch"
 }
-
-moved=0
-git merge-base --is-ancestor "$main" "$branch" || moved=1
 
 if ! git merge --no-ff --no-commit --quiet "$branch" >/dev/null 2>&1; then
   conflicts="$(git diff --name-only --diff-filter=U)"
@@ -77,14 +73,6 @@ $conflicts"
 fi
 
 git rm -q -f --ignore-unmatch -- "$JOURNAL_FILE"
-
-if ((moved)); then
-  echo "'$main' moved since the branch started: verifying the merge's result."
-  if ! bash "$OVERLOAD_SCRIPTS/verify.sh"; then
-    back_to_branch
-    die "verify is red on the merge's result; '$main' is unchanged. Ask the human."
-  fi
-fi
 
 # The subject branch.sh ran the project's commit-msg hook on: git's own
 # adds " into <main>" when main is not the default branch.

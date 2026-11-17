@@ -60,7 +60,7 @@ That is the whole loop. A larger request goes the same way, through the L path. 
 | `/overload:task <request>` | Opens a task: brainstorming, then the S or the L path. |
 | `/overload:task` | Resumes the task of the current branch from its journal, after an interruption or a `/clear`. |
 
-Inside a task, the scripts that open the branch, update the journal, verify, commit and handle the suite run without a permission prompt; `integrate.sh` asks each time, on top of your go at the checkpoint. While a task is open, a hook refuses a `git commit` or `git merge` typed directly. On a branch with an open task, a new session is told the task waits for `/overload:task`, and a compacted one is told to reread the journal.
+Inside a task, the scripts that open the branch, update the journal, verify, commit, handle the suite and take in a moved main run without a permission prompt; `integrate.sh` asks each time, on top of your go at the checkpoint. While a task is open, a hook refuses a `git commit` or `git merge` typed directly. On a branch with an open task, a new session is told the task waits for `/overload:task`, and a compacted one is told to reread the journal.
 
 ### `.workflow/config`
 
@@ -98,7 +98,7 @@ Any key can be overridden for one session by `OVERLOAD_<KEY>`, even to empty: a 
 
 ### `check`
 
-`check` is the commit gate: `verify.sh` runs it before every commit, and on the merge's result when main moved, and `commit.sh` takes only a tree it found green. It is a local subset of what the CI runs, and it:
+`check` is the commit gate: `verify.sh` runs it before every commit, and `commit.sh` takes only a tree it found green. It is a local subset of what the CI runs, and it:
 
 - exits 0 on green, anything else on red;
 - ends on its own: no watch mode, no prompt;
@@ -107,7 +107,7 @@ Any key can be overridden for one session by `OVERLOAD_<KEY>`, even to empty: a 
 - is fast enough to run before every commit, and gives the same result on the same tree;
 - prints the cause of a red in its last lines, the ones `verify.sh` shows.
 
-It checks the whole tree, never only what changed: on main, at the first verify and on the merge's result, a scoped command would check nothing. Some examples:
+It checks the whole tree, never only what changed: on main at the first verify, and after main is taken into a branch, a scoped command would check nothing. Some examples:
 
 ```
 check = make check
@@ -215,15 +215,15 @@ Each chunk ends in one green commit, written by agents that did not write the sp
 
 Both paths end the same way.
 
-1. **Integration check**: `verify.sh --integrate` runs `check`, then `check_integrate`, the slow local tests. A red is fixed like any other, in a commit of its own.
+1. **Sync and integration check**: when main moved, `sync.sh` merges it into the branch without committing; `verify.sh --integrate` then runs `check` and `check_integrate`, the slow local tests. A red is fixed on the branch like any other, and the merge is committed with its fixes; a red that main shows alone, or a conflict, comes to you.
 2. **Final review** (`code-reviewer`) of the whole range against the intent or the spec. Only six cases block: a bug a plausible caller meets, a security defect, a requirement missed or out of scope, a missing or vacuous test, a broken convention no tool checks, a misleading doc. Findings below confidence 80 are counted, not reported. Fixes are commits of their own, and a new round reviews only what changed.
 3. **Lessons** (`lesson-critic`): rules proposed only for problems that got past the step meant to catch them, judged against the rules they would join before you see them.
 4. **Checkpoint**: a summary of the change, the last verify, the findings that need your judgment, the backlog candidates and the lessons. You give the go and pick what to keep, or ask for changes.
-5. **Integrate** (`integrate.sh`): merges with `--no-ff` without the journal, re-verifies the merge's result when main moved, deletes the branch and its suite, and leaves main untouched on a conflict or a red verify.
+5. **Integrate** (`integrate.sh`): brings main up to its upstream, refuses a branch that does not hold it (back to the sync) or where `check_integrate` has not run since, merges with `--no-ff` without the journal, and deletes the branch and its suite.
 
 ### Escalation
 
-A loop that reaches its third round without converging, a stuck step, a finding that needs judgment, or a conflict at integration stops and comes to you, with what was tried and three choices: **retry** one more round, **skip** and record the problem (never on a red verify), or **stop**, leaving the branch and its journal for a later `/overload:task`.
+A loop that reaches its third round without converging, a stuck step, a finding that needs judgment, or a conflict when taking in main stops and comes to you, with what was tried and three choices: **retry** one more round, **skip** and record the problem (never on a red verify), or **stop**, leaving the branch and its journal for a later `/overload:task`.
 
 ### The agents
 
