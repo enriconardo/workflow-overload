@@ -107,5 +107,29 @@ class TypesFoundTest(unittest.TestCase):
         ])
 
 
+class PassesTest(unittest.TestCase):
+    """What verify reads after the recorded suites run again: every test
+    passes or is skipped, and every file is in the report."""
+
+    def test_a_green_run_has_no_problem(self):
+        xml =('<testsuite name="a.test.ts"><testcase classname="a.test.ts" name="p"/>'
+               '<testcase classname="a.test.ts" name="s"><skipped/></testcase></testsuite>')
+        problems, lines = junit.passes(xml, ["a.test.ts"])
+        self.assertEqual(problems, [], lines)
+        self.assertEqual(lines, ["1 passed, 1 skipped, in 1 file"])
+
+    def test_names_failures_load_errors_and_missing_files(self):
+        problems, lines = junit.passes(PYTEST, ["tests/test_a.py", "tests/test_b.py", "tests/test_d.py"])
+        self.assertEqual(problems, [
+            "tests/test_a.py > test_assert",
+            "tests/test_a.py > test_stub",
+            "tests/test_b.py > tests.test_b",
+            "tests/test_d.py",
+        ], lines)
+        self.assertIn("tests/test_a.py > test_assert: fails, AssertionError: assert 1 == 2", lines)
+        self.assertTrue(any(line.startswith("tests/test_b.py > tests.test_b: LOAD ERROR") for line in lines), lines)
+        self.assertIn("tests/test_d.py: not in the runner's report", lines)
+
+
 if __name__ == "__main__":
     unittest.main()

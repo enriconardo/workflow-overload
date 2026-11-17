@@ -133,7 +133,7 @@ Run it twice: the same result both times, in a time you would wait for at every 
 
 ### `run_tests` and `red_types`
 
-`run_tests` runs the test files named in `{files}` and prints JUnit XML on stdout, inside the same container or wrapper as `check`: vitest `--reporter=junit`, jest with `jest-junit` to stdout, pytest `--continue-on-collection-errors --junitxml=/dev/stdout` with its default traceback, go `gotestsum --junitfile /dev/stdout`. Without it, the red check is skipped and every task logs that.
+`run_tests` runs the test files named in `{files}` and prints JUnit XML on stdout, inside the same container or wrapper as `check`: vitest `--reporter=junit`, jest with `jest-junit` to stdout, pytest `--continue-on-collection-errors --junitxml=/dev/stdout` with its default traceback, go `gotestsum --junitfile /dev/stdout`. The red check runs it on a chunk's new suite, which must fail for the right reason; `verify.sh` runs it on every suite recorded on the branch, which must pass, so that a test `check` leaves out still runs at each later chunk. Without it, the red check is skipped and every task logs that, and verify runs `check` alone.
 
 `red_types` names the failure types the runner reports for a failed assertion and for a stub's not-implemented error (`NotImplementedError` in Python). `/overload:setup` measures it with throwaway tests; when it finds the measure unreliable it leaves `run_tests` empty and says why.
 
@@ -208,7 +208,7 @@ Each chunk ends in one green commit, written by agents that did not write the sp
 2. **Tests** (`step-test-author`), from the spec, never reading the code under change; it records its suite with `suite.sh`, outside every branch.
 3. **Red check** (`red-check.sh`): every new test must fail on an assertion or a stub's not-implemented error, never on an import or load error, read from the runner's JUnit XML. A new test that passes already goes to the step reviewer, who checks it fails under a mutant.
 4. **Implement** (`step-implementer`) until the tests pass. It cannot touch the recorded tests: `commit.sh` refuses. A test it thinks wrong goes to the main agent, who decides on the spec, or asks you when the spec is silent.
-5. **Verify**, then the **step review** (`step-reviewer`): the code does what the chunk asks, and the tests cover it.
+5. **Verify**, `check` and every suite recorded on the branch, then the **step review** (`step-reviewer`): the code does what the chunk asks, and the tests cover it.
 6. **Commit** the chunk, its tests, its code and its tick in the spec.
 
 ### Close

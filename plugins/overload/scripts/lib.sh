@@ -127,6 +127,17 @@ run_project() {
   bash -o pipefail -c "$1"
 }
 
+# with_files <command> <file>...: the command with its {files} replaced by
+# the files, each quoted for bash.
+with_files() {
+  local command="$1" quoted="" file
+  shift
+  for file in "$@"; do
+    quoted+="$(printf '%q' "$file") "
+  done
+  printf '%s\n' "${command//\{files\}/${quoted% }}"
+}
+
 current_branch() {
   git branch --show-current
 }

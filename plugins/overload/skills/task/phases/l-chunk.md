@@ -31,7 +31,7 @@ Read its report before verify, heading by heading:
 
 ### 4. Verify — `l/chunk-<n>/verify`
 
-`bash <scripts>/verify.sh`. Red: back to the implementer with the output; the script stops you at the third red in a row.
+`bash <scripts>/verify.sh`. After `check`, it runs every suite recorded on the branch, this chunk's and the earlier ones', through `run_tests`, and wants them green: a test `check` leaves out still guards the chunks that follow. Red: back to the implementer with the output; the script stops you at the third red in a row.
 
 ### 5. Step review — `l/chunk-<n>/review`, when the spec has more than one chunk or the red check listed tests that pass already
 

@@ -130,12 +130,8 @@ fi
 
 # Runs the command with {files} replaced by the given files, quoted.
 run_files() {
-  local quoted="" file
-  for file in "$@"; do
-    quoted+="$(printf '%q' "$file") "
-  done
   set +e
-  run_project "${command//\{files\}/${quoted% }}"
+  run_project "$(with_files "$command" "$@")"
   set -e
 }
 

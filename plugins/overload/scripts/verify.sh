@@ -8,6 +8,11 @@ set -euo pipefail
 #
 #   verify.sh [--integrate] [--lines <n>]
 #
+# On a task's branch with recorded suites and a `run_tests`, the recorded
+# test files run too, after a green check, and must all pass: a chunk's tests
+# that `check` leaves out (too slow, another folder) still run at every
+# verify of the chunks that follow.
+#
 # --integrate runs the config's `check_integrate` too, after a green check:
 # the slow but local tests, once per task before the final review and again
 # after a sync with main. Green, it records the branch and main's commit for
@@ -42,6 +47,7 @@ while (($#)); do
 done
 
 command="$(cfg check)"
+run_tests="$(cfg run_tests)"
 slow=""
 ((integrate)) && slow="$(cfg check_integrate)"
 state="$(state_dir)"
@@ -71,6 +77,27 @@ if [[ -n "$command" ]]; then
   status=$?
   ((status == 0)) || failed=check
 fi
+suite=()
+if ((status == 0 && task)) && [[ -n "$run_tests" ]]; then
+  while IFS= read -r file; do
+    [[ -n "$file" && -f "$file" ]] && suite+=("$file")
+  done < <(bash "$OVERLOAD_SCRIPTS/suite.sh" files)
+fi
+if ((${#suite[@]})); then
+  ran+=("the recorded tests")
+  echo "== the recorded tests: ${suite[*]}" >>"$output"
+  # Through a pipe, as red-check.sh: a report written to /dev/stdout would
+  # truncate the file and write over the runner's other lines.
+  run_project "$(with_files "$run_tests" "${suite[@]}")" 2>&1 | cat >"$state/verify-suite-output.txt"
+  runner=$?
+  python3 "$OVERLOAD_SCRIPTS/junit.py" --passes "$state/verify-suite-output.txt" "${suite[@]}" >>"$output"
+  status=$?
+  if ((status == 0 && runner != 0)); then
+    echo "the runner exited $runner though every test passed (output: $state/verify-suite-output.txt)" >>"$output"
+    status=$runner
+  fi
+  ((status == 0)) || failed="the recorded tests"
+fi
 if ((status == 0)) && [[ -n "$slow" ]]; then
   ran+=(check_integrate)
   echo "== check_integrate" >>"$output"
@@ -95,8 +122,8 @@ if ((status == 0)) && [[ -z "$changed" ]]; then
   fi
   ((task)) && bash "$OVERLOAD_SCRIPTS/journal.sh" set verify_red_streak 0
   if ((${#ran[@]})); then
-    what="${ran[*]}"
-    echo "verify: green in ${seconds}s (${what// /, })${notes}; tree ${tree:0:12} recorded (full output: $output)."
+    printf -v what '%s, ' "${ran[@]}"
+    echo "verify: green in ${seconds}s (${what%, })${notes}; tree ${tree:0:12} recorded (full output: $output)."
   else
     echo "verify: ${notes#; }; tree ${tree:0:12} recorded."
   fi
