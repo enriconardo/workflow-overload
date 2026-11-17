@@ -11,7 +11,7 @@ Run the `overload:code-reviewer` agent with:
 - the config's `rules`;
 - on L, the command that shows how the recorded suites changed after the test-author handed them over: `bash <scripts>/suite.sh diff`. When the spec has one chunk, also the step reviewer's mandate: the tests cover the chunk, and none is vacuous.
 
-At every round, increment `review_rounds` in the journal and log the round with the HEAD it reviewed (`journal.sh log "review round <n> on <sha>: <k> blocking"`). For each finding:
+At every round, log the round with the HEAD it reviewed (`journal.sh log "review round <n> on <sha>: <k> blocking"`). For each finding:
 
 - **blocking, one right answer**: fixed (by you on S, by the step-implementer on L), starting from a test that reproduces it when it is a bug; verify; commit the fixes on their own; then a new round on the new range;
 - **blocking, needs judgment**: under *Open findings*, for the checkpoint;
@@ -46,4 +46,4 @@ On L, set the spec's `status: done` in the last of these commits, or in a commit
 
 ## 5. Integrate — phase `close/integrate`
 
-`bash <scripts>/integrate.sh`. It asks the human's permission; it merges with `--no-ff`, drops the journal, records the measures and deletes the branch and its suite. On a conflict or a red verify on the merge's result it leaves main as it was: go to `phases/escalate.md`. Then tell the human it is merged, in one line, with the merge's subject.
+`bash <scripts>/integrate.sh`. It asks the human's permission; it merges with `--no-ff`, drops the journal and deletes the branch and its suite. On a conflict or a red verify on the merge's result it leaves main as it was: go to `phases/escalate.md`. Then tell the human it is merged, in one line, with the merge's subject.

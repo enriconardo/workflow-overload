@@ -8,7 +8,6 @@ export OVERLOAD_SCRIPTS
 
 CONFIG_FILE=".workflow/config"
 JOURNAL_FILE=".workflow/journal.md"
-METRICS_FILE=".workflow/metrics.jsonl"
 # The test-author's throwaway reference model: the plugin's, not the project's.
 # shellcheck disable=SC2034 # read by suite.sh
 REFERENCE_DIR=".workflow/reference"
@@ -140,8 +139,8 @@ on_task_branch() {
   [[ -f "$JOURNAL_FILE" ]] || die "'$branch' has no $JOURNAL_FILE: it is not a Workflow Overload task."
 }
 
-# The plugin's state for this clone: verified trees and run logs. Inside .git,
-# so that it never lands in a commit.
+# The plugin's state for this clone: the verified tree and the runs' output.
+# Inside .git, so that it never lands in a commit.
 state_dir() {
   local dir
   dir="$(git rev-parse --git-path overload)"
@@ -150,9 +149,9 @@ state_dir() {
 }
 
 # The tree of the working directory as a commit would record it, untracked
-# files included and ignored files left out, without the journal and the
-# metrics: updating those never invalidates a verify. Built in an index of
-# its own, so that the real index stays as it is.
+# files included and ignored files left out, without the journal: updating
+# it never invalidates a verify. Built in an index of its own, so that the
+# real index stays as it is.
 work_tree_hash() {
   local index
   index="$(mktemp)"
@@ -169,7 +168,7 @@ work_tree_hash() {
     rm -f "$index"
     die "git add failed while hashing the working tree."
   }
-  GIT_INDEX_FILE="$index" git rm -q --cached --ignore-unmatch -- "$JOURNAL_FILE" "$METRICS_FILE" >/dev/null
+  GIT_INDEX_FILE="$index" git rm -q --cached --ignore-unmatch -- "$JOURNAL_FILE" >/dev/null
   GIT_INDEX_FILE="$index" git write-tree
   rm -f "$index"
 }
@@ -179,7 +178,7 @@ commit_tree_hash() {
   local index
   index="$(mktemp)"
   GIT_INDEX_FILE="$index" git read-tree "$1"
-  GIT_INDEX_FILE="$index" git rm -q --cached --ignore-unmatch -- "$JOURNAL_FILE" "$METRICS_FILE" >/dev/null
+  GIT_INDEX_FILE="$index" git rm -q --cached --ignore-unmatch -- "$JOURNAL_FILE" >/dev/null
   GIT_INDEX_FILE="$index" git write-tree
   rm -f "$index"
 }

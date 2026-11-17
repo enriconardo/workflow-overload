@@ -141,24 +141,11 @@ Branch names and commit messages follow the project's rules (its CLAUDE.md, its 
 | --- | --- | --- |
 | `.workflow/config` | main | the project's settings |
 | `.workflow/backlog.md` | main | the items you approved at a checkpoint |
-| `.workflow/metrics.jsonl` | main | one line per integrated task: rounds, verify runs, commits, files, tokens per role |
 | `.workflow/journal.md` | the task's branch | phase, intent, candidates, open findings; dropped at the merge |
 | `.workflow/specs/` | main | the L specs, ticked chunk by chunk |
 | `.workflow/reference/` | the working tree, briefly | the test-author's throwaway model of a type-level case; deleted before its suite is recorded |
-| `.git/overload/` | the clone | the verified tree and the log of verify runs and red checks |
+| `.git/overload/` | the clone | the verified tree and the output of the last verify and red check |
 | `refs/overload/suite/<branch>/<n>` | the clone | the test-author's recorded suites, outside every branch; deleted at the merge |
-
-### Measures
-
-Each integrated task adds a line to `.workflow/metrics.jsonl`. `plugins/overload/scripts/metrics.py` also reads the Claude Code transcripts of a project and the merges of its history, to compare a workflow with the one before it:
-
-```
-metrics.py transcripts --repo ~/code/project > t.jsonl
-metrics.py git --repo ~/code/project > g.jsonl
-metrics.py summary t.jsonl g.jsonl
-```
-
-Claude Code deletes transcripts after 30 days: set `"cleanupPeriodDays"` in `~/.claude/settings.json` to keep them.
 
 ## The workflow explained
 
@@ -225,7 +212,7 @@ Both paths end the same way.
 1. **Final review** (`code-reviewer`) of the whole range against the intent or the spec. Only six cases block: a bug a plausible caller meets, a security defect, a requirement missed or out of scope, a missing or vacuous test, a broken convention no tool checks, a misleading doc. Findings below confidence 80 are counted, not reported. Fixes are commits of their own, and a new round reviews only what changed.
 2. **Lessons** (`lesson-critic`): rules proposed only for problems that got past the step meant to catch them, judged against the rules they would join before you see them.
 3. **Checkpoint**: a summary of the change, the last verify, the findings that need your judgment, the backlog candidates and the lessons. You give the go and pick what to keep, or ask for changes.
-4. **Integrate** (`integrate.sh`): merges with `--no-ff` without the journal, adds a line of measures, re-verifies the merge's result when main moved, deletes the branch and its suite, and leaves main untouched on a conflict or a red verify.
+4. **Integrate** (`integrate.sh`): merges with `--no-ff` without the journal, re-verifies the merge's result when main moved, deletes the branch and its suite, and leaves main untouched on a conflict or a red verify.
 
 ### Escalation
 
@@ -289,7 +276,7 @@ CI runs them on every push. A change to a script starts with a test in `tests/sc
 
 ### Branches, commits and releases
 
-- Branch: `<type>/<scope>/<description>`, types `feature`, `fix`, `refactor`, `test`, `docs`, `chore`; scope `scripts`, `skill`, `agents`, `hooks`, `metrics` or `repo`.
+- Branch: `<type>/<scope>/<description>`, types `feature`, `fix`, `refactor`, `test`, `docs`, `chore`; scope `scripts`, `skill`, `agents`, `hooks` or `repo`.
 - Commit: `[<scope>] <type>: <summary>`, the type one of `feat`, `fix`, `refactor`, `perf`, `test`, `docs`, `build`, `ci`, `chore`; summary imperative, lowercase, no trailing period, at most 72 characters in all; a body when the why is not obvious.
 - A release bumps `version` in `plugins/overload/.claude-plugin/plugin.json`; a change that breaks existing configs bumps the minor version.
 
