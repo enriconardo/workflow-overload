@@ -199,7 +199,7 @@ A task that turns out bigger goes to the L path on your go: its commits stay, un
 
 1. **Spec**, written by the main agent, which held the discussion: why, what, decisions with their alternatives, test cases, the docs that change with the behavior, chunks. A decision that outlives the task also gets a decision record.
 2. **Probe** (`prober`), only for external facts the spec rests on (versions, APIs, a dependency's behavior), in a temporary folder outside the repository.
-3. **Spec review** (`spec-reviewer`): correctness, and a critique of the premises: was the problem seen, what is the strongest alternative, what is missing. It gets the spec and the code map, never a summary of the discussion.
+3. **Spec review** (`spec-reviewer`): correctness, and a critique of the premises: was the problem seen, what is the strongest alternative, what is missing. It gets the spec and the code map, never a summary of the discussion, and does not read the journal.
 4. **Split** (`spec-splitter`), above about 6–7 files or 10–15 test cases: the fewest chunks, each green alone, each test-first or not.
 5. **Checkpoint 1**: you approve the plan, and the spec is committed. This is the moment for `/clear` and `/overload:task`: the next session resumes from the journal and the spec with a small context.
 
