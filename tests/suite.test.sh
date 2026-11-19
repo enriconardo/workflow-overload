@@ -376,6 +376,39 @@ test_verify_runs_every_recorded_suite_of_the_branch() {
   expect_eq "$(bash "$SCRIPTS/journal.sh" get verify_red_streak)" "1"
 }
 
+test_verify_runs_the_recorded_tests_outside_check_through_their_command() {
+  e2e_runner
+  open_l_task
+  write_test a.test.ts "case a pass"
+  write_e2e b.e2e.ts "case b pass"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"verify: green"*"the recorded tests"* ]] || fail "$out"
+  state="$(git rev-parse --git-path overload)"
+  grep -q "e2e runner" "$state/verify-integrate-suite-output.txt" || fail "not through run_integrate_tests"
+  grep -q "2 passed, 0 skipped, in 2 files" "$state/verify-output.txt" || fail "not judged as one run"
+  bash "$SCRIPTS/commit.sh" "$(message 'feat(greet): first')" >/dev/null
+  write_e2e c.e2e.ts "case c assert"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  if out="$(bash "$SCRIPTS/verify.sh" 2>&1)"; then fail "green: $out"; fi
+  [[ "$out" == *"e2e/c.e2e.ts > c: fails, AssertionError"* ]] || fail "$out"
+  set_config run_integrate_tests 'echo "e2e runner"; python3 runner.py {files}; exit 4'
+  write_e2e c.e2e.ts "case c pass"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  expect_fail "run_integrate_tests exited 4" bash "$SCRIPTS/verify.sh"
+}
+
+test_verify_without_run_integrate_tests_says_their_files_did_not_run() {
+  fake_runner
+  integrate_tests
+  open_l_task
+  write_test a.test.ts "case a pass"
+  write_e2e b.e2e.ts "case b assert"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"verify: green"*"no 'run_integrate_tests'"*"e2e/b.e2e.ts"* ]] || fail "$out"
+}
+
 test_verify_is_red_on_a_runner_that_fails_or_prints_no_xml() {
   fake_runner
   set_config run_tests 'echo no xml here {files}'
