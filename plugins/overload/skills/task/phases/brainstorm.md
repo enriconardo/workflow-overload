@@ -26,4 +26,4 @@ Turns the request into an understood problem and a tier the human confirms, with
 
    With inputs, choose `<slug>` with the name: on L the spec's name, `<YYYY-MM-DD>-<description>`; on S the task's. The script copies them into `.workflow/inputs/<slug>/`, and they reach main with the task. Before it runs, tell the human in one line which files will: one they leave out (a private brief on a public repository, a heavy file a link stands for) is not passed, and its content goes in the intent on S, in the spec on L.
 
-6. **Go on** with `phases/s-path.md` on S, `phases/l-plan.md` on L. On L, write the explorer's map, when it ran, to a file outside the repository and log its path (`journal.sh log "map: <path>"`): the spec reviewer and the splitter read it.
+6. **Go on** with `phases/s-path.md` on S, `phases/l-plan.md` on L. On L, write the explorer's map, when it ran, to a file outside the repository and keep it: `journal.sh keep map <file>`, which copies it where a later session finds it and logs its path as `map`. The spec reviewer and the splitter read it.

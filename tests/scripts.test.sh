@@ -153,6 +153,22 @@ test_journal_set_inc_log() {
   expect_eq "$(sed -n '/^## /q; /^lessons:/p' .workflow/journal.md)" "lessons: 2"
 }
 
+test_journal_keeps_a_file_where_a_later_session_finds_it() {
+  open_task
+  printf 'map of the code\n' >"$WORK/map.md"
+  out="$(bash "$SCRIPTS/journal.sh" keep map "$WORK/map.md")"
+  kept="$(git rev-parse --git-path overload)/kept/map.md"
+  [[ "$out" == *"$kept"* ]] || fail "$out"
+  rm "$WORK/map.md"
+  expect_eq "$(cat "$kept")" "map of the code" "the copy outlives the file"
+  grep -q "^- .* map: $kept$" .workflow/journal.md || fail "not logged: $(cat .workflow/journal.md)"
+  expect_fail "not a name" bash "$SCRIPTS/journal.sh" keep "../x" "$kept"
+  expect_fail "not a file" bash "$SCRIPTS/journal.sh" keep map "$WORK/none.md"
+  verified_commit "More."
+  bash "$SCRIPTS/integrate.sh" >/dev/null
+  [[ ! -e "$kept" ]] || fail "kept after the merge"
+}
+
 test_branch_keeps_the_intent_inside_its_section() {
   printf '## Problem\nThe README is short.\n# Goal\nSay more.\n' >"$WORK/headed.md"
   bash "$SCRIPTS/branch.sh" S docs/readme/describe-project "$WORK/headed.md" >/dev/null

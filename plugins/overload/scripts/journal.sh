@@ -9,6 +9,10 @@ set -euo pipefail
 #   journal.sh set <key> <value>    sets a header value
 #   journal.sh inc <key>            adds 1 to a counter of the header
 #   journal.sh log <text>           appends a timestamped line to *Log*
+#   journal.sh keep <name> <file>   copies a file a later session reads (the
+#                                   explorer's map) to the state folder,
+#                                   which outlives the session, unlike a
+#                                   scratchpad, and logs its path
 #   journal.sh show                 the whole journal
 
 # shellcheck source=lib.sh
@@ -16,7 +20,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 in_project
 
 usage() {
-  echo "Usage: journal.sh get <key> | set <key> <value> | inc <key> | log <text> | show" >&2
+  echo "Usage: journal.sh get <key> | set <key> <value> | inc <key> | log <text> | keep <name> <file> | show" >&2
   exit 2
 }
 
@@ -66,6 +70,16 @@ case "${1:-}" in
     shift
     grep -q '^## Log' "$JOURNAL_FILE" || printf '\n## Log\n\n' >>"$JOURNAL_FILE"
     printf -- '- %s %s\n' "$(now)" "$*" >>"$JOURNAL_FILE"
+    ;;
+  keep)
+    (($# == 3)) || usage
+    [[ "$2" =~ ^[a-z][a-z0-9-]*$ ]] || die "'$2' is not a name for a kept file (lowercase letters, digits and -)."
+    [[ -f "$3" ]] || die "'$3' is not a file."
+    kept="$(state_dir)/kept"
+    mkdir -p "$kept"
+    cp -- "$3" "$kept/$2.md"
+    printf -- '- %s %s: %s\n' "$(now)" "$2" "$kept/$2.md" >>"$JOURNAL_FILE"
+    echo "kept as $kept/$2.md, logged in the journal as '$2'"
     ;;
   show)
     cat "$JOURNAL_FILE"
