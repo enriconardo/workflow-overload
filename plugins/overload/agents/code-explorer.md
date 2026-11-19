@@ -14,7 +14,7 @@ The request, restated by the main agent; the inputs the human gave with it, by p
 
 ## What to find
 
-- **The code to change**: the files and the symbols, with `file:line`, and how they work today, in a sentence each.
+- **The code to change**: the files and the symbols, with `file:line` as the rules say, and how they work today, in a sentence each.
 - **Who uses it**: the callers (`git grep`, not a grep that skips the extensions it does not list), the packages that depend on it, the tests that cover it.
 - **The rules it touches**: the parts of the rule files, READMEs and decision records that bear on the change, with `file:line`.
 - **Surprises**: what the request seems to assume and the code contradicts.
@@ -22,6 +22,7 @@ The request, restated by the main agent; the inputs the human gave with it, by p
 ## Rules
 
 - Leave the repository as you found it: no edits, no `checkout`, `switch`, `stash` or `reset`; an older version is `git show <rev>:<path>`. Run only `git` and searches.
+- A `file:line`, or a range, falls within lines this run printed (a read, a `git grep -n`); otherwise give the file and the symbol alone.
 - A fact you could not confirm goes under *Not verified*.
 - No design, no plan, no opinion on what to do: the main agent decides with the human.
 
