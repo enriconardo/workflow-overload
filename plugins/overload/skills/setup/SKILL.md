@@ -21,7 +21,7 @@ State of this project, read by a script as this skill loaded:
 
 ## A repository with no commit
 
-The setup lays the workflow's skeleton, never the project's: language, framework, test runner and linter are decisions with alternatives, for the first task, with its review and decision records. So `check` and `run_tests` are written empty, and said so; the backlog file is empty; the conventions for branches and commits are questions to the human, each with a proposal, since no history shows them. Before the first commit, point HEAD at the settled main, `git symbolic-ref HEAD refs/heads/<main>`: the commits of 5 are the repository's first. Skip 4, with nothing to measure. Once the task that brings the tools is merged, `/overload:setup` again measures `red_types` and confirms the values.
+The setup lays the workflow's skeleton, never the project's: language, framework, test runner and linter are decisions with alternatives, for the first task, with its review and decision records. So `check` and `run_tests` are written empty, and said so; the conventions for branches and commits are questions to the human, each with a proposal, since no history shows them. Before the first commit, point HEAD at the settled main, `git symbolic-ref HEAD refs/heads/<main>`: the commits of 5 are the repository's first. Skip 4, with nothing to measure. Once the task that brings the tools is merged, `/overload:setup` again measures `red_types` and confirms the values.
 
 ## 1. Propose
 
@@ -33,7 +33,7 @@ Show the human the proposal as it came. They answer the questions, counter-propo
 
 ## 3. Write and verify
 
-On their acceptance, write `.workflow/config`: a `key = value` line for each key of the table, in its order, `check` even when empty (a config without it is refused); `red_types` waits for 4. A value never holds ` #`, which starts a comment: a command that needs one goes in a script of the project. Write an empty backlog file at `backlog` if there is none, and the accepted text in the rule files. An accepted folder of decision records: create it with its template, and add it to `rules`. Remove nothing the project already had.
+On their acceptance, write `.workflow/config`: a `key = value` line for each key of the table, in its order, `check` even when empty (a config without it is refused); `red_types` waits for 4. A value never holds ` #`, which starts a comment: a command that needs one goes in a script of the project. Write a backlog file at `backlog` if there is none, holding only its heading, `# Backlog`: an empty file reads as a missing one. Write the accepted text in the rule files. An accepted folder of decision records: create it with its template, and add it to `rules`. Remove nothing the project already had.
 
 Then run `bash <scripts>/verify.sh` on the main branch. It must be green: a red main makes every task red. A red goes to the human with its last lines; fix the config with them and run it again. No agent for one command. A session that cannot reach the project's container sets `OVERLOAD_CHECK` and `OVERLOAD_RUN_TESTS` to commands that run without it; the config keeps the project's.
 
