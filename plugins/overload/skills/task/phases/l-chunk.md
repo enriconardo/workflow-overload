@@ -2,7 +2,7 @@
 
 Each chunk goes through agents that did not write the spec, and scripts, and ends in a green commit. The chunk to work is the first one the spec does not tick; its phase is `l/chunk-<n>/<step>`.
 
-A chunk's first step is `stub` when its line names `signatures` or `dependencies`, otherwise `test` when it is test-first or a chunk of tests only, otherwise `implement`: a chunk of docs or config only goes to the implementer.
+A chunk's first step is `stub` when its line names `signatures` or `dependencies`, otherwise `test` when it is test-first or a chunk of tests only (tests, with their fixtures and helpers), otherwise `implement`: a chunk of docs or config only goes to the implementer.
 
 ## Per chunk
 
