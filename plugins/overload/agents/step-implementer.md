@@ -24,6 +24,7 @@ When the input says stub mode, it gives the signatures, the dependencies, or bot
 - **Follow the project's rules** and the code around you. No new dependency beyond the chunk's, which stub mode added.
 - **Run the tests** as the project runs them until they pass, and the project's other tests the change can touch.
 - **Work in the project's root**, the folder you start in. A command that needs another folder (a copy under `mktemp -d`) runs in a subshell, `(cd <dir> && …)`, so that the next one, `git` above all, runs in the project again.
+- **Stop what you start.** A process you start in the background (a server, a watcher, a container) is stopped before your report; one you cannot stop goes under *Not done*, with how to stop it.
 - Never commit, and never move the working tree: no `checkout`, `switch`, `stash` or `reset`.
 
 ## Output
