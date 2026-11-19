@@ -125,6 +125,61 @@ test_suite_records_and_guards_the_tests_outside_check() {
   expect_fail "not in the suite the test-author recorded" bash "$SCRIPTS/suite.sh" check
 }
 
+# A second runner for the tests outside check, which says it ran.
+e2e_runner() {
+  fake_runner
+  integrate_tests
+  set_config run_integrate_tests 'echo "e2e runner"; python3 runner.py {files}'
+  git add -A && git commit -qm "chore(repo): an end-to-end runner"
+}
+
+test_red_check_runs_each_test_file_through_its_own_command() {
+  e2e_runner
+  write_e2e old.e2e.ts "case old pass"
+  git add -A && git commit -qm "test(greet): an existing end-to-end test"
+  open_l_task
+  write_test a.test.ts "case green pass"
+  write_e2e old.e2e.ts "case old pass" "case new notimpl"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/red-check.sh")"
+  [[ "$out" == *"e2e/old.e2e.ts > old: passes, already in HEAD"* ]] || fail "existing: $out"
+  [[ "$out" == *"e2e/old.e2e.ts > new: red, NotImplemented"* ]] || fail "red: $out"
+  [[ "$out" == *"valid red"*"1 new test passes already"* ]] || fail "across both runs: $out"
+  state="$(git rev-parse --git-path overload)"
+  grep -q "e2e runner" "$state/red-check-integrate-output.txt" || fail "not through run_integrate_tests"
+  ! grep -q "e2e/" "$state/red-check-output.txt" || fail "an end-to-end test ran through run_tests"
+  expect_eq "$(cat e2e/old.e2e.ts)" $'case old pass\ncase new notimpl' "the working file restored"
+}
+
+test_red_check_without_run_integrate_tests_skips_only_those_files() {
+  fake_runner
+  integrate_tests
+  open_l_task
+  write_test a.test.ts "case a assert"
+  write_e2e b.e2e.ts "case b assert"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/red-check.sh")"
+  [[ "$out" == *"e2e/b.e2e.ts"*"no 'run_integrate_tests'"* && "$out" == *"valid red"* ]] || fail "$out"
+  # the chunk's test in check withdrawn: only the skipped file is left
+  rm -r __tests__
+  write_e2e b.e2e.ts "case b notimpl"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/red-check.sh")"
+  [[ "$out" == *"red check skipped"* ]] || fail "only skipped files: $out"
+}
+
+test_red_check_names_the_command_that_printed_no_xml() {
+  fake_runner
+  integrate_tests
+  set_config run_integrate_tests 'echo nothing {files}'
+  git add -A && git commit -qm "chore(repo): an end-to-end runner without xml"
+  open_l_task
+  write_test a.test.ts "case a assert"
+  write_e2e b.e2e.ts "case b assert"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  expect_fail "check the config's run_integrate_tests" bash "$SCRIPTS/red-check.sh"
+}
+
 test_red_check_accepts_assertions_and_not_implemented() {
   fake_runner
   open_l_task

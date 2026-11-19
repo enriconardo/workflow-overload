@@ -276,14 +276,14 @@ tests_globs() {
 outside_check() {
   local file
   local -a specs=()
-  local -A outside=()
+  local -A matched=()
   mapfile -t specs < <(glob_pathspecs integrate_tests_glob)
   ((${#specs[@]})) || return 0
   while IFS= read -r file; do
-    outside["$file"]=1
+    matched["$file"]=1
   done < <(git ls-files -c -o --exclude-standard -- "${specs[@]}")
   for file in "$@"; do
-    [[ -n "${outside[$file]:-}" ]] && printf '%s\n' "$file"
+    [[ -n "${matched[$file]:-}" ]] && printf '%s\n' "$file"
   done
   return 0
 }
