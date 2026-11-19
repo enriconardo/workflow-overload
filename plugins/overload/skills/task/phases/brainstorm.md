@@ -16,7 +16,7 @@ Turns the request into an understood problem and a tier the human confirms, with
    - **L**: everything else.
 
    A task that turns out bigger changes tier later, on the human's go: *Turning L* in `phases/s-path.md` says how.
-5. **Open the branch.** Write the intent to a file outside the repository (your scratchpad, or a temporary file): the problem, the goal, the constraints, the decisions the human took, with their words where they matter. On S, the intent cites by name the inputs to see as they are (the screenshot of a bug): the code reviewer reads those. Then:
+5. **Open the branch.** Write the intent to a file outside the repository (your scratchpad, or a temporary file): the problem, the goal, the constraints, the decisions the human took, with their words where they matter, and the item of the config's `backlog` the task works, if any, as the file writes it. On S, the intent cites by name the inputs to see as they are (the screenshot of a bug): the code reviewer reads those. Then:
 
    ```
    bash <scripts>/branch.sh <S|L> <name> <intent-file> [--inputs <slug> <file>...]
