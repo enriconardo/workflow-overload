@@ -60,15 +60,15 @@ So, at plan level, the reviewer found a defect in a cross-cutting decision befor
 
 | Step | Result | Defect found | Would a test have caught it? | Minutes |
 | --- | --- | --- | --- | --- |
-| N3 |  |  |  |  |
-| F1, F2 |  |  |  |  |
-| F3 |  |  |  |  |
-| F4 |  |  |  |  |
-| F5 |  |  |  |  |
-| F6, N1 |  |  |  |  |
-| F7 |  |  |  |  |
-| N2 |  |  |  |  |
-| N4 |  |  |  |  |
+| N3 | pass: a clone of the local repository, one install and one start command from the README | none | — | 4 |
+| F1, F2 | pass: each change at once, the checked item last | none | — | 3, with F3 |
+| F3 | pass | none | — | (in F1, F2) |
+| F4 | pass: an item, a check and a note, each within 2 s, a normal and a private window, outside Docker for the first time | none | — | 1 |
+| F5 | pass: the Markdown matches the page, no note; the browser shows it rather than downloading it, which the spec had left unpromised | none | — | 2 |
+| F6, N1 | pass: a database written at `cbdda31` (worktree) opens migrated, notes empty; a note survives a reload | none | — | 5 |
+| F7 | pass: `Could not reach the server: nothing was saved`, the text kept, the add works after the restart, the stream back on its own | none | — | 3 |
+| N2 | pass: no sideways scroll, 44 × 44 targets, easy with a thumb (the one judgement no test gives) | none | — | 2 |
+| N4 | pass: median 4.8 ms against 200 ms (5.0 ms at item 3) | none | — | 2 |
 
 ## What would change 0.6.0
 
@@ -100,6 +100,7 @@ To be written as the items run. Observations as they come:
 - **Item 6 ran a chunk of end-to-end tests only, test-first**, at the human's word at the spec checkpoint: the main agent had retyped it no test-first against the splitter, citing item 3. The test-author wrote cases 14 to 17 and showed them failing through `npm run test:e2e`, case 16 at the very step of the bug; `suite.sh` had nothing to record, the journal said so, and the main agent guarded the two files with checksums. It worked, but every guard was by hand, and the checksums, kept in the scratchpad, were lost overnight: the main agent rebuilt them from an agent's report and moved them to `.git/overload/`, which the human then had it delete after the merge. Step 3's command for tests outside `check` needs its record and its guard where the scripts keep their state.
 - **Item 7 ran the same way from the start**, because the human's brainstorming answer said so and the splitter wrote it into the chunk line, not because a rule of the plugin says it: checksums under `.git/overload/` from the first step, deleted at the human's word after the merge. A test added after the code at a step review's finding got its red this time: the test-author put the fault back in a temporary copy, reading only the two lines it needed, and showed the test failing there; in item 6 the main agent had judged that impossible. Step 3 can make it the rule for such a test.
 - **The end-to-end tests are flaky with several servers in parallel**: item 4's final review saw 14 failures out of 24 with `--repeat-each=3`, item 7's step review one timeout of case 18 in a full run. The project's, not the plugin's; on a larger project it would make `check_integrate` fail at random, and each failure counts as a round.
+- **The acceptance** (2026-11-19, on `master` at `8e79ef7`, run by the human, with the steps given by the session that read the transcripts): every step passed, in about 22 minutes, and found no defect that `check` and `check_integrate` had missed. Two facts were seen for the first time outside the tests' Docker browser: live updates within 2 s and the stream's reconnect after a real restart (F4, F7). Its own worth was in what only a person judges: the export shown rather than downloaded (F5), and thumb use at 360 px (N2). The one slip was on the instructions' side: the commit before item 6's merge was first given as item 4's merge, corrected from the history before the step ran.
 - **The brainstorming asks what the plan says**: item 2 asked whether to refuse a database newer than the code (out of scope in the plan) and how to verify F3 (the plan says); item 3 asked whether the pages work without JavaScript (D4 says) and half of its question on errors (F7 is item 7's). About one question in four across items 2 and 3. Item 4 asked five, none of them answered by the plan; item 5 five, one of them (the order) answered by the acceptance step, which the main agent cited. Item 6 asked three and the tier in Claude Code's question dialog, not in a message, none answered by the plan; one rightly caught ADR 0013 announcing a new event name that the answer replaced with the existing one. Item 7 asked five: one repeated N2, and one rested on a misreading of item 4 (that a stopped server makes the page give up). The human's answer corrected it, and the spec-reviewer then found the human's evidence weaker than claimed (item 4's case 18 aborts the stream before the server stops), so the spec kept it as a risk for case 8 to settle: the reviewer's independence working on the human's word too.
 - **The first plan revision**, after item 3: a backlog candidate of item 3's review (a fragment request failing partway) is F7's, so an S task added it to item 7's line instead of the backlog. One docs-only S task.
 - **The second plan revision**, after item 4: the race of item 4's final review is F4's, which item 6 closes, so an S task added it to item 6's line, with where it lies (`refresh()`) and the rule of the fix. One docs-only S task again: 8 minutes from the command to the merge, one review round with no finding. Each revision so far is a line the next items carry, not a backlog item.
