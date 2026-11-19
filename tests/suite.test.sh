@@ -98,6 +98,33 @@ test_a_new_record_covers_a_file_put_back_to_head() {
   expect_fail "__tests__/old.test.ts" bash "$SCRIPTS/suite.sh" check
 }
 
+# The tests `check` leaves out, end-to-end in e2e/, run by their own command.
+integrate_tests() {
+  set_config integrate_tests_glob 'e2e/**'
+  git add -A && git commit -qm "chore(repo): tests outside check"
+}
+
+write_e2e() {
+  mkdir -p e2e
+  printf '%s\n' "${@:2}" >"e2e/$1"
+}
+
+test_suite_records_and_guards_the_tests_outside_check() {
+  integrate_tests
+  write_e2e old.e2e.ts "case old pass"
+  git add -A && git commit -qm "test(greet): an existing end-to-end test"
+  open_l_task
+  write_e2e a.e2e.ts "case a assert"
+  write_test b.test.ts "case b assert"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  expect_eq "$(bash "$SCRIPTS/suite.sh" files)" $'__tests__/b.test.ts\ne2e/a.e2e.ts'
+  write_e2e a.e2e.ts "case a pass"
+  expect_fail "e2e/a.e2e.ts" bash "$SCRIPTS/suite.sh" check
+  write_e2e a.e2e.ts "case a assert"
+  write_e2e old.e2e.ts "case old skip"
+  expect_fail "not in the suite the test-author recorded" bash "$SCRIPTS/suite.sh" check
+}
+
 test_red_check_accepts_assertions_and_not_implemented() {
   fake_runner
   open_l_task

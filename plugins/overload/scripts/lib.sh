@@ -14,7 +14,7 @@ REFERENCE_DIR=".workflow/reference"
 CONFIG_VERSION=1
 # Every key of this version. `check` has no default: a config without it is
 # refused, and a project with no checks writes `check =`, empty, on purpose.
-CONFIG_KEYS="version check check_integrate run_tests main integrate rules backlog tests_glob red_types"
+CONFIG_KEYS="version check check_integrate run_tests run_integrate_tests main integrate rules backlog tests_glob integrate_tests_glob red_types"
 
 die() {
   echo "overload: $*" >&2
@@ -240,15 +240,52 @@ journal_get() {
   sed -n "s/^$1: *//p" "$JOURNAL_FILE" | head -n 1
 }
 
-# The config's `tests_glob` as git pathspecs, one per line.
-tests_pathspecs() {
+# glob_pathspecs <key>: a key's comma-separated globs as git pathspecs, one
+# per line.
+glob_pathspecs() {
   local glob
-  IFS=',' read -ra globs <<<"$(cfg tests_glob)"
-  for glob in "${globs[@]}"; do
+  local -a globs=()
+  IFS=',' read -ra globs <<<"$(cfg "$1")"
+  for glob in ${globs[@]+"${globs[@]}"}; do
     glob="${glob#"${glob%%[![:space:]]*}"}"
     glob="${glob%"${glob##*[![:space:]]}"}"
     [[ -n "$glob" ]] && printf ':(glob)%s\n' "$glob"
   done
+}
+
+# Every test file as git pathspecs: those `check` runs (`tests_glob`) and
+# those it leaves out (`integrate_tests_glob`), which the suite records and
+# guards alike.
+tests_pathspecs() {
+  glob_pathspecs tests_glob
+  glob_pathspecs integrate_tests_glob
+}
+
+# The config's test globs, for a message.
+tests_globs() {
+  local outside
+  outside="$(cfg integrate_tests_glob)"
+  printf 'tests_glob: %s%s\n' "$(cfg tests_glob)" "${outside:+; integrate_tests_glob: $outside}"
+}
+
+# outside_check <file>...: those of the files, present in the working tree,
+# that `integrate_tests_glob` matches. They run through `run_integrate_tests`,
+# the others through `run_tests`; a file both globs match is outside check,
+# since a project sets that glob on purpose and the default `tests_glob` is
+# broad.
+outside_check() {
+  local file
+  local -a specs=()
+  local -A outside=()
+  mapfile -t specs < <(glob_pathspecs integrate_tests_glob)
+  ((${#specs[@]})) || return 0
+  while IFS= read -r file; do
+    outside["$file"]=1
+  done < <(git ls-files -c -o --exclude-standard -- "${specs[@]}")
+  for file in "$@"; do
+    [[ -n "${outside[$file]:-}" ]] && printf '%s\n' "$file"
+  done
+  return 0
 }
 
 suite_refs() {

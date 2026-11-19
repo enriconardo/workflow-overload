@@ -69,16 +69,18 @@ Inside a task, the scripts that open the branch, update the journal, verify, com
 The config holds what is the project's own, as `key = value` lines that scripts read without executing; `/overload:setup` writes it.
 
 ```
-version         = 1
-check           = pnpm check                                # the commit gate, see *check*; empty: nothing checked
-check_integrate = pnpm test:e2e                             # the slow local tests, see *check_integrate*; empty: none
-run_tests       = pnpm vitest run --reporter=junit {files}  # runs the given test files, prints JUnit XML; empty: no red check
-main            = main
-integrate       = merge
-rules           = CLAUDE.md, docs/adr/
-backlog         = .workflow/backlog.md
-tests_glob      = **/__tests__/**
-red_types       = AssertionError, NotImplemented
+version              = 1
+check                = pnpm check                                # the commit gate, see *check*; empty: nothing checked
+check_integrate      = pnpm test:e2e                             # the slow local tests, see *check_integrate*; empty: none
+run_tests            = pnpm vitest run --reporter=junit {files}  # runs the given test files, prints JUnit XML; empty: no red check
+run_integrate_tests  = pnpm playwright test --reporter=junit {files}  # the same for the tests check leaves out
+main                 = main
+integrate            = merge
+rules                = CLAUDE.md, docs/adr/
+backlog              = .workflow/backlog.md
+tests_glob           = **/__tests__/**
+integrate_tests_glob = e2e/**
+red_types            = AssertionError, NotImplemented, expect.*
 ```
 
 | Key | Default | What it holds |
@@ -87,12 +89,14 @@ red_types       = AssertionError, NotImplemented
 | `check` | none, required, may be empty | the command that checks the whole tree before every commit |
 | `check_integrate` | empty: nothing more runs | the slow but local tests (integration, end-to-end without external services), once per task before the final review and again after a sync with main |
 | `run_tests` | empty: the red check is skipped | the command that runs the test files in `{files}` and prints JUnit XML |
+| `run_integrate_tests` | empty: their red check is skipped | the same command for the test files of `integrate_tests_glob`, those `check` leaves out |
 | `main` | `main` | the branch tasks start from and merge into |
 | `integrate` | `merge` | how a task lands: a local `--no-ff` merge, the only mode so far |
 | `rules` | `CLAUDE.md` | the project's rule files and folders, comma-separated; decision records go in a folder of them |
 | `backlog` | `.workflow/backlog.md` | where the backlog items you approve go |
 | `tests_glob` | the usual test file names of JavaScript, TypeScript, Python and Go | which files are tests: the suite records them, and `commit.sh` protects them |
-| `red_types` | `AssertionError, NotImplemented` | the failure types the runner reports for an assertion and for a stub |
+| `integrate_tests_glob` | empty: none | which test files `check` leaves out, those `check_integrate` runs: the suite records and protects them too, and `run_integrate_tests` runs them |
+| `red_types` | `AssertionError, NotImplemented` | the failure types the runners report for an assertion and for a stub |
 
 A value never holds ` #`, which starts a comment. A key the version does not know is refused, and so is a config without `check`: a misspelt key would otherwise leave `check` empty, and every commit would pass unchecked. A config of another version is refused with what to change; there is no migration.
 
