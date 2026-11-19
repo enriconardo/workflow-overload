@@ -45,16 +45,24 @@ So, at plan level, the reviewer found a defect in a cross-cutting decision befor
 
 | # | Tier: plan → triage | Chunks | Files | Test cases | Spec rounds | Review rounds | Escalations | Red verifies | Human turns | Wall time (before / after `/clear`) | Tokens (before / after) | Main green and coherent | Plan change |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 0 | S → |  |  |  |  |  |  |  |  |  |  |  |  |
-| 1 | L → |  |  |  |  |  |  |  |  |  |  |  |  |
-| 2 | L → |  |  |  |  |  |  |  |  |  |  |  |  |
-| 3 | L → |  |  |  |  |  |  |  |  |  |  |  |  |
-| 4 | L → |  |  |  |  |  |  |  |  |  |  |  |  |
-| 5 | L → |  |  |  |  |  |  |  |  |  |  |  |  |
-| 6 | L → |  |  |  |  |  |  |  |  |  |  |  |  |
-| 7 | L → |  |  |  |  |  |  |  |  |  |  |  |  |
+| 0 | S → S | — | 8 | — | — | final 2 | 0 | 0 | 3 | 5 min (one session) | 1.3M | yes | the plan itself |
+| 1 | L → L | 5 | 24 | 16 | 2 | step 6, final 1 | 0 | 0 | 8 | 28 / 26 min | 5.2M / 8.7M | yes | — |
+| 2 | L → L | 4 | 15 | 25 | 1 | step 7, final 1 | 1 | 0 | 7 | 12 / 30 min | 2.2M / 11.9M | yes | — |
+| 3 | L → L | 5 | 28 | 18 | 3 | step 7, final 1 | 0 | 0 | 6 | 20 / 30 min | 4.7M / 10.7M | yes | item 7's line (S, 3 min, 1.9M, in the same session) |
+| 4 | L → L | 3 | 16 | 20 | 3 | step 4, final 1 | 0 | 0 | 4 | 52 min (no `/clear`) | 15.4M | yes | item 6's line (S, 2 min, 0.9M, a new session) |
+| 5 | L → L | 2 | 8 | 11 | 1 | step 2, final 1 | 0 | 0 | 5 | 8 / 9 min | 2.1M / 3.2M | yes | item 6's line, in its own diff |
+| 6 | L → L | 5 | 20 | 22 | 1 | step 7, final 1 | 0 | 0 | 7 | 12 / 43 min | 3.3M / 14.2M | yes | — |
+| 7 | L → L | 2 | 8 | 10 | 1 | step 3, final 1 | 0 | 0 | 8 | 10 / 17 min | 2.7M / 6.0M | yes | — |
 
 *Human turns*: the messages the human had to write, go's included. Also count, per item, the brainstorming's questions the plan already answered: they measure what "it asks only what the plan does not say" would save.
+
+How the columns were measured (2026-11-19, from the session transcripts and each branch's journal):
+- *Files*: `git diff --shortstat` of each merge against its first parent, so the journal, dropped at the merge, is out; the main agents' own counts include it.
+- *Wall time*: active minutes, the sum of the gaps under 5 minutes between a session's events, so the human's pauses are out: item 6's after-`/clear` session spans 17 hours, the night and the usage limit included.
+- *Tokens*: every API call of the main agent and its subagents, input, cache writes, cache reads and output, each call counted once. Cache reads are most of them; output is about 1.3% (1.27M of 95.5M in all).
+- *Human turns*: the command, each message and each answer in the question dialog; approximate.
+- *Red verifies*: none logged in any journal; every red was a red check, as meant.
+- *Brainstorming questions the plan already answered*: item 2 two, item 3 one and a half, item 4 none of five, item 5 one of five, item 6 none of three, item 7 one of five (and one on a misreading of item 4).
 
 ## Acceptance
 
@@ -100,6 +108,10 @@ To be written as the items run. Observations as they come:
 - **Item 6 ran a chunk of end-to-end tests only, test-first**, at the human's word at the spec checkpoint: the main agent had retyped it no test-first against the splitter, citing item 3. The test-author wrote cases 14 to 17 and showed them failing through `npm run test:e2e`, case 16 at the very step of the bug; `suite.sh` had nothing to record, the journal said so, and the main agent guarded the two files with checksums. It worked, but every guard was by hand, and the checksums, kept in the scratchpad, were lost overnight: the main agent rebuilt them from an agent's report and moved them to `.git/overload/`, which the human then had it delete after the merge. Step 3's command for tests outside `check` needs its record and its guard where the scripts keep their state.
 - **Item 7 ran the same way from the start**, because the human's brainstorming answer said so and the splitter wrote it into the chunk line, not because a rule of the plugin says it: checksums under `.git/overload/` from the first step, deleted at the human's word after the merge. A test added after the code at a step review's finding got its red this time: the test-author put the fault back in a temporary copy, reading only the two lines it needed, and showed the test failing there; in item 6 the main agent had judged that impossible. Step 3 can make it the rule for such a test.
 - **The end-to-end tests are flaky with several servers in parallel**: item 4's final review saw 14 failures out of 24 with `--repeat-each=3`, item 7's step review one timeout of case 18 in a full run. The project's, not the plugin's; on a larger project it would make `check_integrate` fail at random, and each failure counts as a round.
+- **The cost, summed from the transcripts**: 95.5M tokens in all, of which 91.4M for items 0 to 7, 2.7M for the two plan revisions run as S tasks and 1.3M for setup; about 4 hours of active work over two days, besides the human's pauses.
+  - The fixed part of an L, from the command to the spec's approval, before `/clear`: 2.1M to 5.2M, 3.4M on average; the chunks after it: 1.6M to 3.0M a chunk. So the planning of an L costs about one or two chunks, whatever its size: item 5's two chunks cost half again its planning, item 6's five four times it.
+  - The main agent takes 73% of the tokens (69.3M) and writes a third of the output (0.43M of 1.27M); the subagents write the other two thirds. The main agent's cost is reading its own long context again at each call, which `/clear` cuts: item 4, the one L without it, cost as much as item 3 with 2 fewer chunks.
+  - A revision run in the session of the item before it cost twice one in a new session (1.9M and 0.9M), for the same one-line change.
 - **The acceptance** (2026-11-19, on `master` at `8e79ef7`, run by the human, with the steps given by the session that read the transcripts): every step passed, in about 22 minutes, and found no defect that `check` and `check_integrate` had missed. Two facts were seen for the first time outside the tests' Docker browser: live updates within 2 s and the stream's reconnect after a real restart (F4, F7). Its own worth was in what only a person judges: the export shown rather than downloaded (F5), and thumb use at 360 px (N2). The one slip was on the instructions' side: the commit before item 6's merge was first given as item 4's merge, corrected from the history before the step ran.
 - **The brainstorming asks what the plan says**: item 2 asked whether to refuse a database newer than the code (out of scope in the plan) and how to verify F3 (the plan says); item 3 asked whether the pages work without JavaScript (D4 says) and half of its question on errors (F7 is item 7's). About one question in four across items 2 and 3. Item 4 asked five, none of them answered by the plan; item 5 five, one of them (the order) answered by the acceptance step, which the main agent cited. Item 6 asked three and the tier in Claude Code's question dialog, not in a message, none answered by the plan; one rightly caught ADR 0013 announcing a new event name that the answer replaced with the existing one. Item 7 asked five: one repeated N2, and one rested on a misreading of item 4 (that a stopped server makes the page give up). The human's answer corrected it, and the spec-reviewer then found the human's evidence weaker than claimed (item 4's case 18 aborts the stream before the server stops), so the spec kept it as a risk for case 8 to settle: the reviewer's independence working on the human's word too.
 - **The first plan revision**, after item 3: a backlog candidate of item 3's review (a fragment request failing partway) is F7's, so an S task added it to item 7's line instead of the backlog. One docs-only S task.
