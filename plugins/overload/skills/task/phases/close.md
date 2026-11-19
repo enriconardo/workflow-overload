@@ -46,7 +46,7 @@ Then stop and wait. The human gives the go and picks the lessons and backlog ite
 
 ## 5. Lessons and backlog — phase `close/write`
 
-Write the approved lessons where they land, apply the approved retirements, and add the approved backlog items to the config's `backlog` file (if missing, create it with its heading, `# Backlog`) where its own rules put a new item, its header or its sections, else at its end; one item per entry: what, why, source. The rule, not its story: `git blame` gives the task and the date. Verify and commit the lessons on their own, then the backlog items on their own. A lesson that stays red goes to the human: retry, or skip, and the lesson leaves the task as a backlog item.
+Write the approved lessons where they land, apply the approved retirements, and add the approved backlog items to the config's `backlog` file (if missing, create it with its heading, `# Backlog`) where its own rules put a new item, its header or its sections, else at its end; one item per entry: what, why, source. The rule, not its story: `git blame` gives the task and the date. Verify and commit the lessons on their own, then the backlog items on their own. A task that works an item of the backlog, as its intent names it, removes the item in a commit of its own; the file stays, its heading at least. A lesson that stays red goes to the human: retry, or skip, and the lesson leaves the task as a backlog item.
 
 On L, set the spec's `status: done` in the last of these commits, or in a commit of its own when nothing was approved.
 
