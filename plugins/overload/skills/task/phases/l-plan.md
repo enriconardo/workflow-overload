@@ -36,7 +36,7 @@ The files that describe this behavior and change with it (a README, API docs, a 
 
 A decision that outlives the task also gets a decision record, in a folder of the config's `rules` that already holds decision records. With no such folder, write none and create none: the human hears it at checkpoint 1, with `/overload:setup`, which proposes one.
 
-**Chunk types.** Test-first: a new or changed behavior of the public API, domain logic, a bug, whose tests fail at runtime against its stubs. No test-first: a refactor (the existing tests stay green unchanged), wiring (tested afterwards by the implementer), docs, config, a chunk whose code is only declarations (types, interfaces: its stub is its code, and its tests fail only in the type checker), and a chunk that changes no source file (it only adds tests).
+**Chunk types.** Test-first: a new or changed behavior of the public API, domain logic, a bug, whose tests fail at runtime against its stubs. No test-first: a refactor (the existing tests stay green unchanged), wiring (tested afterwards by the implementer), docs, config, a chunk whose code is only declarations (types, interfaces: its stub is its code, and its tests fail only in the type checker), and a chunk of tests only (it changes no other file).
 
 ## 2. Probe — phase `l/probe`, only when the spec rests on external facts not yet checked
 

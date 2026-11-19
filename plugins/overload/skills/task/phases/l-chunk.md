@@ -2,7 +2,7 @@
 
 Each chunk goes through agents that did not write the spec, and scripts, and ends in a green commit. The chunk to work is the first one the spec does not tick; its phase is `l/chunk-<n>/<step>`.
 
-A chunk's first step is `stub` when its line names `signatures` or `dependencies`, otherwise `test` when it is test-first or changes no source file, otherwise `implement`.
+A chunk's first step is `stub` when its line names `signatures` or `dependencies`, otherwise `test` when it is test-first or a chunk of tests only, otherwise `implement`: a chunk of docs or config only goes to the implementer.
 
 ## Per chunk
 
@@ -10,7 +10,7 @@ A chunk's first step is `stub` when its line names `signatures` or `dependencies
 
 The test-author cannot stub a declaration that already exists (a changed constructor or parameter list), and installs nothing, while a test of code that imports a missing package does not load. Run the `overload:step-implementer` agent in stub mode, with the spec's path, the chunk's number, and its signatures and dependencies. It adds the dependencies, changes only the signatures, each body a stub, and it writes no test. Do not commit. Then go on with 1.
 
-### 1. Tests — `l/chunk-<n>/test`, test-first chunks and chunks with no source to change
+### 1. Tests — `l/chunk-<n>/test`, test-first chunks and chunks of tests only
 
 Run the `overload:step-test-author` agent with the spec's path, the chunk's number, the config's `rules` and `tests_glob`, and the scripts' folder. It writes the chunk's tests before any code, and stubs only for the new interfaces the spec declares, and records the suite with `suite.sh record`. It never reads the source the chunk changes. When it reports a module the tests need and the project lacks, add it to the chunk line's `dependencies` and go back to 0. When it reports that every case of the chunk is at the type level, the chunk has no red: change its type to `no test-first` in the spec, log it, and go to 3.
 
@@ -41,7 +41,7 @@ Run the `overload:step-reviewer` agent with the spec's path, the chunk's number,
 
 Tick the chunk in the spec (`- [x]`), then verify and commit: one commit for the chunk, its tests, its code and its tick, its message as *Names and messages* in the skill's rules says, the chunk's title in the body. Set the phase to the next chunk's first step.
 
-## A chunk with no source to change
+## A chunk of tests only
 
 A chunk that only adds tests, the behavior coming from earlier chunks, has no red: the splitter marks it no test-first. The test-author writes and records its tests (1) and nobody implements: the step review (5) always runs for it, given every one of its tests as the list of tests that pass already.
 
