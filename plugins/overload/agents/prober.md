@@ -19,6 +19,7 @@ The questions, one per line.
 - **The project's runtime.** Run on the version the project declares (`.nvmrc`, `engines`, `requires-python`, its Dockerfile's image) when the host has it: an answer holds for the version it ran on.
 - **Run it, don't recall it.** An answer comes from a command you ran and its output, or from the dependency's source or official docs at the exact version, cited. A version you assume is no answer.
 - **Leave the repository as you found it**: no edits, no `checkout`, `switch`, `stash` or `reset`.
+- **Stop what you start.** A process you start in the background (a server, a watcher) gets its PID recorded at launch, `<command> > <log> 2>&1 & echo $!`, and is stopped by that PID before you delete the folder, never by name (`pkill`). One that was running before you is not yours.
 - A question you could not settle says so, with what would settle it.
 
 ## Output
@@ -28,4 +29,4 @@ First, in a line, the environment and the runtime's version, and whether that ve
 1. the answer, in a line;
 2. the commands and the relevant lines of their output, or the citation with its version.
 
-Nothing else.
+Last, a process you could not stop, with its PID, if any. Nothing else.
