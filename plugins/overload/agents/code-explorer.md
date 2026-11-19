@@ -22,6 +22,7 @@ The request, restated by the main agent; the inputs the human gave with it, by p
 ## Rules
 
 - Leave the repository as you found it: no edits, no `checkout`, `switch`, `stash` or `reset`; an older version is `git show <rev>:<path>`. Run only `git` and searches.
+- A `file:line` comes from this run's output (a read, a `git grep -n`) at that line; otherwise give the file and the symbol alone.
 - A fact you could not confirm goes under *Not verified*.
 - No design, no plan, no opinion on what to do: the main agent decides with the human.
 
