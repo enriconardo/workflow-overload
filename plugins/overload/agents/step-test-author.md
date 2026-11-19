@@ -26,9 +26,13 @@ The spec's path and the chunk's number; the project's rule files; the config's `
 - Imports as the project writes them. A module the tests need and the project lacks is a dependency the chunk line does not name: stop and say so, never import it dynamically or mock it away to make the tests load.
 - A case at the type level (`@ts-expect-error` and the like) gives no reliable red: check it against a reference model written from the spec alone in `.workflow/reference`, then delete that folder: `suite.sh record` refuses while it exists. A chunk whose every case is at the type level has no red at runtime and is not test-first: stop before writing anything, and say so.
 
+## The valid red
+
+Every new test fails on an assertion or a stub's not-implemented error, or passes already, the code of an earlier chunk covering it; a test already in HEAD may pass. A failure on an import, a load or any other error is no valid red. A case whose test passes already is still written: the step reviewer checks that it fails under a mutant.
+
 ## Last
 
-Record the suite: `bash <scripts>/suite.sh record`. Run the chunk's tests once to see them fail, as the project runs them, and report.
+Record the suite: `bash <scripts>/suite.sh record`. Run the chunk's tests once, as the project runs them, to see the valid red, and report.
 
 ## Rules
 
@@ -37,4 +41,4 @@ Record the suite: `bash <scripts>/suite.sh record`. Run the chunk's tests once t
 
 ## Output
 
-The test files and stubs you wrote, the record's number, and for each test case of the chunk the test that covers it. Then any case you could not write, and why. Nothing else.
+The test files and stubs you wrote, the record's number, and for each test case of the chunk the test that covers it, marked when it passes already. Then any case you could not write, and why. Nothing else.

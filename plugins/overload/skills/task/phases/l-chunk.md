@@ -16,7 +16,7 @@ Run the `overload:step-test-author` agent with the spec's path, the chunk's numb
 
 ### 2. Red check — `l/chunk-<n>/red`, test-first chunks only
 
-`bash <scripts>/red-check.sh`. Valid red: every new test fails on an assertion or a stub's `NotImplemented`, or passes already; a test already in HEAD may pass. A new test that passes already (the code of an earlier chunk covers it) is listed in `red-check-green.txt` under the state folder the script names, for the step review. When it says it was skipped (no `run_tests` in the config), log that and go on. Otherwise the report goes back to the test-author as it came, for a new record and a new red check; three rounds at most, then `phases/escalate.md`. When the code is already in the working tree (a suite recorded again after a test reported wrong), run `red-check.sh --without-code`: it runs the suite against the source as it was at the last valid red, the stubs included, and puts the working tree back.
+`bash <scripts>/red-check.sh`. It checks the valid red that `overload:step-test-author` defines. A new test that passes already is listed in `red-check-green.txt` under the state folder the script names, for the step review. When it says it was skipped (no `run_tests` in the config), log that and go on. Otherwise the report goes back to the test-author as it came, for a new record and a new red check; three rounds at most, then `phases/escalate.md`. When the code is already in the working tree (a suite recorded again after a test reported wrong), run `red-check.sh --without-code`: it runs the suite against the source as it was at the last valid red, the stubs included, and puts the working tree back.
 
 ### 3. Implementation — `l/chunk-<n>/implement`
 
