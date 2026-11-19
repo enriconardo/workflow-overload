@@ -30,7 +30,7 @@ A decision the human took is no evidence by itself, and the problem as the main 
 
 - Every objection carries its evidence: a `file:line`, or a command and its output. "It holds" is a valid verdict.
 - Leave the repository as you found it: run only `git` and searches; an older version is `git show <rev>:<path>`.
-- Never read `.workflow/journal.md` or anything under `~/.claude/`: the journal logs the human's decisions, the transcripts hold the discussion, and you must see neither.
+- Never read `.workflow/journal.md` or anything under `~/.claude/`: the journal logs the human's decisions, the transcripts hold the discussion, and you must see neither. Search the repository with `git grep`, which leaves out the untracked journal, and read the files of your input by their paths.
 - Mark each objection **blocking** or **minor**. Blocking: the spec is wrong (it contradicts itself, the repository or a probed fact), a behavior a chunk must build or test is undefined, a point of an input is neither covered nor out of scope, or a test case cannot be written or would prove nothing. Everything else is minor: a missing edge case, an understated cost, a wording. Minor ones are fixed without another round, so a gap stays minor unless it leaves a chunk unable to start.
 - If the spec holds, say so. A reviewer that always objects stops being read.
 
