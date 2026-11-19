@@ -77,6 +77,56 @@ class PytestTest(unittest.TestCase):
         self.assertEqual(lines, ["a.test.ts > t: red, NotImplemented"])
 
 
+PLAYWRIGHT = """<testsuites id="" name="" tests="3" failures="1" skipped="0" errors="2">\
+<testsuite name="assert.e2e.ts" tests="1" failures="1" errors="0"><testcase name="assert" classname="assert.e2e.ts">\
+<failure message="expect(received).toBe(expected) // Object.is equality" type="expect.toBe">Error Context: x.md</failure></testcase></testsuite>\
+<testsuite name="stub.e2e.ts" tests="2" failures="0" errors="2"><testcase name="stub" classname="stub.e2e.ts">\
+<error message="not implemented" type="NotImplemented">Error Context: y.md</error></testcase>\
+<testcase name="thrown" classname="stub.e2e.ts"><error message="x is not a function" type="TypeError">Error Context: z.md</error></testcase>\
+</testsuite></testsuites>"""
+
+
+class PlaywrightTest(unittest.TestCase):
+    """Playwright 1.65's JUnit reporter, measured on 2026-11-19: an assertion
+    is a <failure> typed with its matcher, any other error an <error> typed
+    with its name; a file that fails to load empties the whole report."""
+
+    FILES = ["e2e/assert.e2e.ts", "e2e/stub.e2e.ts"]
+
+    def test_a_type_ending_in_a_star_matches_its_prefix(self):
+        problems, lines, _ = junit.judge(PLAYWRIGHT, ["e2e/assert.e2e.ts"], {"expect.*"})
+        self.assertEqual(problems, [], lines)
+        self.assertEqual(lines, ["e2e/assert.e2e.ts > assert: red, expect.toBe"])
+        problems, lines, _ = junit.judge(PLAYWRIGHT, ["e2e/assert.e2e.ts"], {"expect"})
+        self.assertEqual(len(problems), 1, lines)
+
+    def test_an_error_with_a_type_is_a_failure_of_that_type_not_a_load_error(self):
+        problems, lines, _ = junit.judge(PLAYWRIGHT, self.FILES, {"expect.*", "NotImplemented"})
+        self.assertEqual(problems, ["e2e/stub.e2e.ts > thrown"], lines)
+        self.assertIn("e2e/stub.e2e.ts > stub: red, NotImplemented", lines)
+        self.assertTrue(any(line.startswith("e2e/stub.e2e.ts > thrown: red for the wrong reason, TypeError") for line in lines), lines)
+
+    def test_types_found_and_passes_name_the_error_s_type(self):
+        self.assertEqual(junit.types_found(PLAYWRIGHT, self.FILES), [
+            "e2e/assert.e2e.ts > assert: expect.toBe",
+            "e2e/stub.e2e.ts > stub: NotImplemented",
+            "e2e/stub.e2e.ts > thrown: TypeError",
+        ])
+        problems, lines = junit.passes(PLAYWRIGHT, ["e2e/stub.e2e.ts"])
+        self.assertEqual(len(problems), 2, lines)
+        self.assertIn("e2e/stub.e2e.ts > stub: fails, NotImplemented: not implemented", lines)
+
+    def test_two_runs_are_judged_as_one(self):
+        vitest = ('<testsuites><testsuite name="__tests__/a.test.ts"><testcase classname="__tests__/a.test.ts" name="p"/>'
+                  '</testsuite></testsuites>')
+        files = ["__tests__/a.test.ts", "e2e/assert.e2e.ts"]
+        problems, lines, green = junit.judge([vitest, PLAYWRIGHT], files, {"expect.*"})
+        self.assertEqual(problems, [], lines)
+        self.assertEqual(green, ["__tests__/a.test.ts > p"])
+        problems, lines = junit.passes([vitest, PLAYWRIGHT], ["__tests__/a.test.ts"])
+        self.assertEqual(problems, [], lines)
+
+
 class TypesFoundTest(unittest.TestCase):
     """What the setup's red probe reads: each testcase's outcome, with no
     judgment and nothing that changes from one run to the next."""
