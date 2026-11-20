@@ -324,6 +324,9 @@ test_red_check_without_run_tests_is_skipped() {
   set_config run_tests ''
   git add -A && git commit -qm "chore(repo): no run_tests"
   open_l_task
+  # as before the tests outside check: skipped before the suite is looked at
+  out="$(bash "$SCRIPTS/red-check.sh")"
+  [[ "$out" == *"red check skipped"* ]] || fail "no suite: $out"
   write_test a.test.ts "case one assert"
   bash "$SCRIPTS/suite.sh" record >/dev/null
   out="$(bash "$SCRIPTS/red-check.sh")"

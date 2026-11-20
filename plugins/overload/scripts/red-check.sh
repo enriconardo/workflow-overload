@@ -40,6 +40,12 @@ case "${1:-}" in
   *) die "usage: red-check.sh [--without-code]" ;;
 esac
 
+# No command to run any test: skipped before the suite is looked at.
+if [[ -z "$(cfg run_tests)" && -z "$(cfg run_integrate_tests)" ]]; then
+  echo "red check skipped: the config has no 'run_tests', the command that runs given test files and prints JUnit XML."
+  exit 0
+fi
+
 mapfile -t files < <(bash "$OVERLOAD_SCRIPTS/suite.sh" files)
 ((${#files[@]})) || die "no suite recorded on this branch: the test-author records it with suite.sh record."
 bash "$OVERLOAD_SCRIPTS/suite.sh" check
@@ -258,5 +264,7 @@ python3 "$OVERLOAD_SCRIPTS/junit.py" --types "$(cfg red_types)" --existing "$exi
 if ((status == 0 && !without_code)); then
   git update-ref "$base_ref" "$(git commit-tree "$(source_tree)" -p HEAD -m "stubs state of $branch")"
 fi
-((status == 2)) && echo "The runners' output is in $state (red-check-output.txt, red-check-integrate-output.txt)."
+# A load error can leave a file, or with Playwright every file of its run,
+# out of the report: the cause is in the runner's own output.
+((status == 0)) || echo "The runners' output: $output${is_outside[*]:+, $state/red-check-integrate-output.txt}."
 exit "$status"
