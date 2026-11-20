@@ -159,7 +159,7 @@ Branch names and commit messages follow the project's rules (its CLAUDE.md, its 
 | `.workflow/specs/` | main | the L specs, ticked chunk by chunk |
 | `.workflow/inputs/<slug>/` | main | the documents given with a request, named as the spec or task that uses them |
 | `.workflow/reference/` | the working tree, briefly | the test-author's throwaway model of a type-level case; deleted before its suite is recorded |
-| `.git/overload/` | the clone | the verified tree, the output of the last verify and red check, and the files a task keeps for a later session (the explorer's map), in a folder per branch removed at its merge |
+| `.git/overload/` | the clone | the verified tree, the output of the last verify and red check and the red check's report, and the files a task keeps for a later session (the explorer's map), in a folder per branch removed at its merge |
 | `refs/overload/suite/<branch>/<n>` | the clone | the test-author's recorded suites, outside every branch; deleted at the merge |
 
 ## The workflow explained
@@ -215,7 +215,7 @@ Each chunk ends in one green commit, written by agents that did not write the sp
 
 1. **Stubs** (`step-implementer` in stub mode), when the chunk changes existing signatures or adds dependencies.
 2. **Tests** (`step-test-author`), from the spec, never reading the code under change; it records its suite with `suite.sh`, outside every branch.
-3. **Red check** (`red-check.sh`): every new test must fail on an assertion or a stub's not-implemented error, never on an import or load error, read from the runner's JUnit XML. A new test that passes already goes to the step reviewer, who checks it fails under a mutant.
+3. **Red check** (`red-check.sh`): every new test must fail on an assertion or a stub's not-implemented error, never on an import or load error, read from the runner's JUnit XML. It prints a summary, the problems and the reds grouped by type and message, and leaves its line per test in a report under `.git/overload/`. A new test that passes already goes to the step reviewer, who checks it fails under a mutant.
 4. **Implement** (`step-implementer`) until the tests pass. It cannot touch the recorded tests: `commit.sh` refuses. A test it thinks wrong goes to the main agent, who decides on the spec, or asks you when the spec is silent.
 5. **Verify**, `check` and every suite recorded on the branch, then the **step review** (`step-reviewer`): the code does what the chunk asks, and the tests cover it.
 6. **Commit** the chunk, its tests, its code and its tick in the spec.

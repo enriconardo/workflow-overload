@@ -222,5 +222,97 @@ class PassesTest(unittest.TestCase):
         self.assertIn("tests/test_d.py: not in the runner's report", lines)
 
 
+def case(name, body=""):
+    return '<testcase classname="a.test.ts" name="%s">%s</testcase>' % (name, body)
+
+
+def failing(kind, message):
+    return '<failure message="%s" type="%s"/>' % (message, kind)
+
+
+class SummaryTest(unittest.TestCase):
+    """What red-check.sh prints with --report: a summary for the main agent,
+    the line per testcase in the report file."""
+
+    def run_main(self, xml, files, *extra):
+        with tempfile.TemporaryDirectory() as work:
+            output = os.path.join(work, "output.txt")
+            existing = os.path.join(work, "existing.txt")
+            report = os.path.join(work, "report.txt")
+            green = os.path.join(work, "green.txt")
+            with open(output, "w") as handle:
+                handle.write("some log line\n" + xml)
+            with open(existing, "w") as handle:
+                handle.write("a.test.ts\told\n")
+            argv = ["junit.py", "--types", "AssertionError, NotImplemented", "--existing", existing,
+                    "--green", green, "--report", report] + list(extra) + [output] + files
+            with mock.patch.object(sys, "argv", argv), contextlib.redirect_stdout(io.StringIO()) as out:
+                code = junit.main()
+            with open(report) as handle:
+                written = handle.read()
+            return code, out.getvalue().replace(report, "REPORT").replace(green, "GREEN"), written
+
+    def test_a_valid_red_counts_reds_by_type_and_shows_the_messages_they_share(self):
+        cases = ["".join(case("t%d" % i, failing("AssertionError", "expected 500 to be 200")) for i in range(6)),
+                 case("old", failing("AssertionError", "expected 500 to be 200")),
+                 case("s1", failing("NotImplemented", "not implemented")),
+                 case("s2", failing("NotImplemented", "not implemented")),
+                 case("alone", failing("AssertionError", "expected 1 to be 2")),
+                 case("green")]
+        xml = '<testsuite name="a.test.ts">%s</testsuite>' % "".join(cases)
+        code, out, report = self.run_main(xml, ["a.test.ts"])
+        self.assertEqual(code, 0, out)
+        self.assertEqual(out.splitlines(), [
+            "red check: valid red, every other new test fails for an allowed reason (AssertionError, NotImplemented).",
+            "reds: AssertionError 7 new, 1 already in HEAD; NotImplemented 2 new",
+            "  7 × AssertionError: expected 500 to be 200",
+            "  2 × NotImplemented: not implemented",
+            "red check: 1 new test passes already, before the chunk's code: give it to the step reviewer for a mutation check (GREEN).",
+            "red check: the report, a line per test: REPORT",
+        ])
+        self.assertIn("a.test.ts > t0: red, AssertionError\n", report)
+        self.assertIn("a.test.ts > green: passes already, before the chunk's code\n", report)
+
+    def test_shows_at_most_five_groups_the_largest_first(self):
+        cases = "".join(case("t%d%d" % (g, i), failing("AssertionError", "message %d" % g))
+                        for g in range(7) for i in range(2 + (g == 6)))
+        code, out, _ = self.run_main('<testsuite name="a.test.ts">%s</testsuite>' % cases, ["a.test.ts"])
+        lines = out.splitlines()
+        self.assertEqual(code, 0, out)
+        self.assertEqual(lines[2], "  3 × AssertionError: message 6", out)
+        self.assertEqual(sum(line.startswith("  2 × ") for line in lines), 4, out)
+        self.assertIn("  2 more groups in the report", lines)
+
+    def test_an_invalid_red_groups_its_problems_with_an_example(self):
+        cases = "".join([case("t1", failing("TypeError", "x is not a function")),
+                         case("t2", failing("TypeError", "x is not a function")),
+                         case("s", "<skipped/>"),
+                         case("r", failing("AssertionError", "expected 1 to be 2")),
+                         case("a.test.ts", '<error message="Cannot find module"/>')])
+        code, out, report = self.run_main('<testsuite name="a.test.ts">%s</testsuite>' % cases, ["a.test.ts", "b.test.ts"])
+        self.assertEqual(code, 1, out)
+        self.assertEqual(out.splitlines(), [
+            "red check: NOT a valid red, 5 problem(s). Back to the test-author, with the report.",
+            "  2 × red for the wrong reason, TypeError: x is not a function (e.g. a.test.ts > t1)",
+            "  1 × skipped, not red (e.g. a.test.ts > s)",
+            "  1 × LOAD ERROR: Cannot find module (e.g. a.test.ts > a.test.ts)",
+            "  1 × not in the runner's report (e.g. b.test.ts)",
+            "reds: AssertionError 1 new",
+            "red check: the report, a line per test: REPORT",
+        ])
+        self.assertIn("a.test.ts > r: red, AssertionError\n", report)
+
+    def test_without_report_prints_a_line_per_testcase_as_before(self):
+        xml = '<testsuite name="a.test.ts">%s</testsuite>' % case("t", failing("AssertionError", "m"))
+        with tempfile.TemporaryDirectory() as work:
+            output = os.path.join(work, "output.txt")
+            with open(output, "w") as handle:
+                handle.write(xml)
+            argv = ["junit.py", "--types", "AssertionError", output, "a.test.ts"]
+            with mock.patch.object(sys, "argv", argv), contextlib.redirect_stdout(io.StringIO()) as out:
+                self.assertEqual(junit.main(), 0)
+        self.assertIn("a.test.ts > t: red, AssertionError", out.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()

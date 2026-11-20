@@ -142,8 +142,8 @@ test_red_check_runs_each_test_file_through_its_own_command() {
   write_e2e old.e2e.ts "case old pass" "case new notimpl"
   bash "$SCRIPTS/suite.sh" record >/dev/null
   out="$(bash "$SCRIPTS/red-check.sh")"
-  [[ "$out" == *"e2e/old.e2e.ts > old: passes, already in HEAD"* ]] || fail "existing: $out"
-  [[ "$out" == *"e2e/old.e2e.ts > new: red, NotImplemented"* ]] || fail "red: $out"
+  [[ "$(red_report)" == *"e2e/old.e2e.ts > old: passes, already in HEAD"* ]] || fail "existing: $(red_report)"
+  [[ "$(red_report)" == *"e2e/old.e2e.ts > new: red, NotImplemented"* ]] || fail "red: $(red_report)"
   [[ "$out" == *"valid red"*"1 new test passes already"* ]] || fail "across both runs: $out"
   state="$(git rev-parse --git-path overload)"
   grep -q "e2e runner" "$state/red-check-integrate-output.txt" || fail "not through run_integrate_tests"
@@ -191,6 +191,28 @@ test_red_check_names_the_command_that_printed_no_xml() {
   expect_fail "check the config's run_integrate_tests" bash "$SCRIPTS/red-check.sh"
 }
 
+# the red check's line per testcase, which it leaves in the state folder
+red_report() {
+  cat "$(git rev-parse --git-path overload)/red-check-report.txt"
+}
+
+test_red_check_prints_a_summary_and_leaves_each_test_in_its_report() {
+  fake_runner
+  open_l_task
+  write_test a.test.ts "case one assert" "case two assert" "case three notimpl"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/red-check.sh")"
+  [[ "$out" == *"valid red"* && "$out" == *"reds: AssertionError 2 new; NotImplemented 1 new"* ]] || fail "$out"
+  [[ "$out" == *"2 × AssertionError: expected 1 to be 2"* ]] || fail "shared message: $out"
+  [[ "$out" != *"a.test.ts > one"* ]] || fail "a line per testcase: $out"
+  [[ "$out" == *"the report, a line per test: $(git rev-parse --git-path overload)/red-check-report.txt"* ]] || fail "$out"
+  [[ "$(red_report)" == *"__tests__/a.test.ts > one: red, AssertionError"* ]] || fail "$(red_report)"
+  # a run with no XML leaves no report of an earlier run behind
+  set_config run_tests 'echo nothing {files}'
+  expect_fail "printed no JUnit XML" bash "$SCRIPTS/red-check.sh"
+  [[ ! -e "$(git rev-parse --git-path overload)/red-check-report.txt" ]] || fail "a stale report"
+}
+
 test_red_check_accepts_assertions_and_not_implemented() {
   fake_runner
   open_l_task
@@ -233,11 +255,13 @@ test_red_check_refuses_load_errors_passes_skips_and_type_errors() {
   status=$?
   set -e
   expect_eq "$status" 1
-  [[ "$out" == *"a.test.ts"*"LOAD ERROR"* ]] || fail "load: $out"
-  [[ "$out" == *"b.test.ts > green: passes already"* ]] || fail "pass: $out"
-  [[ "$out" == *"c.test.ts > s: skipped"* ]] || fail "skip: $out"
-  [[ "$out" == *"d.test.ts > t: red for the wrong reason, TypeError"* ]] || fail "type: $out"
-  [[ "$out" == *"b.test.ts > red: red, AssertionError"* ]] || fail "red ok: $out"
+  report="$(red_report)"
+  [[ "$report" == *"a.test.ts"*"LOAD ERROR"* ]] || fail "load: $report"
+  [[ "$report" == *"b.test.ts > green: passes already"* ]] || fail "pass: $report"
+  [[ "$report" == *"c.test.ts > s: skipped"* ]] || fail "skip: $report"
+  [[ "$report" == *"d.test.ts > t: red for the wrong reason, TypeError"* ]] || fail "type: $report"
+  [[ "$report" == *"b.test.ts > red: red, AssertionError"* ]] || fail "red ok: $report"
+  [[ "$out" == *"1 × red for the wrong reason, TypeError"*"(e.g. __tests__/d.test.ts > t)"* ]] || fail "summary: $out"
 }
 
 test_red_check_judges_only_the_tests_new_to_a_file() {
@@ -248,7 +272,7 @@ test_red_check_judges_only_the_tests_new_to_a_file() {
   write_test a.test.ts "case old pass" "case new assert"
   bash "$SCRIPTS/suite.sh" record >/dev/null
   out="$(bash "$SCRIPTS/red-check.sh")"
-  [[ "$out" == *"a.test.ts > old: passes, already in HEAD"* && "$out" == *"valid red"* ]] || fail "$out"
+  [[ "$(red_report)" == *"a.test.ts > old: passes, already in HEAD"* && "$out" == *"valid red"* ]] || fail "$out"
   expect_eq "$(git show HEAD:__tests__/a.test.ts)" "case old pass" "HEAD untouched"
   expect_eq "$(cat __tests__/a.test.ts)" $'case old pass\ncase new assert' "the working file restored"
 
@@ -259,8 +283,8 @@ test_red_check_judges_only_the_tests_new_to_a_file() {
   status=$?
   set -e
   expect_eq "$status" 1
-  [[ "$out" == *"a.test.ts > new: passes already"* ]] || fail "new pass: $out"
-  [[ "$out" == *"a.test.ts > old: red for the wrong reason, TypeError"* ]] || fail "old type: $out"
+  [[ "$(red_report)" == *"a.test.ts > new: passes already"* ]] || fail "new pass: $(red_report)"
+  [[ "$(red_report)" == *"a.test.ts > old: red for the wrong reason, TypeError"* ]] || fail "old type: $(red_report)"
 }
 
 test_red_check_hands_new_green_tests_to_the_step_reviewer() {
@@ -427,7 +451,7 @@ test_verify_and_red_check_match_each_run_to_its_own_files() {
   printf 'case e pass\ncase f assert\n' >e2e/login.spec.ts
   bash "$SCRIPTS/suite.sh" record >/dev/null
   out="$(bash "$SCRIPTS/red-check.sh")"
-  [[ "$out" == *"e2e/login.spec.ts > f: red, AssertionError"* ]] || fail "red check: $out"
+  [[ "$out" == *"valid red"* && "$(red_report)" == *"e2e/login.spec.ts > f: red, AssertionError"* ]] || fail "red check: $out"
   # within one run: the suite login.spec.ts ends e2e/admin/login.spec.ts too
   bash "$SCRIPTS/suite.sh" clear
   mkdir -p e2e/admin

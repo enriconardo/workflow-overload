@@ -54,6 +54,12 @@ red_types.
 verify.sh: every file in the report, no load error, no failure; a skipped
 test is counted. Exit 0 when green, 1 when not.
 
+With --report, the judgment writes its line per testcase to that file and
+prints a summary for the main agent: the verdict, the problems grouped by
+kind, type and first line of message, each with an example; the valid reds
+counted by type, new or already in HEAD, and the messages two or more of
+them share; at most five groups each, the largest first.
+
 Exit 0 when the run is a valid red, 1 when it is not, 2 when the output
 holds no JUnit XML. Python 3.8+, standard library only.
 """
@@ -212,49 +218,132 @@ def passes(runs, files):
     return problems, lines
 
 
-def judge(runs, files, types, existing=frozenset()):
+def first_line(text):
+    lines = (text or "").splitlines()
+    return lines[0][:160] if lines else ""
+
+
+def judged(runs, files, types, existing=frozenset()):
+    """Each testcase's outcome, as (label, outcome, type, message): the
+    outcome is `red` or `red-existing` (a valid red, of a test new to the
+    chunk or already in HEAD), `existing` (a test in HEAD that does not
+    fail), `green` (a new test that passes), or a problem: `load`,
+    `skipped`, `wrong` (a red of a type not allowed), `missing` (a file not
+    in the report), `nothing` (no test fails)."""
     found = collect(runs, files)
-    problems = []
-    green = []
-    red = 0
-    lines = []
+    entries = []
     for f in files:
         cases = found[f]
         if not cases:
-            problems.append(f)
-            lines.append("%s: not in the runner's report (not collected, or outside its root)" % f)
+            entries.append((f, "missing", "", ""))
             continue
         for case in cases:
             label = "%s > %s" % (f, case.get("name"))
             failure = failure_of(case)
             skipped = case.find("skipped")
             name = case.get("name") or ""
+            old = (f, name) in existing
             if load_error(case, f):
-                problems.append(label)
-                node = failure
-                message = (node.get("message") if node is not None else "") or ""
-                lines.append("%s: LOAD ERROR, %s" % (label, message.splitlines()[0][:160] if message else "no message"))
-            elif (f, name) in existing and failure is None:
-                lines.append("%s: %s, already in HEAD" % (label, "skipped" if skipped is not None else "passes"))
+                entries.append((label, "load", "", first_line(failure.get("message") if failure is not None else "")))
+            elif old and failure is None:
+                entries.append((label, "existing", "skipped" if skipped is not None else "passes", ""))
             elif skipped is not None:
-                problems.append(label)
-                lines.append("%s: skipped, not red" % label)
+                entries.append((label, "skipped", "", ""))
             elif failure is None:
-                green.append(label)
-                lines.append("%s: passes already, before the chunk's code" % label)
+                entries.append((label, "green", "", ""))
             else:
                 kind = failure_type(failure)
-                if type_allowed(kind, types):
-                    red += 1
-                    lines.append("%s: red, %s" % (label, kind))
-                else:
-                    problems.append(label)
-                    message = (failure.get("message") or "").splitlines()
-                    lines.append("%s: red for the wrong reason, %s%s" % (label, kind or "no type", (": " + message[0][:160]) if message else ""))
-    if not problems and not red:
-        problems.append("suite")
-        lines.append("no recorded test fails: the suite tests nothing the chunk adds")
-    return problems, lines, green
+                outcome = ("red-existing" if old else "red") if type_allowed(kind, types) else "wrong"
+                entries.append((label, outcome, kind, first_line(failure.get("message"))))
+    if not any(e[1] in PROBLEMS for e in entries) and not any(e[1].startswith("red") for e in entries):
+        entries.append(("suite", "nothing", "", ""))
+    return entries
+
+
+PROBLEMS = ("load", "skipped", "wrong", "missing", "nothing")
+
+
+def line_of(entry):
+    label, outcome, kind, message = entry
+    if outcome == "missing":
+        return "%s: not in the runner's report (not collected, or outside its root)" % label
+    if outcome == "load":
+        return "%s: LOAD ERROR, %s" % (label, message or "no message")
+    if outcome == "existing":
+        return "%s: %s, already in HEAD" % (label, kind)
+    if outcome == "skipped":
+        return "%s: skipped, not red" % label
+    if outcome == "green":
+        return "%s: passes already, before the chunk's code" % label
+    if outcome == "wrong":
+        return "%s: red for the wrong reason, %s%s" % (label, kind or "no type", (": " + message) if message else "")
+    if outcome == "nothing":
+        return "no recorded test fails: the suite tests nothing the chunk adds"
+    return "%s: red, %s" % (label, kind)
+
+
+def judge(runs, files, types, existing=frozenset()):
+    entries = judged(runs, files, types, existing)
+    problems = [label for label, outcome, _, _ in entries if outcome in PROBLEMS]
+    green = [label for label, outcome, _, _ in entries if outcome == "green"]
+    return problems, [line_of(e) for e in entries], green
+
+
+GROUPS = 5
+
+
+def groups(entries, key):
+    """The entries grouped by key, the largest group first, in the order
+    they came for groups of the same size: (count, key, first label)."""
+    found = {}
+    for entry in entries:
+        k = key(entry)
+        if k in found:
+            found[k][0] += 1
+        else:
+            found[k] = [1, k, entry[0]]
+    return sorted(found.values(), key=lambda g: -g[0])
+
+
+def capped(lines, more):
+    if len(lines) <= GROUPS:
+        return lines
+    return lines[:GROUPS] + ["  %d more %s in the report" % (len(lines) - GROUPS, more)]
+
+
+PROBLEM_TEXT = {"load": "LOAD ERROR", "skipped": "skipped, not red", "wrong": "red for the wrong reason",
+                "missing": "not in the runner's report", "nothing": "no recorded test fails"}
+
+
+def summary(entries):
+    """The lines for the main agent: the problems grouped, each with an
+    example; the valid reds counted by type, new or already in HEAD; the
+    messages two reds or more share."""
+    lines = []
+    problems = [e for e in entries if e[1] in PROBLEMS]
+    problem_lines = []
+    for count, (outcome, kind, message), label in groups(problems, lambda e: (e[1], e[2], e[3])):
+        text = PROBLEM_TEXT[outcome]
+        if outcome == "wrong":
+            text += ", " + (kind or "no type")
+        if message:
+            text += ": " + message
+        example = "" if outcome == "nothing" else " (e.g. %s)" % label
+        problem_lines.append("  %d × %s%s" % (count, text, example))
+    lines += capped(problem_lines, "problems")
+    reds = [e for e in entries if e[1] in ("red", "red-existing")]
+    if reds:
+        counts = []
+        for _, kind, _ in groups(reds, lambda e: e[2]):
+            new = sum(1 for e in reds if e[2] == kind and e[1] == "red")
+            old = len([e for e in reds if e[2] == kind]) - new
+            parts = (["%d new" % new] if new else []) + (["%d already in HEAD" % old] if old else [])
+            counts.append("%s %s" % (kind, ", ".join(parts)))
+        lines.append("reds: " + "; ".join(counts))
+        shared = ["  %d × %s: %s" % (count, kind, message)
+                  for count, (kind, message), _ in groups(reds, lambda e: (e[2], e[3])) if count > 1 and message]
+        lines += capped(shared, "groups")
+    return lines
 
 
 def read_existing(path):
@@ -269,6 +358,7 @@ def main():
     parser.add_argument("--types", default="AssertionError, NotImplemented")
     parser.add_argument("--existing", help="the testcases already in HEAD, as --list prints them")
     parser.add_argument("--green", help="a file for the new testcases that pass already, one per line")
+    parser.add_argument("--report", help="a file for the line per testcase; stdout gets a summary")
     parser.add_argument("--list", action="store_true", help="print each testcase as <test-file>\\t<name>")
     parser.add_argument("--types-found", action="store_true", help="print each testcase's failure type, judging nothing")
     parser.add_argument("--passes", action="store_true", help="judge a run that must be green")
@@ -316,22 +406,43 @@ def main():
             for line in lines:
                 print(line)
             return 1 if problems else 0
-        problems, lines, green = judge(runs, args.files, types, read_existing(args.existing))
+        entries = judged(runs, args.files, types, read_existing(args.existing))
     except ET.ParseError as error:
         print("red check: the JUnit XML does not parse (%s)." % error)
         return 2
+    problems = [e for e in entries if e[1] in PROBLEMS]
+    green = [label for label, outcome, _, _ in entries if outcome == "green"]
+    lines = [line_of(e) for e in entries]
+    if args.report:
+        with open(args.report, "w", encoding="utf-8") as handle:
+            handle.write("".join(line + "\n" for line in lines))
+        lines = summary(entries)
+    if problems:
+        if args.report:
+            print("red check: NOT a valid red, %d problem(s). Back to the test-author, with the report." % len(problems))
+            for line in lines:
+                print(line)
+            print("red check: the report, a line per test: %s" % args.report)
+        else:
+            for line in lines:
+                print(line)
+            print("red check: NOT a valid red, %d problem(s). Back to the test-author." % len(problems))
+        return 1
+    verdict = "red check: valid red, every %snew test fails for an allowed reason (%s)." % ("other " if green else "", ", ".join(sorted(types)))
+    if args.report:
+        print(verdict)
     for line in lines:
         print(line)
-    if problems:
-        print("red check: NOT a valid red, %d problem(s). Back to the test-author." % len(problems))
-        return 1
-    print("red check: valid red, every %snew test fails for an allowed reason (%s)." % ("other " if green else "", ", ".join(sorted(types))))
+    if not args.report:
+        print(verdict)
     if args.green:
         with open(args.green, "w", encoding="utf-8") as handle:
             handle.write("".join(label + "\n" for label in green))
     if green:
         print("red check: %d new test%s already, before the chunk's code: give %s to the step reviewer for a mutation check (%s)."
               % (len(green), " passes" if len(green) == 1 else "s pass", "it" if len(green) == 1 else "them", args.green or "listed above"))
+    if args.report:
+        print("red check: the report, a line per test: %s" % args.report)
     return 0
 
 

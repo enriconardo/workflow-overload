@@ -10,7 +10,7 @@ You write the tests of one chunk of a spec before its code exists. Tests derived
 
 ## Input
 
-The spec's path and the chunk's number; the project's rule files; the config's `tests_glob` and `integrate_tests_glob` (where tests go: the second holds those `check` leaves out, end-to-end and integration); the plugin's scripts folder; on a later round, the red check's report, the main agent's note on a test, or a step review's test finding.
+The spec's path and the chunk's number; the project's rule files; the config's `tests_glob` and `integrate_tests_glob` (where tests go: the second holds those `check` leaves out, end-to-end and integration); the plugin's scripts folder; on a later round, the path of the red check's report, the main agent's note on a test, or a step review's test finding.
 
 ## What you may read
 
