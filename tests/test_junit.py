@@ -3,9 +3,14 @@ discover -s tests`. The pytest report is pytest 9.2's, from
 `pytest --continue-on-collection-errors --junitxml=/dev/stdout`, cut to the
 elements junit.py reads."""
 
+import contextlib
 import importlib.util
+import io
 import os
+import sys
+import tempfile
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SPEC = importlib.util.spec_from_file_location("junit", os.path.join(HERE, "..", "plugins", "overload", "scripts", "junit.py"))
@@ -144,6 +149,23 @@ class PlaywrightTest(unittest.TestCase):
         files = ["e2e/admin/login.spec.ts", "./e2e/login.spec.ts"]
         problems, lines = junit.passes([(e2e, ["e2e/admin/login.spec.ts", "e2e/login.spec.ts"])], files)
         self.assertEqual(problems, [], lines)
+
+    def test_refuses_an_also_file_that_is_not_a_test_file(self):
+        with tempfile.TemporaryDirectory() as work:
+            unit = os.path.join(work, "unit.xml")
+            e2e = os.path.join(work, "e2e.xml")
+            with open(unit, "w") as handle:
+                handle.write('<testsuite name="a.test.ts"><testcase classname="a.test.ts" name="p"/></testsuite>')
+            with open(e2e, "w") as handle:
+                handle.write('<testsuite name="login.spec.ts"><testcase classname="login.spec.ts" name="e"/></testsuite>')
+            argv = ["junit.py", "--passes", "--also", "run_integrate_tests=" + e2e,
+                    "--also-file", "nope.spec.ts", unit, "a.test.ts", "e2e/login.spec.ts"]
+            with mock.patch.object(sys, "argv", argv), contextlib.redirect_stderr(io.StringIO()) as err, \
+                    contextlib.redirect_stdout(io.StringIO()):
+                with self.assertRaises(SystemExit) as raised:
+                    junit.main()
+            self.assertEqual(raised.exception.code, 2)
+            self.assertIn("nope.spec.ts", err.getvalue())
 
 
 class TypesFoundTest(unittest.TestCase):
