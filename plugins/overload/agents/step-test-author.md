@@ -53,4 +53,4 @@ Record the suite: `bash <scripts>/suite.sh record`. Run the chunk's tests once, 
 
 ## Output
 
-The test files and stubs you wrote, the record's number, and for each test case of the chunk the test that covers it. After the code: the passing line of the run before the mutant and the failing line of the run after it. Then any case you could not write, and why. Nothing else.
+The test files and stubs you wrote and the record's number. After the code: the passing line of the run before the mutant and the failing line of the run after it. Then any case you could not write, and why. Nothing else.
