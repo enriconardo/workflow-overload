@@ -22,7 +22,9 @@ set -euo pipefail
 #                                The working tree is put back afterwards.
 #
 # A valid red leaves the stubs' state in refs/overload/base/<branch>, which
-# integrate.sh removes with the suite's records.
+# integrate.sh removes with the suite's records. The judgment prints a
+# summary and leaves its line per test in red-check-report.txt, in the state
+# folder.
 #
 # A file whose command is empty in the config is skipped, and said so; with
 # nothing left to run, the whole check is skipped, and logged.
@@ -261,8 +263,9 @@ restore_code
 trap - EXIT
 
 status=0
-rm -f "$state/red-check-green.txt"
-python3 "$OVERLOAD_SCRIPTS/junit.py" --types "$(cfg red_types)" --existing "$existing" --green "$state/red-check-green.txt" "${junit_runs[@]}" "${files[@]}" || status=$?
+rm -f "$state/red-check-green.txt" "$state/red-check-report.txt"
+python3 "$OVERLOAD_SCRIPTS/junit.py" --types "$(cfg red_types)" --existing "$existing" --green "$state/red-check-green.txt" \
+  --report "$state/red-check-report.txt" "${junit_runs[@]}" "${files[@]}" || status=$?
 if ((status == 0 && !without_code)); then
   git update-ref "$base_ref" "$(git commit-tree "$(source_tree)" -p HEAD -m "stubs state of $branch")"
 fi

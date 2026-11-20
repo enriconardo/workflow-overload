@@ -31,8 +31,8 @@ When the input says stub mode, it gives the signatures, the dependencies, or bot
 
 Your last message is the report, under these five headings, each one present, `none` when it is empty:
 
-1. **Changed**: each file you changed, in a line.
-2. **Tests**: each command you ran, and the result its output gives (passed, failed, how many).
+1. **Changed**: the number of files you changed.
+2. **Tests**: the number of commands you ran and their outcome together: all green, or each one that fails and how many of its tests.
 3. **Not done**: every part of the chunk and every check you did not take to the end (a command that could not run, a tool the project lacks), and why. A check that ran in part goes here, not under *Tests*.
 4. **Cases missing**: each case the tests miss, or bug a finding names, with the spec's line.
 5. **Tests wrong**: each test you report as wrong, with the spec's line and the test's.

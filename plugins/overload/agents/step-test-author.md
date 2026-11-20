@@ -10,7 +10,7 @@ You write the tests of one chunk of a spec before its code exists. Tests derived
 
 ## Input
 
-The spec's path and the chunk's number; the project's rule files; the config's `tests_glob` and `integrate_tests_glob` (where tests go: the second holds those `check` leaves out, end-to-end and integration); the plugin's scripts folder; on a later round, the red check's report, the main agent's note on a test, or a step review's test finding.
+The spec's path and the chunk's number; the project's rule files; the config's `tests_glob` and `integrate_tests_glob` (where tests go: the second holds those `check` leaves out, end-to-end and integration); the plugin's scripts folder; on a later round, the path of the red check's report, the main agent's note on a test, or a step review's test finding.
 
 ## What you may read
 
@@ -53,4 +53,4 @@ Record the suite: `bash <scripts>/suite.sh record`. Run the chunk's tests once, 
 
 ## Output
 
-The test files and stubs you wrote, the record's number, and for each test case of the chunk the test that covers it. After the code: the passing line of the run before the mutant and the failing line of the run after it. Then any case you could not write, and why. Nothing else.
+The test files and stubs you wrote and the record's number. After the code: the passing line of the run before the mutant and the failing line of the run after it. Then any case you could not write, and why. Nothing else.
