@@ -417,6 +417,14 @@ test_verify_and_red_check_match_each_run_to_its_own_files() {
   bash "$SCRIPTS/suite.sh" record >/dev/null
   out="$(bash "$SCRIPTS/red-check.sh")"
   [[ "$out" == *"e2e/login.spec.ts > f: red, AssertionError"* ]] || fail "red check: $out"
+  # within one run: the suite login.spec.ts ends e2e/admin/login.spec.ts too
+  bash "$SCRIPTS/suite.sh" clear
+  mkdir -p e2e/admin
+  printf 'case a pass\n' >e2e/admin/login.spec.ts
+  write_e2e login.spec.ts "case e pass"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"verify: green"* ]] || fail "verify, same name in two folders: $out"
 }
 
 test_verify_without_run_integrate_tests_says_their_files_did_not_run() {

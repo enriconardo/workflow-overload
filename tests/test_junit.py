@@ -138,6 +138,13 @@ class PlaywrightTest(unittest.TestCase):
         self.assertEqual(problems, [], lines)
         self.assertEqual(lines, ["2 passed, 0 skipped, in 2 files"])
 
+    def test_a_suite_belongs_to_the_closest_file_that_ends_with_its_name(self):
+        e2e = ('<testsuites><testsuite name="admin/login.spec.ts"><testcase classname="admin/login.spec.ts" name="a"/></testsuite>'
+               '<testsuite name="login.spec.ts"><testcase classname="login.spec.ts" name="e"/></testsuite></testsuites>')
+        files = ["e2e/admin/login.spec.ts", "./e2e/login.spec.ts"]
+        problems, lines = junit.passes([(e2e, ["e2e/admin/login.spec.ts", "e2e/login.spec.ts"])], files)
+        self.assertEqual(problems, [], lines)
+
 
 class TypesFoundTest(unittest.TestCase):
     """What the setup's red probe reads: each testcase's outcome, with no

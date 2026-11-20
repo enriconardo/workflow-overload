@@ -111,6 +111,18 @@ def same_file(a, b):
     return a == b or a.endswith("/" + b) or b.endswith("/" + a)
 
 
+def owner_of(files, *names):
+    """The file a suite or testcase names, by one of its names. Several files
+    may end with a name (Playwright names e2e/admin/login.spec.ts and
+    e2e/login.spec.ts as admin/login.spec.ts and login.spec.ts): the closest
+    in length is the one meant, the rest of its path being the runner's root."""
+    for name in names:
+        candidates = [f for f in files if same_file(f, name)]
+        if candidates:
+            return min(candidates, key=lambda f: abs(len(norm(f)) - len(norm(name))))
+    return None
+
+
 def collect(runs, files):
     """Each file's testcases. <runs> is one run's XML for all the files, or a
     list of (xml, the files of that run): a file runs in one of them, and a
@@ -119,7 +131,8 @@ def collect(runs, files):
         runs = [(runs, files)]
     found = {f: [] for f in files}
     for xml_text, own in runs:
-        collect_run(ET.fromstring(xml_text), [f for f in files if f in own], found)
+        own = {norm(f) for f in own}
+        collect_run(ET.fromstring(xml_text), [f for f in files if norm(f) in own], found)
     return found
 
 
@@ -127,14 +140,14 @@ def collect_run(root, files, found):
     suites = [root] if root.tag == "testsuite" else root.iter("testsuite")
     for suite in suites:
         name = suite.get("name") or ""
-        owner = next((f for f in files if same_file(f, name)), None)
+        owner = owner_of(files, name)
         cases = list(suite.iter("testcase"))
         if owner is None:
             # pytest and others name suites by package: match by classname/file,
             # or by name for pytest's collection error, which has no classname
             for case in cases:
                 where = case.get("file") or case.get("classname") or case.get("name") or ""
-                owner = next((f for f in files if same_file(f, where) or same_file(f, where.replace(".", "/") + ".py")), None)
+                owner = owner_of(files, where, where.replace(".", "/") + ".py")
                 if owner:
                     found[owner].append(case)
             continue
@@ -268,13 +281,16 @@ def main():
     parser.add_argument("files", nargs="+")
     args = parser.parse_args()
     types = {t.strip() for t in args.types.split(",") if t.strip()}
-    also_files = set(args.also_file)
-    outputs = [(args.key, args.output, [f for f in args.files if f not in also_files])]
+    also_files = {norm(f) for f in args.also_file}
+    unknown = also_files - {norm(f) for f in args.files}
+    if unknown:
+        parser.error("--also-file names files that are not among the test files: %s" % ", ".join(sorted(unknown)))
+    outputs = [(args.key, args.output, [f for f in args.files if norm(f) not in also_files])]
     if args.also:
         key, sep, path = args.also.partition("=")
         if not sep or not key or not path:
             parser.error("--also takes <key>=<output-file>, not %r" % args.also)
-        outputs.append((key, path, [f for f in args.files if f in also_files]))
+        outputs.append((key, path, [f for f in args.files if norm(f) in also_files]))
     elif also_files:
         parser.error("--also-file needs --also")
     runs = []
