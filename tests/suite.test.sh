@@ -398,6 +398,24 @@ test_verify_runs_the_recorded_tests_outside_check_through_their_command() {
   expect_fail "run_integrate_tests exited 4" bash "$SCRIPTS/verify.sh"
 }
 
+test_verify_and_red_check_match_each_run_to_its_own_files() {
+  fake_runner
+  set_config integrate_tests_glob 'e2e/**/*.spec.ts'
+  set_config run_integrate_tests 'python3 runner.py --base {files}'
+  git add -A && git commit -qm "chore(repo): an end-to-end runner naming suites by file name"
+  open_l_task
+  mkdir -p src
+  printf 'case u pass\n' >src/login.spec.ts
+  write_e2e login.spec.ts "case e pass"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"verify: green"* ]] || fail "verify: $out"
+  printf 'case e pass\ncase f assert\n' >e2e/login.spec.ts
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/red-check.sh")"
+  [[ "$out" == *"e2e/login.spec.ts > f: red, AssertionError"* ]] || fail "red check: $out"
+}
+
 test_verify_without_run_integrate_tests_says_their_files_did_not_run() {
   fake_runner
   integrate_tests

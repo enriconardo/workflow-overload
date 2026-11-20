@@ -119,12 +119,24 @@ class PlaywrightTest(unittest.TestCase):
     def test_two_runs_are_judged_as_one(self):
         vitest = ('<testsuites><testsuite name="__tests__/a.test.ts"><testcase classname="__tests__/a.test.ts" name="p"/>'
                   '</testsuite></testsuites>')
-        files = ["__tests__/a.test.ts", "e2e/assert.e2e.ts"]
-        problems, lines, green = junit.judge([vitest, PLAYWRIGHT], files, {"expect.*"})
+        runs = [(vitest, ["__tests__/a.test.ts"]), (PLAYWRIGHT, ["e2e/assert.e2e.ts"])]
+        problems, lines, green = junit.judge(runs, ["__tests__/a.test.ts", "e2e/assert.e2e.ts"], {"expect.*"})
         self.assertEqual(problems, [], lines)
         self.assertEqual(green, ["__tests__/a.test.ts > p"])
-        problems, lines = junit.passes([vitest, PLAYWRIGHT], ["__tests__/a.test.ts"])
+        problems, lines = junit.passes(runs, ["__tests__/a.test.ts"])
         self.assertEqual(problems, [], lines)
+
+    def test_a_run_s_suites_match_only_that_run_s_files(self):
+        # Playwright names its suites from testDir: `login.spec.ts` ends
+        # src/login.spec.ts as much as e2e/login.spec.ts.
+        vitest = ('<testsuites><testsuite name="src/login.spec.ts"><testcase classname="src/login.spec.ts" name="u"/>'
+                  '</testsuite></testsuites>')
+        e2e = ('<testsuites><testsuite name="login.spec.ts"><testcase classname="login.spec.ts" name="e"/>'
+               '</testsuite></testsuites>')
+        runs = [(vitest, ["src/login.spec.ts"]), (e2e, ["e2e/login.spec.ts"])]
+        problems, lines = junit.passes(runs, ["src/login.spec.ts", "e2e/login.spec.ts"])
+        self.assertEqual(problems, [], lines)
+        self.assertEqual(lines, ["2 passed, 0 skipped, in 2 files"])
 
 
 class TypesFoundTest(unittest.TestCase):

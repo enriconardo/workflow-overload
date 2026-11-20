@@ -76,13 +76,16 @@ set_config() {
 # that fails to load.
 fake_runner() {
   cat >"$REPO/runner.py" <<'PY'
-import sys
+import os, sys
 from xml.sax.saxutils import quoteattr as q
+# --base: suites named by the file's name alone, as Playwright names them
+# from its testDir
+base = sys.argv[1:2] == ["--base"]
 print("some log line the runner prints")
 print('<?xml version="1.0" encoding="UTF-8" ?>\n<testsuites>')
-for path in sys.argv[1:]:
+for path in sys.argv[2 if base else 1:]:
     lines = open(path).read().split("\n")
-    print('<testsuite name=%s>' % q(path))
+    print('<testsuite name=%s>' % q(os.path.basename(path) if base else path))
     if "load" in lines:
         print('<testcase classname=%s name=%s><failure message="Cannot find module" type="Error"/></testcase>' % (q(path), q(path)))
     for line in lines:

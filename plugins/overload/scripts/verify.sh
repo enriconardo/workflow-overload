@@ -115,7 +115,8 @@ if ((${#suite[@]})); then
     run_project "$(with_files "$runner_command" "${group[@]}")" 2>&1 | cat >"$into"
     exits+=("$key ${PIPESTATUS[0]} $into")
     if ((${#junit_runs[@]})); then
-      junit_runs+=(--also "$key=$into")
+      junit_runs=(--also "$key=$into" "${junit_runs[@]}")
+      for file in "${group[@]}"; do junit_runs=(--also-file "$file" "${junit_runs[@]}"); done
     else
       junit_runs=(--key "$key" "$into")
     fi

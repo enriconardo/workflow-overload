@@ -195,8 +195,8 @@ of_key() {
 # its command, run_tests's into <output>, run_integrate_tests's into the
 # other; sets junit_runs to junit.py's arguments for those runs.
 run_all() {
-  local inside_into="$1" outside_into="$2" key into first=1
-  local -a group=()
+  local inside_into="$1" outside_into="$2" key into file first=1
+  local -a group=() also=()
   shift 2
   junit_runs=()
   for key in "${keys[@]}"; do
@@ -209,7 +209,10 @@ run_all() {
       junit_runs=(--key "$key" "$into")
       first=0
     else
-      junit_runs=(--also "$key=$into" "${junit_runs[@]}")
+      # the second run, with its files, before the first run's output
+      also=(--also "$key=$into")
+      for file in "${group[@]}"; do also+=(--also-file "$file"); done
+      junit_runs=("${also[@]}" "${junit_runs[@]}")
     fi
   done
 }

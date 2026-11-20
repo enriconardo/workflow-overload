@@ -15,9 +15,12 @@ the other at a path boundary.
 
 The test files may run through two commands, `run_tests` for those `check`
 runs and `run_integrate_tests` for those it leaves out: `--also
-<key>=<output-file>` adds the second run, and the files are judged across
-both as one run. `--key` names the first run's command (`run_tests` by
-default), for the message on an output with no XML.
+<key>=<output-file>` adds the second run, `--also-file <test-file>` names
+each of its files, and the files are judged across both as one run. Each
+run's suites match only that run's files: Playwright names a suite from its
+testDir (`login.spec.ts`), which would end another run's file too. `--key`
+names the first run's command (`run_tests` by default), for the message on
+an output with no XML.
 
 The rules, from the probe of 2026-11-09 on vitest and pytest, and Playwright
 measured on 2026-11-19:
@@ -108,13 +111,15 @@ def same_file(a, b):
     return a == b or a.endswith("/" + b) or b.endswith("/" + a)
 
 
-def collect(xml_texts, files):
-    """Each file's testcases, across the runs: a file runs in one of them."""
-    if isinstance(xml_texts, str):
-        xml_texts = [xml_texts]
+def collect(runs, files):
+    """Each file's testcases. <runs> is one run's XML for all the files, or a
+    list of (xml, the files of that run): a file runs in one of them, and a
+    run's suites match only its own files."""
+    if isinstance(runs, str):
+        runs = [(runs, files)]
     found = {f: [] for f in files}
-    for xml_text in xml_texts:
-        collect_run(ET.fromstring(xml_text), files, found)
+    for xml_text, own in runs:
+        collect_run(ET.fromstring(xml_text), [f for f in files if f in own], found)
     return found
 
 
@@ -144,9 +149,9 @@ def load_error(case, f):
     return (error is not None and not error.get("type")) or same_file(name, f) or bool(classname and same_file(name, classname))
 
 
-def types_found(xml_texts, files):
+def types_found(runs, files):
     lines = []
-    for f, cases in collect(xml_texts, files).items():
+    for f, cases in collect(runs, files).items():
         if not cases:
             lines.append("%s: not in the runner's report" % f)
         for case in cases:
@@ -163,13 +168,13 @@ def types_found(xml_texts, files):
     return lines
 
 
-def passes(xml_texts, files):
+def passes(runs, files):
     """Whether a run is green: every file in the report, no load error, no
     failure; a skipped test is counted, not refused."""
     problems = []
     lines = []
     passed = skipped = 0
-    for f, cases in collect(xml_texts, files).items():
+    for f, cases in collect(runs, files).items():
         if not cases:
             problems.append(f)
             lines.append("%s: not in the runner's report" % f)
@@ -194,8 +199,8 @@ def passes(xml_texts, files):
     return problems, lines
 
 
-def judge(xml_texts, files, types, existing=frozenset()):
-    found = collect(xml_texts, files)
+def judge(runs, files, types, existing=frozenset()):
+    found = collect(runs, files)
     problems = []
     green = []
     red = 0
@@ -255,42 +260,47 @@ def main():
     parser.add_argument("--types-found", action="store_true", help="print each testcase's failure type, judging nothing")
     parser.add_argument("--passes", action="store_true", help="judge a run that must be green")
     parser.add_argument("--key", default="run_tests", help="the config's key of the command that printed <output-file>")
-    parser.add_argument("--also", action="append", default=[], metavar="KEY=FILE",
+    parser.add_argument("--also", metavar="KEY=FILE",
                         help="another run of some of the files, the config's key of its command and its output")
+    parser.add_argument("--also-file", action="append", default=[], metavar="TEST_FILE",
+                        help="a test file of the --also run")
     parser.add_argument("output")
     parser.add_argument("files", nargs="+")
     args = parser.parse_args()
     types = {t.strip() for t in args.types.split(",") if t.strip()}
-    runs = [(args.key, args.output)]
-    for also in args.also:
-        key, sep, path = also.partition("=")
+    also_files = set(args.also_file)
+    outputs = [(args.key, args.output, [f for f in args.files if f not in also_files])]
+    if args.also:
+        key, sep, path = args.also.partition("=")
         if not sep or not key or not path:
-            parser.error("--also takes <key>=<output-file>, not %r" % also)
-        runs.append((key, path))
-    xml_texts = []
-    for key, path in runs:
+            parser.error("--also takes <key>=<output-file>, not %r" % args.also)
+        outputs.append((key, path, [f for f in args.files if f in also_files]))
+    elif also_files:
+        parser.error("--also-file needs --also")
+    runs = []
+    for key, path, own in outputs:
         with open(path, encoding="utf-8", errors="replace") as handle:
             text = extract_xml(handle.read())
         if text is None:
             print("%s: the test command printed no JUnit XML (%s); check the config's %s." % ("verify" if args.passes else "red check", path, key))
             return 2
-        xml_texts.append(text)
+        runs.append((text, own))
     try:
         if args.list:
-            for f, cases in collect(xml_texts, args.files).items():
+            for f, cases in collect(runs, args.files).items():
                 for case in cases:
                     print("%s\t%s" % (f, case.get("name") or ""))
             return 0
         if args.types_found:
-            for line in types_found(xml_texts, args.files):
+            for line in types_found(runs, args.files):
                 print(line)
             return 0
         if args.passes:
-            problems, lines = passes(xml_texts, args.files)
+            problems, lines = passes(runs, args.files)
             for line in lines:
                 print(line)
             return 1 if problems else 0
-        problems, lines, green = judge(xml_texts, args.files, types, read_existing(args.existing))
+        problems, lines, green = judge(runs, args.files, types, read_existing(args.existing))
     except ET.ParseError as error:
         print("red check: the JUnit XML does not parse (%s)." % error)
         return 2
