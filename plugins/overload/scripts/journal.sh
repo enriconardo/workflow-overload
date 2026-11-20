@@ -10,9 +10,10 @@ set -euo pipefail
 #   journal.sh inc <key>            adds 1 to a counter of the header
 #   journal.sh log <text>           appends a timestamped line to *Log*
 #   journal.sh keep <name> <file>   copies a file a later session reads (the
-#                                   explorer's map) to the state folder,
-#                                   which outlives the session, unlike a
-#                                   scratchpad, and logs its path
+#                                   explorer's map) to the branch's folder
+#                                   in the state folder, which outlives the
+#                                   session, unlike a scratchpad, and logs
+#                                   its path
 #   journal.sh show                 the whole journal
 
 # shellcheck source=lib.sh
@@ -75,7 +76,11 @@ case "${1:-}" in
     (($# == 3)) || usage
     [[ "$2" =~ ^[a-z][a-z0-9-]*$ ]] || die "'$2' is not a name for a kept file (lowercase letters, digits and -)."
     [[ -f "$3" ]] || die "'$3' is not a file."
-    kept="$(state_dir)/kept"
+    # One folder per branch, as the suite's refs: a task opened while
+    # another waits keeps files of the same name.
+    branch="$(current_branch)"
+    [[ -n "$branch" ]] || die "on a detached HEAD: a kept file belongs to a task's branch."
+    kept="$(state_dir)/kept/$branch"
     mkdir -p "$kept"
     cp -- "$3" "$kept/$2.md"
     printf -- '- %s %s: %s\n' "$(now)" "$2" "$kept/$2.md" >>"$JOURNAL_FILE"

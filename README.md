@@ -159,7 +159,7 @@ Branch names and commit messages follow the project's rules (its CLAUDE.md, its 
 | `.workflow/specs/` | main | the L specs, ticked chunk by chunk |
 | `.workflow/inputs/<slug>/` | main | the documents given with a request, named as the spec or task that uses them |
 | `.workflow/reference/` | the working tree, briefly | the test-author's throwaway model of a type-level case; deleted before its suite is recorded |
-| `.git/overload/` | the clone | the verified tree, the output of the last verify and red check, and the files a task keeps for a later session (the explorer's map); the kept files go at the merge |
+| `.git/overload/` | the clone | the verified tree, the output of the last verify and red check, and the files a task keeps for a later session (the explorer's map), in a folder per branch removed at its merge |
 | `refs/overload/suite/<branch>/<n>` | the clone | the test-author's recorded suites, outside every branch; deleted at the merge |
 
 ## The workflow explained
