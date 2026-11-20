@@ -69,16 +69,18 @@ Inside a task, the scripts that open the branch, update the journal, verify, com
 The config holds what is the project's own, as `key = value` lines that scripts read without executing; `/overload:setup` writes it.
 
 ```
-version         = 1
-check           = pnpm check                                # the commit gate, see *check*; empty: nothing checked
-check_integrate = pnpm test:e2e                             # the slow local tests, see *check_integrate*; empty: none
-run_tests       = pnpm vitest run --reporter=junit {files}  # runs the given test files, prints JUnit XML; empty: no red check
-main            = main
-integrate       = merge
-rules           = CLAUDE.md, docs/adr/
-backlog         = .workflow/backlog.md
-tests_glob      = **/__tests__/**
-red_types       = AssertionError, NotImplemented
+version              = 1
+check                = pnpm check                                # the commit gate, see *check*; empty: nothing checked
+check_integrate      = pnpm test:e2e                             # the slow local tests, see *check_integrate*; empty: none
+run_tests            = pnpm vitest run --reporter=junit --outputFile=/dev/stdout {files}  # runs the given test files, prints JUnit XML; empty: no red check
+run_integrate_tests  = pnpm playwright test --reporter=line,junit {files}                 # the same for the tests check leaves out
+main                 = main
+integrate            = merge
+rules                = CLAUDE.md, docs/adr/
+backlog              = .workflow/backlog.md
+tests_glob           = **/__tests__/**
+integrate_tests_glob = e2e/**/*.e2e.ts
+red_types            = AssertionError, NotImplemented, expect.*
 ```
 
 | Key | Default | What it holds |
@@ -87,12 +89,14 @@ red_types       = AssertionError, NotImplemented
 | `check` | none, required, may be empty | the command that checks the whole tree before every commit |
 | `check_integrate` | empty: nothing more runs | the slow but local tests (integration, end-to-end without external services), once per task before the final review and again after a sync with main |
 | `run_tests` | empty: the red check is skipped | the command that runs the test files in `{files}` and prints JUnit XML |
+| `run_integrate_tests` | empty: their red check is skipped | the same command for the test files of `integrate_tests_glob`, those `check` leaves out |
 | `main` | `main` | the branch tasks start from and merge into |
 | `integrate` | `merge` | how a task lands: a local `--no-ff` merge, the only mode so far |
 | `rules` | `CLAUDE.md` | the project's rule files and folders, comma-separated; decision records go in a folder of them |
 | `backlog` | `.workflow/backlog.md` | where the backlog items you approve go |
 | `tests_glob` | the usual test file names of JavaScript, TypeScript, Python and Go | which files are tests: the suite records them, and `commit.sh` protects them |
-| `red_types` | `AssertionError, NotImplemented` | the failure types the runner reports for an assertion and for a stub |
+| `integrate_tests_glob` | empty: none | which test files `check` leaves out, those `check_integrate` runs: the suite records and protects them too, and `run_integrate_tests` runs them |
+| `red_types` | `AssertionError, NotImplemented` | the failure types the runners report for an assertion and for a stub |
 
 A value never holds ` #`, which starts a comment. A key the version does not know is refused, and so is a config without `check`: a misspelt key would otherwise leave `check` empty, and every commit would pass unchecked. A config of another version is refused with what to change; there is no migration.
 
@@ -135,9 +139,11 @@ Run it twice: the same result both times, in a time you would wait for at every 
 
 ### `run_tests` and `red_types`
 
-`run_tests` runs the test files named in `{files}` and prints JUnit XML on stdout, inside the same container or wrapper as `check`: vitest `--reporter=junit`, jest with `jest-junit` to stdout, pytest `--continue-on-collection-errors --junitxml=/dev/stdout` with its default traceback, go `gotestsum --junitfile /dev/stdout`. The red check runs it on a chunk's new suite, which must fail for the right reason; `verify.sh` runs it on every suite recorded on the branch, which must pass, so that a test `check` leaves out still runs at each later chunk. Without it, the red check is skipped and every task logs that, and verify runs `check` alone.
+`run_tests` runs the test files named in `{files}` and prints JUnit XML on stdout, inside the same container or wrapper as `check`: vitest `--reporter=junit --outputFile=/dev/stdout` (without it vitest 5 writes the report to a file), jest with `jest-junit` to stdout, pytest `--continue-on-collection-errors --junitxml=/dev/stdout` with its default traceback, go `gotestsum --junitfile /dev/stdout`. The red check runs it on a chunk's new suite, which must fail for the right reason; `verify.sh` runs it on every suite recorded on the branch, which must pass, so that a test `check` leaves out still runs at each later chunk. Without it, the red check is skipped and every task logs that, and verify runs `check` alone.
 
-`red_types` names the failure types the runner reports for a failed assertion and for a stub's not-implemented error (`NotImplementedError` in Python). `/overload:setup` measures it with throwaway tests; when it finds the measure unreliable it leaves `run_tests` empty and says why.
+`run_integrate_tests` is the same command for the test files of `integrate_tests_glob`, those `check` leaves out and `check_integrate` runs, inside the same container or wrapper as `check_integrate`: Playwright `--reporter=line,junit`, whose `line` reporter prints the cause of a file that fails to load, which the JUnit report leaves out. A file both globs match counts as outside `check`. The glob names test files only, never their helpers (`e2e/**/*.e2e.ts`, not `e2e/**`): a helper the task changes would be recorded and handed to the runner, which reports no test for it. Playwright reads the paths it is given as regular expressions: a test file whose name holds `[`, `(` or `+` is not found. The suite records and protects those files too; the red check runs each recorded file through the command of its glob and judges both runs as one, and so does verify. With `run_integrate_tests` empty, their red check is skipped and verify says they did not run. `red_types` serves both runners: the setup measures each and writes the types of both.
+
+`red_types` names the failure types the runner reports for a failed assertion and for a stub's not-implemented error (`NotImplementedError` in Python). A type ending in `*` matches every type it starts: Playwright names an assertion's type after its matcher (`expect.toBe`, `expect.toBeVisible`), so `expect.*`. `/overload:setup` measures it with throwaway tests; when it finds the measure unreliable it leaves `run_tests` empty and says why.
 
 ### Names, messages and hooks
 
@@ -153,7 +159,7 @@ Branch names and commit messages follow the project's rules (its CLAUDE.md, its 
 | `.workflow/specs/` | main | the L specs, ticked chunk by chunk |
 | `.workflow/inputs/<slug>/` | main | the documents given with a request, named as the spec or task that uses them |
 | `.workflow/reference/` | the working tree, briefly | the test-author's throwaway model of a type-level case; deleted before its suite is recorded |
-| `.git/overload/` | the clone | the verified tree and the output of the last verify and red check |
+| `.git/overload/` | the clone | the verified tree, the output of the last verify and red check, and the files a task keeps for a later session (the explorer's map), in a folder per branch removed at its merge |
 | `refs/overload/suite/<branch>/<n>` | the clone | the test-author's recorded suites, outside every branch; deleted at the merge |
 
 ## The workflow explained

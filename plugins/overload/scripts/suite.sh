@@ -9,7 +9,9 @@ set -euo pipefail
 # index and the branch stay as they are.
 #
 #   suite.sh record   the test-author, last: the test files changed against
-#                     HEAD (the config's tests_glob) become record <n>
+#                     HEAD become record <n>, those of the config's
+#                     tests_glob and those of its integrate_tests_glob, the
+#                     tests `check` leaves out
 #   suite.sh files    the recorded test files, one per line
 #   suite.sh check    fails when a recorded file differs from its record,
 #                     or, while a record sits on HEAD, when a test file
@@ -59,14 +61,14 @@ record() {
   # The changed test files, listed first: git add refuses a pathspec that
   # matches nothing, and a project rarely uses every glob of the default.
   mapfile -t changed < <(git status --porcelain --untracked-files=all --no-renames -- "${specs[@]}" | cut -c4-)
-  ((${#changed[@]})) || die "no test file changed against HEAD (tests_glob: $(cfg tests_glob)): nothing to record."
+  ((${#changed[@]})) || die "no test file changed against HEAD ($(tests_globs)): nothing to record."
   # Global, for the trap that runs after the function returns.
   index="$(mktemp)"
   trap 'rm -f "$index"' EXIT
   GIT_INDEX_FILE="$index" git read-tree HEAD
   GIT_INDEX_FILE="$index" git add -A -- "${changed[@]}"
   tree="$(GIT_INDEX_FILE="$index" git write-tree)"
-  [[ "$tree" != "$(git rev-parse 'HEAD^{tree}')" ]] || die "no test file changed against HEAD (tests_glob: $(cfg tests_glob)): nothing to record."
+  [[ "$tree" != "$(git rev-parse 'HEAD^{tree}')" ]] || die "no test file changed against HEAD ($(tests_globs)): nothing to record."
   # The highest number plus one: a record removed by hand never comes back
   # as an existing number, and update-ref with an empty old value refuses one.
   last="$(suite_refs "$branch" | tail -n 1)"

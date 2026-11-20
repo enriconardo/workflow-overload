@@ -8,10 +8,12 @@ set -euo pipefail
 #
 #   verify.sh [--integrate] [--lines <n>]
 #
-# On a task's branch with recorded suites and a `run_tests`, the recorded
-# test files run too, after a green check, and must all pass: a chunk's tests
-# that `check` leaves out (too slow, another folder) still run at every
-# verify of the chunks that follow.
+# On a task's branch with recorded suites, the recorded test files run too,
+# after a green check, and must all pass: a chunk's tests that `check` leaves
+# out (too slow, another folder) still run at every verify of the chunks
+# that follow. Each runs through the command of its glob: `run_tests`, or
+# `run_integrate_tests` for those of `integrate_tests_glob`; a file whose
+# command is empty does not run, and the last line says so.
 #
 # --integrate runs the config's `check_integrate` too, after a green check:
 # the slow but local tests, once per task before the final review and again
@@ -47,7 +49,6 @@ while (($#)); do
 done
 
 command="$(cfg check)"
-run_tests="$(cfg run_tests)"
 slow=""
 ((integrate)) && slow="$(cfg check_integrate)"
 state="$(state_dir)"
@@ -78,25 +79,62 @@ if [[ -n "$command" ]]; then
   ((status == 0)) || failed=check
 fi
 suite=()
-if ((status == 0 && task)) && [[ -n "$run_tests" ]]; then
+if ((status == 0 && task)); then
   while IFS= read -r file; do
     [[ -n "$file" && -f "$file" ]] && suite+=("$file")
   done < <(bash "$OVERLOAD_SCRIPTS/suite.sh" files)
 fi
 if ((${#suite[@]})); then
-  ran+=("the recorded tests")
-  echo "== the recorded tests: ${suite[*]}" >>"$output"
-  # Through a pipe, as red-check.sh: a report written to /dev/stdout would
-  # truncate the file and write over the runner's other lines.
-  run_project "$(with_files "$run_tests" "${suite[@]}")" 2>&1 | cat >"$state/verify-suite-output.txt"
-  runner=$?
-  python3 "$OVERLOAD_SCRIPTS/junit.py" --passes "$state/verify-suite-output.txt" "${suite[@]}" >>"$output"
-  status=$?
-  if ((status == 0 && runner != 0)); then
-    echo "the runner exited $runner though every test passed (output: $state/verify-suite-output.txt)" >>"$output"
-    status=$runner
+  declare -A is_outside=()
+  while IFS= read -r file; do
+    is_outside["$file"]=1
+  done < <(outside_check "${suite[@]}")
+  junit_runs=() judged=() exits=()
+  for key in run_tests run_integrate_tests; do
+    group=()
+    for file in "${suite[@]}"; do
+      if [[ -n "${is_outside[$file]:-}" ]]; then
+        [[ "$key" == run_integrate_tests ]] && group+=("$file")
+      else
+        [[ "$key" == run_tests ]] && group+=("$file")
+      fi
+    done
+    ((${#group[@]})) || continue
+    runner_command="$(cfg "$key")"
+    if [[ -z "$runner_command" ]]; then
+      # An empty run_tests is the project's choice, said by the status; an
+      # empty run_integrate_tests with its files recorded is a gap.
+      [[ "$key" == run_tests ]] || notes+="; the config has no 'run_integrate_tests', not run: ${group[*]}"
+      continue
+    fi
+    into="$state/verify-suite-output.txt"
+    [[ "$key" == run_tests ]] || into="$state/verify-integrate-suite-output.txt"
+    echo "== the recorded tests through $key: ${group[*]}" >>"$output"
+    # Through a pipe, as red-check.sh: a report written to /dev/stdout would
+    # truncate the file and write over the runner's other lines.
+    run_project "$(with_files "$runner_command" "${group[@]}")" 2>&1 | cat >"$into"
+    exits+=("$key ${PIPESTATUS[0]} $into")
+    if ((${#junit_runs[@]})); then
+      junit_runs=(--also "$key=$into" "${junit_runs[@]}")
+      for file in "${group[@]}"; do junit_runs=(--also-file "$file" "${junit_runs[@]}"); done
+    else
+      junit_runs=(--key "$key" "$into")
+    fi
+    judged+=("${group[@]}")
+  done
+  if ((${#judged[@]})); then
+    ran+=("the recorded tests")
+    python3 "$OVERLOAD_SCRIPTS/junit.py" --passes "${junit_runs[@]}" "${judged[@]}" >>"$output"
+    status=$?
+    for exit_line in "${exits[@]}"; do
+      read -r key runner into <<<"$exit_line"
+      if ((status == 0 && runner != 0)); then
+        echo "$key exited $runner though every test passed (output: $into)" >>"$output"
+        status=$runner
+      fi
+    done
+    ((status == 0)) || failed="the recorded tests"
   fi
-  ((status == 0)) || failed="the recorded tests"
 fi
 if ((status == 0)) && [[ -n "$slow" ]]; then
   ran+=(check_integrate)

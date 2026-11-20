@@ -98,6 +98,99 @@ test_a_new_record_covers_a_file_put_back_to_head() {
   expect_fail "__tests__/old.test.ts" bash "$SCRIPTS/suite.sh" check
 }
 
+# The tests `check` leaves out, end-to-end in e2e/, run by their own command.
+integrate_tests() {
+  set_config integrate_tests_glob 'e2e/**'
+  git add -A && git commit -qm "chore(repo): tests outside check"
+}
+
+write_e2e() {
+  mkdir -p e2e
+  printf '%s\n' "${@:2}" >"e2e/$1"
+}
+
+test_suite_records_and_guards_the_tests_outside_check() {
+  integrate_tests
+  write_e2e old.e2e.ts "case old pass"
+  git add -A && git commit -qm "test(greet): an existing end-to-end test"
+  open_l_task
+  write_e2e a.e2e.ts "case a assert"
+  write_test b.test.ts "case b assert"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  expect_eq "$(bash "$SCRIPTS/suite.sh" files)" $'__tests__/b.test.ts\ne2e/a.e2e.ts'
+  write_e2e a.e2e.ts "case a pass"
+  expect_fail "e2e/a.e2e.ts" bash "$SCRIPTS/suite.sh" check
+  write_e2e a.e2e.ts "case a assert"
+  write_e2e old.e2e.ts "case old skip"
+  expect_fail "not in the suite the test-author recorded" bash "$SCRIPTS/suite.sh" check
+}
+
+# A second runner for the tests outside check, which says it ran.
+e2e_runner() {
+  fake_runner
+  integrate_tests
+  set_config run_integrate_tests 'echo "e2e runner"; python3 runner.py {files}'
+  git add -A && git commit -qm "chore(repo): an end-to-end runner"
+}
+
+test_red_check_runs_each_test_file_through_its_own_command() {
+  e2e_runner
+  write_e2e old.e2e.ts "case old pass"
+  git add -A && git commit -qm "test(greet): an existing end-to-end test"
+  open_l_task
+  write_test a.test.ts "case green pass"
+  write_e2e old.e2e.ts "case old pass" "case new notimpl"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/red-check.sh")"
+  [[ "$out" == *"e2e/old.e2e.ts > old: passes, already in HEAD"* ]] || fail "existing: $out"
+  [[ "$out" == *"e2e/old.e2e.ts > new: red, NotImplemented"* ]] || fail "red: $out"
+  [[ "$out" == *"valid red"*"1 new test passes already"* ]] || fail "across both runs: $out"
+  state="$(git rev-parse --git-path overload)"
+  grep -q "e2e runner" "$state/red-check-integrate-output.txt" || fail "not through run_integrate_tests"
+  ! grep -q "e2e/" "$state/red-check-output.txt" || fail "an end-to-end test ran through run_tests"
+  expect_eq "$(cat e2e/old.e2e.ts)" $'case old pass\ncase new notimpl' "the working file restored"
+}
+
+test_red_check_names_only_the_output_its_runs_wrote() {
+  e2e_runner
+  open_l_task
+  write_e2e a.e2e.ts "case a typeerror"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  set +e
+  out="$(bash "$SCRIPTS/red-check.sh" 2>&1)"
+  set -e
+  [[ "$out" == *"red-check-integrate-output.txt"* && "$out" != *"red-check-output.txt"* ]] || fail "$out"
+}
+
+test_red_check_without_run_integrate_tests_skips_only_those_files() {
+  fake_runner
+  integrate_tests
+  open_l_task
+  write_test a.test.ts "case a assert"
+  write_e2e b.e2e.ts "case b assert"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/red-check.sh")"
+  [[ "$out" == *"e2e/b.e2e.ts"*"no 'run_integrate_tests'"* && "$out" == *"valid red"* ]] || fail "$out"
+  # the chunk's test in check withdrawn: only the skipped file is left
+  rm -r __tests__
+  write_e2e b.e2e.ts "case b notimpl"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/red-check.sh")"
+  [[ "$out" == *"red check skipped"* ]] || fail "only skipped files: $out"
+}
+
+test_red_check_names_the_command_that_printed_no_xml() {
+  fake_runner
+  integrate_tests
+  set_config run_integrate_tests 'echo nothing {files}'
+  git add -A && git commit -qm "chore(repo): an end-to-end runner without xml"
+  open_l_task
+  write_test a.test.ts "case a assert"
+  write_e2e b.e2e.ts "case b assert"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  expect_fail "check the config's run_integrate_tests" bash "$SCRIPTS/red-check.sh"
+}
+
 test_red_check_accepts_assertions_and_not_implemented() {
   fake_runner
   open_l_task
@@ -242,6 +335,9 @@ test_red_check_without_run_tests_is_skipped() {
   set_config run_tests ''
   git add -A && git commit -qm "chore(repo): no run_tests"
   open_l_task
+  # as before the tests outside check: skipped before the suite is looked at
+  out="$(bash "$SCRIPTS/red-check.sh")"
+  [[ "$out" == *"red check skipped"* ]] || fail "no suite: $out"
   write_test a.test.ts "case one assert"
   bash "$SCRIPTS/suite.sh" record >/dev/null
   out="$(bash "$SCRIPTS/red-check.sh")"
@@ -292,6 +388,65 @@ test_verify_runs_every_recorded_suite_of_the_branch() {
   source "$SCRIPTS/lib.sh"
   is_verified && fail "a red suite left the tree verified"
   expect_eq "$(bash "$SCRIPTS/journal.sh" get verify_red_streak)" "1"
+}
+
+test_verify_runs_the_recorded_tests_outside_check_through_their_command() {
+  e2e_runner
+  open_l_task
+  write_test a.test.ts "case a pass"
+  write_e2e b.e2e.ts "case b pass"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"verify: green"*"the recorded tests"* ]] || fail "$out"
+  state="$(git rev-parse --git-path overload)"
+  grep -q "e2e runner" "$state/verify-integrate-suite-output.txt" || fail "not through run_integrate_tests"
+  grep -q "2 passed, 0 skipped, in 2 files" "$state/verify-output.txt" || fail "not judged as one run"
+  bash "$SCRIPTS/commit.sh" "$(message 'feat(greet): first')" >/dev/null
+  write_e2e c.e2e.ts "case c assert"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  if out="$(bash "$SCRIPTS/verify.sh" 2>&1)"; then fail "green: $out"; fi
+  [[ "$out" == *"e2e/c.e2e.ts > c: fails, AssertionError"* ]] || fail "$out"
+  set_config run_integrate_tests 'echo "e2e runner"; python3 runner.py {files}; exit 4'
+  write_e2e c.e2e.ts "case c pass"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  expect_fail "run_integrate_tests exited 4" bash "$SCRIPTS/verify.sh"
+}
+
+test_verify_and_red_check_match_each_run_to_its_own_files() {
+  fake_runner
+  set_config integrate_tests_glob 'e2e/**/*.spec.ts'
+  set_config run_integrate_tests 'python3 runner.py --base {files}'
+  git add -A && git commit -qm "chore(repo): an end-to-end runner naming suites by file name"
+  open_l_task
+  mkdir -p src
+  printf 'case u pass\n' >src/login.spec.ts
+  write_e2e login.spec.ts "case e pass"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"verify: green"* ]] || fail "verify: $out"
+  printf 'case e pass\ncase f assert\n' >e2e/login.spec.ts
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/red-check.sh")"
+  [[ "$out" == *"e2e/login.spec.ts > f: red, AssertionError"* ]] || fail "red check: $out"
+  # within one run: the suite login.spec.ts ends e2e/admin/login.spec.ts too
+  bash "$SCRIPTS/suite.sh" clear
+  mkdir -p e2e/admin
+  printf 'case a pass\n' >e2e/admin/login.spec.ts
+  write_e2e login.spec.ts "case e pass"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"verify: green"* ]] || fail "verify, same name in two folders: $out"
+}
+
+test_verify_without_run_integrate_tests_says_their_files_did_not_run() {
+  fake_runner
+  integrate_tests
+  open_l_task
+  write_test a.test.ts "case a pass"
+  write_e2e b.e2e.ts "case b assert"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"verify: green"*"no 'run_integrate_tests'"*"e2e/b.e2e.ts"* ]] || fail "$out"
 }
 
 test_verify_is_red_on_a_runner_that_fails_or_prints_no_xml() {

@@ -13,17 +13,31 @@ from the project's root; a runner names its files from its own root, which
 may be a package's folder, so a suite matches a file when one path ends with
 the other at a path boundary.
 
-The rules, from the probe of 2026-11-09 on vitest:
+The test files may run through two commands, `run_tests` for those `check`
+runs and `run_integrate_tests` for those it leaves out: `--also
+<key>=<output-file>` adds the second run, `--also-file <test-file>` names
+each of its files, and the files are judged across both as one run. Each
+run's suites match only that run's files: Playwright names a suite from its
+testDir (`login.spec.ts`), which would end another run's file too. `--key`
+names the first run's command (`run_tests` by default), for the message on
+an output with no XML.
+
+The rules, from the probe of 2026-11-09 on vitest and pytest, and Playwright
+measured on 2026-11-19:
 
 1. every test file appears in the XML, and none of its testcases is a load
-   error: a testcase named after the file itself, or an <error> element;
+   error: a testcase named after the file itself, or an <error> element with
+   no `type`, as pytest writes for a collection error. Playwright types its
+   <error>, any error but an assertion: that one is a failure of its type;
 2. no new testcase is skipped. One that passes already is no valid red by
    itself: it goes to the step reviewer, who checks that it fails when the
    behavior it covers breaks (--green writes them to a file);
 3. each failure's type is among --types; a TypeError, for instance, means
    a missing export in Node, a stub that was never written. The type is the
    failure's `type`; pytest writes none, and with its default traceback the
-   type ends the failure's text, on a last line `<path>:<line>: <Type>`;
+   type ends the failure's text, on a last line `<path>:<line>: <Type>`. A
+   type of --types ending in `*` matches every type it starts: Playwright
+   types an assertion with its matcher (`expect.toBe`), so `expect.*`;
 4. at least one testcase fails.
 
 A testcase listed in --existing (lines `<test-file>\t<name>`, as --list
@@ -81,46 +95,80 @@ def failure_type(failure):
     return match.group(1).rsplit(".", 1)[-1] if match else ""
 
 
+def type_allowed(kind, types):
+    return kind in types or any(t.endswith("*") and len(t) > 1 and kind.startswith(t[:-1]) for t in types)
+
+
+def failure_of(case):
+    """The failure of a testcase that is no load error: a <failure>, or an
+    <error> with a type."""
+    node = case.find("failure")
+    return node if node is not None else case.find("error")
+
+
 def same_file(a, b):
     a, b = norm(a), norm(b)
     return a == b or a.endswith("/" + b) or b.endswith("/" + a)
 
 
-def collect(xml_text, files):
-    root = ET.fromstring(xml_text)
-    suites = [root] if root.tag == "testsuite" else root.iter("testsuite")
+def owner_of(files, *names):
+    """The file a suite or testcase names, by one of its names. Several files
+    may end with a name (Playwright names e2e/admin/login.spec.ts and
+    e2e/login.spec.ts as admin/login.spec.ts and login.spec.ts): the closest
+    in length is the one meant, the rest of its path being the runner's root."""
+    for name in names:
+        candidates = [f for f in files if same_file(f, name)]
+        if candidates:
+            return min(candidates, key=lambda f: abs(len(norm(f)) - len(norm(name))))
+    return None
+
+
+def collect(runs, files):
+    """Each file's testcases. <runs> is one run's XML for all the files, or a
+    list of (xml, the files of that run): a file runs in one of them, and a
+    run's suites match only its own files."""
+    if isinstance(runs, str):
+        runs = [(runs, files)]
     found = {f: [] for f in files}
+    for xml_text, own in runs:
+        own = {norm(f) for f in own}
+        collect_run(ET.fromstring(xml_text), [f for f in files if norm(f) in own], found)
+    return found
+
+
+def collect_run(root, files, found):
+    suites = [root] if root.tag == "testsuite" else root.iter("testsuite")
     for suite in suites:
         name = suite.get("name") or ""
-        owner = next((f for f in files if same_file(f, name)), None)
+        owner = owner_of(files, name)
         cases = list(suite.iter("testcase"))
         if owner is None:
             # pytest and others name suites by package: match by classname/file,
             # or by name for pytest's collection error, which has no classname
             for case in cases:
                 where = case.get("file") or case.get("classname") or case.get("name") or ""
-                owner = next((f for f in files if same_file(f, where) or same_file(f, where.replace(".", "/") + ".py")), None)
+                owner = owner_of(files, where, where.replace(".", "/") + ".py")
                 if owner:
                     found[owner].append(case)
             continue
         found[owner].extend(cases)
-    return found
 
 
 def load_error(case, f):
     """A testcase that stands for its file failing to load (rule 1)."""
     name = case.get("name") or ""
     classname = case.get("classname")
-    return case.find("error") is not None or same_file(name, f) or bool(classname and same_file(name, classname))
+    error = case.find("error")
+    return (error is not None and not error.get("type")) or same_file(name, f) or bool(classname and same_file(name, classname))
 
 
-def types_found(xml_text, files):
+def types_found(runs, files):
     lines = []
-    for f, cases in collect(xml_text, files).items():
+    for f, cases in collect(runs, files).items():
         if not cases:
             lines.append("%s: not in the runner's report" % f)
         for case in cases:
-            failure = case.find("failure")
+            failure = failure_of(case)
             if load_error(case, f):
                 kind = "LOAD ERROR"
             elif case.find("skipped") is not None:
@@ -133,22 +181,22 @@ def types_found(xml_text, files):
     return lines
 
 
-def passes(xml_text, files):
+def passes(runs, files):
     """Whether a run is green: every file in the report, no load error, no
     failure; a skipped test is counted, not refused."""
     problems = []
     lines = []
     passed = skipped = 0
-    for f, cases in collect(xml_text, files).items():
+    for f, cases in collect(runs, files).items():
         if not cases:
             problems.append(f)
             lines.append("%s: not in the runner's report" % f)
         for case in cases:
             label = "%s > %s" % (f, case.get("name"))
-            failure = case.find("failure")
+            failure = failure_of(case)
             if load_error(case, f):
                 problems.append(label)
-                node = case.find("error") if case.find("error") is not None else failure
+                node = failure
                 message = (node.get("message") if node is not None else "") or ""
                 lines.append("%s: LOAD ERROR, %s" % (label, message.splitlines()[0][:160] if message else "no message"))
             elif failure is not None:
@@ -164,8 +212,8 @@ def passes(xml_text, files):
     return problems, lines
 
 
-def judge(xml_text, files, types, existing=frozenset()):
-    found = collect(xml_text, files)
+def judge(runs, files, types, existing=frozenset()):
+    found = collect(runs, files)
     problems = []
     green = []
     red = 0
@@ -178,13 +226,12 @@ def judge(xml_text, files, types, existing=frozenset()):
             continue
         for case in cases:
             label = "%s > %s" % (f, case.get("name"))
-            failure = case.find("failure")
-            error = case.find("error")
+            failure = failure_of(case)
             skipped = case.find("skipped")
             name = case.get("name") or ""
             if load_error(case, f):
                 problems.append(label)
-                node = error if error is not None else failure
+                node = failure
                 message = (node.get("message") if node is not None else "") or ""
                 lines.append("%s: LOAD ERROR, %s" % (label, message.splitlines()[0][:160] if message else "no message"))
             elif (f, name) in existing and failure is None:
@@ -197,7 +244,7 @@ def judge(xml_text, files, types, existing=frozenset()):
                 lines.append("%s: passes already, before the chunk's code" % label)
             else:
                 kind = failure_type(failure)
-                if kind in types:
+                if type_allowed(kind, types):
                     red += 1
                     lines.append("%s: red, %s" % (label, kind))
                 else:
@@ -225,31 +272,51 @@ def main():
     parser.add_argument("--list", action="store_true", help="print each testcase as <test-file>\\t<name>")
     parser.add_argument("--types-found", action="store_true", help="print each testcase's failure type, judging nothing")
     parser.add_argument("--passes", action="store_true", help="judge a run that must be green")
+    parser.add_argument("--key", default="run_tests", help="the config's key of the command that printed <output-file>")
+    parser.add_argument("--also", metavar="KEY=FILE",
+                        help="another run of some of the files, the config's key of its command and its output")
+    parser.add_argument("--also-file", action="append", default=[], metavar="TEST_FILE",
+                        help="a test file of the --also run")
     parser.add_argument("output")
     parser.add_argument("files", nargs="+")
     args = parser.parse_args()
     types = {t.strip() for t in args.types.split(",") if t.strip()}
-    with open(args.output, encoding="utf-8", errors="replace") as handle:
-        xml_text = extract_xml(handle.read())
-    if xml_text is None:
-        print("%s: the test command printed no JUnit XML; check the config's run_tests." % ("verify" if args.passes else "red check"))
-        return 2
+    also_files = {norm(f) for f in args.also_file}
+    unknown = also_files - {norm(f) for f in args.files}
+    if unknown:
+        parser.error("--also-file names files that are not among the test files: %s" % ", ".join(sorted(unknown)))
+    outputs = [(args.key, args.output, [f for f in args.files if norm(f) not in also_files])]
+    if args.also:
+        key, sep, path = args.also.partition("=")
+        if not sep or not key or not path:
+            parser.error("--also takes <key>=<output-file>, not %r" % args.also)
+        outputs.append((key, path, [f for f in args.files if norm(f) in also_files]))
+    elif also_files:
+        parser.error("--also-file needs --also")
+    runs = []
+    for key, path, own in outputs:
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            text = extract_xml(handle.read())
+        if text is None:
+            print("%s: the test command printed no JUnit XML (%s); check the config's %s." % ("verify" if args.passes else "red check", path, key))
+            return 2
+        runs.append((text, own))
     try:
         if args.list:
-            for f, cases in collect(xml_text, args.files).items():
+            for f, cases in collect(runs, args.files).items():
                 for case in cases:
                     print("%s\t%s" % (f, case.get("name") or ""))
             return 0
         if args.types_found:
-            for line in types_found(xml_text, args.files):
+            for line in types_found(runs, args.files):
                 print(line)
             return 0
         if args.passes:
-            problems, lines = passes(xml_text, args.files)
+            problems, lines = passes(runs, args.files)
             for line in lines:
                 print(line)
             return 1 if problems else 0
-        problems, lines, green = judge(xml_text, args.files, types, read_existing(args.existing))
+        problems, lines, green = judge(runs, args.files, types, read_existing(args.existing))
     except ET.ParseError as error:
         print("red check: the JUnit XML does not parse (%s)." % error)
         return 2

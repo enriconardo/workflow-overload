@@ -3,9 +3,14 @@ discover -s tests`. The pytest report is pytest 9.2's, from
 `pytest --continue-on-collection-errors --junitxml=/dev/stdout`, cut to the
 elements junit.py reads."""
 
+import contextlib
 import importlib.util
+import io
 import os
+import sys
+import tempfile
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SPEC = importlib.util.spec_from_file_location("junit", os.path.join(HERE, "..", "plugins", "overload", "scripts", "junit.py"))
@@ -75,6 +80,92 @@ class PytestTest(unittest.TestCase):
         problems, lines, _ = junit.judge(xml, ["a.test.ts"], {"NotImplemented"})
         self.assertEqual(problems, [], lines)
         self.assertEqual(lines, ["a.test.ts > t: red, NotImplemented"])
+
+
+PLAYWRIGHT = """<testsuites id="" name="" tests="3" failures="1" skipped="0" errors="2">\
+<testsuite name="assert.e2e.ts" tests="1" failures="1" errors="0"><testcase name="assert" classname="assert.e2e.ts">\
+<failure message="expect(received).toBe(expected) // Object.is equality" type="expect.toBe">Error Context: x.md</failure></testcase></testsuite>\
+<testsuite name="stub.e2e.ts" tests="2" failures="0" errors="2"><testcase name="stub" classname="stub.e2e.ts">\
+<error message="not implemented" type="NotImplemented">Error Context: y.md</error></testcase>\
+<testcase name="thrown" classname="stub.e2e.ts"><error message="x is not a function" type="TypeError">Error Context: z.md</error></testcase>\
+</testsuite></testsuites>"""
+
+
+class PlaywrightTest(unittest.TestCase):
+    """Playwright 1.65's JUnit reporter, measured on 2026-11-19: an assertion
+    is a <failure> typed with its matcher, any other error an <error> typed
+    with its name; a file that fails to load empties the whole report."""
+
+    FILES = ["e2e/assert.e2e.ts", "e2e/stub.e2e.ts"]
+
+    def test_a_type_ending_in_a_star_matches_its_prefix(self):
+        problems, lines, _ = junit.judge(PLAYWRIGHT, ["e2e/assert.e2e.ts"], {"expect.*"})
+        self.assertEqual(problems, [], lines)
+        self.assertEqual(lines, ["e2e/assert.e2e.ts > assert: red, expect.toBe"])
+        problems, lines, _ = junit.judge(PLAYWRIGHT, ["e2e/assert.e2e.ts"], {"expect"})
+        self.assertEqual(len(problems), 1, lines)
+
+    def test_an_error_with_a_type_is_a_failure_of_that_type_not_a_load_error(self):
+        problems, lines, _ = junit.judge(PLAYWRIGHT, self.FILES, {"expect.*", "NotImplemented"})
+        self.assertEqual(problems, ["e2e/stub.e2e.ts > thrown"], lines)
+        self.assertIn("e2e/stub.e2e.ts > stub: red, NotImplemented", lines)
+        self.assertTrue(any(line.startswith("e2e/stub.e2e.ts > thrown: red for the wrong reason, TypeError") for line in lines), lines)
+
+    def test_types_found_and_passes_name_the_error_s_type(self):
+        self.assertEqual(junit.types_found(PLAYWRIGHT, self.FILES), [
+            "e2e/assert.e2e.ts > assert: expect.toBe",
+            "e2e/stub.e2e.ts > stub: NotImplemented",
+            "e2e/stub.e2e.ts > thrown: TypeError",
+        ])
+        problems, lines = junit.passes(PLAYWRIGHT, ["e2e/stub.e2e.ts"])
+        self.assertEqual(len(problems), 2, lines)
+        self.assertIn("e2e/stub.e2e.ts > stub: fails, NotImplemented: not implemented", lines)
+
+    def test_two_runs_are_judged_as_one(self):
+        vitest = ('<testsuites><testsuite name="__tests__/a.test.ts"><testcase classname="__tests__/a.test.ts" name="p"/>'
+                  '</testsuite></testsuites>')
+        runs = [(vitest, ["__tests__/a.test.ts"]), (PLAYWRIGHT, ["e2e/assert.e2e.ts"])]
+        problems, lines, green = junit.judge(runs, ["__tests__/a.test.ts", "e2e/assert.e2e.ts"], {"expect.*"})
+        self.assertEqual(problems, [], lines)
+        self.assertEqual(green, ["__tests__/a.test.ts > p"])
+        problems, lines = junit.passes(runs, ["__tests__/a.test.ts"])
+        self.assertEqual(problems, [], lines)
+
+    def test_a_run_s_suites_match_only_that_run_s_files(self):
+        # Playwright names its suites from testDir: `login.spec.ts` ends
+        # src/login.spec.ts as much as e2e/login.spec.ts.
+        vitest = ('<testsuites><testsuite name="src/login.spec.ts"><testcase classname="src/login.spec.ts" name="u"/>'
+                  '</testsuite></testsuites>')
+        e2e = ('<testsuites><testsuite name="login.spec.ts"><testcase classname="login.spec.ts" name="e"/>'
+               '</testsuite></testsuites>')
+        runs = [(vitest, ["src/login.spec.ts"]), (e2e, ["e2e/login.spec.ts"])]
+        problems, lines = junit.passes(runs, ["src/login.spec.ts", "e2e/login.spec.ts"])
+        self.assertEqual(problems, [], lines)
+        self.assertEqual(lines, ["2 passed, 0 skipped, in 2 files"])
+
+    def test_a_suite_belongs_to_the_closest_file_that_ends_with_its_name(self):
+        e2e = ('<testsuites><testsuite name="admin/login.spec.ts"><testcase classname="admin/login.spec.ts" name="a"/></testsuite>'
+               '<testsuite name="login.spec.ts"><testcase classname="login.spec.ts" name="e"/></testsuite></testsuites>')
+        files = ["e2e/admin/login.spec.ts", "./e2e/login.spec.ts"]
+        problems, lines = junit.passes([(e2e, ["e2e/admin/login.spec.ts", "e2e/login.spec.ts"])], files)
+        self.assertEqual(problems, [], lines)
+
+    def test_refuses_an_also_file_that_is_not_a_test_file(self):
+        with tempfile.TemporaryDirectory() as work:
+            unit = os.path.join(work, "unit.xml")
+            e2e = os.path.join(work, "e2e.xml")
+            with open(unit, "w") as handle:
+                handle.write('<testsuite name="a.test.ts"><testcase classname="a.test.ts" name="p"/></testsuite>')
+            with open(e2e, "w") as handle:
+                handle.write('<testsuite name="login.spec.ts"><testcase classname="login.spec.ts" name="e"/></testsuite>')
+            argv = ["junit.py", "--passes", "--also", "run_integrate_tests=" + e2e,
+                    "--also-file", "nope.spec.ts", unit, "a.test.ts", "e2e/login.spec.ts"]
+            with mock.patch.object(sys, "argv", argv), contextlib.redirect_stderr(io.StringIO()) as err, \
+                    contextlib.redirect_stdout(io.StringIO()):
+                with self.assertRaises(SystemExit) as raised:
+                    junit.main()
+            self.assertEqual(raised.exception.code, 2)
+            self.assertIn("nope.spec.ts", err.getvalue())
 
 
 class TypesFoundTest(unittest.TestCase):

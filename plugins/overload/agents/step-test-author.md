@@ -10,7 +10,7 @@ You write the tests of one chunk of a spec before its code exists. Tests derived
 
 ## Input
 
-The spec's path and the chunk's number; the project's rule files; the config's `tests_glob` (where tests go); the plugin's scripts folder; on a later round, the red check's report or the main agent's note on a test.
+The spec's path and the chunk's number; the project's rule files; the config's `tests_glob` and `integrate_tests_glob` (where tests go: the second holds those `check` leaves out, end-to-end and integration); the plugin's scripts folder; on a later round, the red check's report, the main agent's note on a test, or a step review's test finding.
 
 ## What you may read
 
@@ -30,6 +30,17 @@ The spec's path and the chunk's number; the project's rule files; the config's `
 
 On a test-first chunk, each new test fails on an assertion or a stub's not-implemented error, or passes already, the code already there covering it; at least one fails, and none is skipped. On a chunk of tests only, each passes already. A failure on an import, a load or any other error is no valid red. A test already in HEAD may pass. A case whose test passes already is still written, neither left out nor skipped: the step review checks that it fails under a mutant.
 
+## After the code
+
+On a step review's test finding the code is already written: you add or fix the test the finding names, and its red cannot come from the stubs. It comes from the finding's mutant, a diff file of the source, which you apply without reading any other source:
+
+1. Copy the working tree as it is, uncommitted code and untracked files included, the dependencies it ignores (`node_modules`, a virtualenv) too, `.git` left out, into a folder made with `mktemp -d`. A copy of `HEAD` lacks the chunk's code, and there the test fails whatever it tests.
+2. In the copy, run the test through the project's command and see it pass. An end-to-end test first: no server of the project already answers the ports its runner uses, or the copy would talk to it. Red here: report the failing line and stop, naming no cause; verify settles it.
+3. Apply the mutant from the copy's root (`patch -p1 < <diff-file>`), run the test again and see it fail on an assertion. Green: check that the copy runs its own code, the module loaded from the copy (a Python package installed editable loads the original: its `__file__` says so) and no server outside it on the port. Not its own code: stop and say so. Its own code: your test misses the fault; change it and run 2 and 3 again.
+4. Delete the copy; the diff file is the main agent's. A server a run starts is stopped before the next run: the copy uses the project's ports.
+
+A finding with no mutant, or one that does not apply: stop and say so, never write the fault yourself.
+
 ## Last
 
 Record the suite: `bash <scripts>/suite.sh record`. Run the chunk's tests once, as the project runs them, to see the valid red, and report.
@@ -37,8 +48,9 @@ Record the suite: `bash <scripts>/suite.sh record`. Run the chunk's tests once, 
 ## Rules
 
 - Never commit, and never move the working tree: no `checkout`, `switch`, `stash` or `reset`.
+- Write nowhere but the test files, the stubs, `.workflow/reference` and an *After the code* copy, which you delete. Work in that copy in a subshell, `(cd <dir> && …)`.
 - Install nothing.
 
 ## Output
 
-The test files and stubs you wrote, the record's number, and for each test case of the chunk the test that covers it. Then any case you could not write, and why. Nothing else.
+The test files and stubs you wrote, the record's number, and for each test case of the chunk the test that covers it. After the code: the passing line of the run before the mutant and the failing line of the run after it. Then any case you could not write, and why. Nothing else.

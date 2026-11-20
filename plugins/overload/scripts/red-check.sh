@@ -5,7 +5,9 @@ set -euo pipefail
 # is written: every recorded test runs, and fails on an assertion or on a
 # stub's NotImplemented, not on an import or a load error (junit.py). Runs
 # the config's `run_tests`, its `{files}` replaced by the recorded test
-# files; the command prints JUnit XML.
+# files; the command prints JUnit XML. The files of `integrate_tests_glob`,
+# which `check` leaves out, run through `run_integrate_tests` instead, and
+# both runs are judged as one.
 #
 # A recorded file that exists in HEAD holds tests from before the chunk,
 # which may pass. Their names come from a first run of those files as HEAD
@@ -22,7 +24,8 @@ set -euo pipefail
 # A valid red leaves the stubs' state in refs/overload/base/<branch>, which
 # integrate.sh removes with the suite's records.
 #
-# With an empty `run_tests` in the config, the check is skipped and logged.
+# A file whose command is empty in the config is skipped, and said so; with
+# nothing left to run, the whole check is skipped, and logged.
 
 # shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -37,12 +40,11 @@ case "${1:-}" in
   *) die "usage: red-check.sh [--without-code]" ;;
 esac
 
-command="$(cfg run_tests)"
-if [[ -z "$command" ]]; then
+# No command to run any test: skipped before the suite is looked at.
+if [[ -z "$(cfg run_tests)" && -z "$(cfg run_integrate_tests)" ]]; then
   echo "red check skipped: the config has no 'run_tests', the command that runs given test files and prints JUnit XML."
   exit 0
 fi
-[[ "$command" == *'{files}'* ]] || die "the config's run_tests has no {files} placeholder."
 
 mapfile -t files < <(bash "$OVERLOAD_SCRIPTS/suite.sh" files)
 ((${#files[@]})) || die "no suite recorded on this branch: the test-author records it with suite.sh record."
@@ -62,7 +64,40 @@ if ((${#present[@]} == 0)); then
   echo "red check: the suite only deletes test files, nothing to run."
   exit 0
 fi
-files=("${present[@]}")
+
+# Each file runs through the command of its glob: `run_tests`, or
+# `run_integrate_tests` for those `check` leaves out.
+declare -A is_outside=()
+while IFS= read -r file; do
+  is_outside["$file"]=1
+done < <(outside_check "${present[@]}")
+inside=() outside=()
+for file in "${present[@]}"; do
+  if [[ -n "${is_outside[$file]:-}" ]]; then outside+=("$file"); else inside+=("$file"); fi
+done
+keys=() files=()
+declare -A command_of=()
+for key in run_tests run_integrate_tests; do
+  if [[ "$key" == run_tests ]]; then group=(${inside[@]+"${inside[@]}"}); else group=(${outside[@]+"${outside[@]}"}); fi
+  ((${#group[@]})) || continue
+  command="$(cfg "$key")"
+  if [[ -z "$command" ]]; then
+    if [[ "$key" == run_tests && ${#outside[@]} -eq 0 ]]; then
+      echo "red check skipped: the config has no 'run_tests', the command that runs given test files and prints JUnit XML."
+      exit 0
+    fi
+    echo "red check skipped for ${group[*]}: the config has no '$key', the command that runs them and prints JUnit XML."
+    continue
+  fi
+  [[ "$command" == *'{files}'* ]] || die "the config's $key has no {files} placeholder."
+  command_of["$key"]="$command"
+  keys+=("$key")
+  files+=("${group[@]}")
+done
+if ((${#keys[@]} == 0)); then
+  echo "red check skipped: no recorded test file has a command to run it."
+  exit 0
+fi
 
 branch="$(current_branch)"
 base_ref="refs/overload/base/$branch"
@@ -128,20 +163,66 @@ if ((without_code)); then
   echo "red check without the code: the source files are as they were at the last valid red."
 fi
 
-# Runs the command with {files} replaced by the given files, quoted.
+# run_files <key> <file>...: the key's command with {files} replaced by the
+# given files, quoted.
 run_files() {
+  local key="$1"
+  shift
   set +e
-  run_project "$(with_files "$command" "$@")"
+  run_project "$(with_files "${command_of[$key]}" "$@")"
   set -e
 }
 
-# Saves what the command printed, through a pipe: a report written to
-# /dev/stdout (pytest --junitxml) opens a file anew, truncating it and
-# writing over the runner's other lines, but a pipe keeps both in order.
+# save_run <file> <key> <file>...: what the command printed, through a pipe:
+# a report written to /dev/stdout (pytest --junitxml) opens a file anew,
+# truncating it and writing over the runner's other lines, but a pipe keeps
+# both in order.
 save_run() {
   local into="$1"
   shift
   run_files "$@" 2>&1 | cat >"$into"
+}
+
+# the files of a key among the given ones
+of_key() {
+  local key="$1" file
+  shift
+  for file in "$@"; do
+    if [[ -n "${is_outside[$file]:-}" ]]; then
+      [[ "$key" == run_integrate_tests ]] && printf '%s\n' "$file"
+    else
+      [[ "$key" == run_tests ]] && printf '%s\n' "$file"
+    fi
+  done
+  return 0
+}
+
+# run_all <output> <integrate-output> <file>...: each key's files through
+# its command, run_tests's into <output>, run_integrate_tests's into the
+# other; sets junit_runs to junit.py's arguments for those runs, and written
+# to the outputs it wrote.
+run_all() {
+  local inside_into="$1" outside_into="$2" key into file first=1
+  local -a group=() also=()
+  shift 2
+  junit_runs=() written=()
+  for key in "${keys[@]}"; do
+    mapfile -t group < <(of_key "$key" "$@")
+    ((${#group[@]})) || continue
+    into="$inside_into"
+    [[ "$key" == run_tests ]] || into="$outside_into"
+    save_run "$into" "$key" "${group[@]}"
+    written+=("$into")
+    if ((first)); then
+      junit_runs=(--key "$key" "$into")
+      first=0
+    else
+      # the second run, with its files, before the first run's output
+      also=(--also "$key=$into")
+      for file in "${group[@]}"; do also+=(--also-file "$file"); done
+      junit_runs=("${also[@]}" "${junit_runs[@]}")
+    fi
+  done
 }
 
 state="$(state_dir)"
@@ -169,21 +250,26 @@ if ((${#old[@]})); then
     cp -- "$file" "$backup/$file"
     git show "HEAD:$file" >"$file"
   done
-  save_run "$state/red-check-head.txt" "${old[@]}"
+  run_all "$state/red-check-head.txt" "$state/red-check-integrate-head.txt" "${old[@]}"
   restore
   trap restore_code EXIT
-  python3 "$OVERLOAD_SCRIPTS/junit.py" --list "$state/red-check-head.txt" "${old[@]}" >"$existing" || true
+  python3 "$OVERLOAD_SCRIPTS/junit.py" --list "${junit_runs[@]}" "${old[@]}" >"$existing" || true
 fi
 
-save_run "$output" "${files[@]}"
+run_all "$output" "$state/red-check-integrate-output.txt" "${files[@]}"
 restore_code
 trap - EXIT
 
 status=0
 rm -f "$state/red-check-green.txt"
-python3 "$OVERLOAD_SCRIPTS/junit.py" --types "$(cfg red_types)" --existing "$existing" --green "$state/red-check-green.txt" "$output" "${files[@]}" || status=$?
+python3 "$OVERLOAD_SCRIPTS/junit.py" --types "$(cfg red_types)" --existing "$existing" --green "$state/red-check-green.txt" "${junit_runs[@]}" "${files[@]}" || status=$?
 if ((status == 0 && !without_code)); then
   git update-ref "$base_ref" "$(git commit-tree "$(source_tree)" -p HEAD -m "stubs state of $branch")"
 fi
-((status == 2)) && echo "The runner's output is in $output."
+# A load error can leave a file, or with Playwright every file of its run,
+# out of the report: the cause is in the runner's own output.
+if ((status != 0)); then
+  printf -v outputs '%s, ' "${written[@]}"
+  echo "The runners' output: ${outputs%, }."
+fi
 exit "$status"

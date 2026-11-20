@@ -39,7 +39,7 @@ Then run `bash <scripts>/verify.sh` on the main branch. It must be green: a red 
 
 ## 4. Measure `red_types`
 
-With `run_tests` set, run the `overload:setup-red-probe` agent with the config's `run_tests` and `tests_glob`, and the scripts' folder. It runs three throwaway tests twice and deletes them. Write the `red_types` it returns. When it finds the measure unreliable, set `run_tests` empty instead and give the human its diagnosis: the red check is then skipped, and logged as such. Change nothing else on its word.
+With `run_tests` set, run the `overload:setup-red-probe` agent with the config's `run_tests` and `tests_glob`, and the scripts' folder. With `run_integrate_tests` set, run it again, after the first, with `run_integrate_tests` and `integrate_tests_glob`. Each run writes three throwaway tests, runs them twice and deletes them. Write as `red_types` the types the runs return, each once, those of the first run first. When a run finds the measure unreliable, set its command empty instead and give the human its diagnosis: the red check of its files is then skipped, and logged as such. Change nothing else on its word.
 
 ## 5. Commit
 
