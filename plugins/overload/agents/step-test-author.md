@@ -32,12 +32,12 @@ On a test-first chunk, each new test fails on an assertion or a stub's not-imple
 
 ## After the code
 
-On a step review's test finding the code is already written: you add or fix the test the finding names, and its red cannot come from the stubs. It comes from the finding's mutant, a diff of the source, which you apply without reading any other source:
+On a step review's test finding the code is already written: you add or fix the test the finding names, and its red cannot come from the stubs. It comes from the finding's mutant, a diff file of the source, which you apply without reading any other source:
 
 1. Copy the working tree as it is, uncommitted code and untracked files included, the dependencies it ignores (`node_modules`, a virtualenv) too, `.git` left out, into a folder made with `mktemp -d`. A copy of `HEAD` lacks the chunk's code, and there the test fails whatever it tests.
-2. In the copy, run the test through the project's command and see it pass.
-3. Apply the mutant from the copy's root (`patch -p1 < <diff-file>`), run the test again and see it fail on an assertion.
-4. Delete the copy. A server a run starts is stopped before the next run: the copy uses the project's ports.
+2. In the copy, run the test through the project's command and see it pass. An end-to-end test first: no server of the project already answers the ports its runner uses, or the copy would talk to it. Red here: the copy is not the working tree; stop and say so.
+3. Apply the mutant from the copy's root (`patch -p1 < <diff-file>`), run the test again and see it fail on an assertion. Green: check that the copy runs its own code, the module loaded from the copy (a Python package installed editable loads the original: its `__file__` says so) and no server outside it on the port. Not its own code: stop and say so. Its own code: your test misses the fault; change it and run 2 and 3 again.
+4. Delete the copy and the diff file. A server a run starts is stopped before the next run: the copy uses the project's ports.
 
 A finding with no mutant, or one that does not apply: stop and say so, never write the fault yourself.
 
@@ -48,7 +48,7 @@ Record the suite: `bash <scripts>/suite.sh record`. Run the chunk's tests once, 
 ## Rules
 
 - Never commit, and never move the working tree: no `checkout`, `switch`, `stash` or `reset`.
-- Write nowhere but the test files, the stubs, `.workflow/reference` and an *After the code* copy, which you delete. Work in that copy in a subshell, `(cd <dir> && …)`.
+- Write nowhere but the test files, the stubs, `.workflow/reference` and an *After the code* copy, which you delete with its diff file. Work in that copy in a subshell, `(cd <dir> && …)`.
 - Install nothing.
 
 ## Output

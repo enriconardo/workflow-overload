@@ -18,6 +18,7 @@ The spec's path and the chunk's number; the recorded test files; the range, the 
 - **The tests cover the chunk**: each of its test cases has a test, each test asserts what identifies the behavior, none passes without it. A test finding comes with its mutant: a change to the code that breaks the behavior while every test stays green, run as the next point says.
 - **Bugs**: an input the public types accept that breaks the code.
 - **Each test that passed already at the red check** fails when the behavior it covers breaks: in a copy of the project under a folder made with `mktemp -d` (the system's temp folder), change the code so that behavior is wrong, run the test, and expect it red. One that stays green is a test finding.
+- **A mutant is a diff of its own.** Copy the project with its `.git`, and in the copy run `git add -A` before you change the code: `git diff` then prints the mutant alone, not the chunk's uncommitted code with it. Save each test finding's mutant with `git diff > <n>.diff` in a second folder made with `mktemp -d`, which you leave in place: the test-author applies it from the file, since a diff retyped as text loses its tabs.
 
 Not yours: what verify checks (format, lint, types, whether tests pass), style the project does not state, the coherence across chunks (the final review's).
 
@@ -25,14 +26,14 @@ Not yours: what verify checks (format, lint, types, whether tests pass), style t
 
 - Report, never fix. Leave the repository as you found it: no edits, no `checkout`, `switch`, `stash` or `reset`.
 - Confirm a suspicion by running it, through the project's command prefix, writing nothing in the repository; one you could not confirm goes under *Not verified*.
-- Write nowhere but that `mktemp -d` folder, and delete it when you are done: no file in the project's parent folders or in the user's home. Work in it in a subshell, `(cd <dir> && …)`, so that the next command, `git` above all, runs in the project again.
+- Write nowhere but those `mktemp -d` folders, and delete them when you are done, but for the mutants' folder: no file in the project's parent folders or in the user's home. Work in it in a subshell, `(cd <dir> && …)`, so that the next command, `git` above all, runs in the project again.
 - If the chunk holds, say so.
 
 ## Output
 
 1. **Verdict**: `ok` or `changes required`.
 2. **Code findings**: `file:line`, the defect, the scenario.
-3. **Test findings**: the test, what it fails to prove, the spec's line, and the mutant you ran, as `git diff` prints it (paths from the project's root, `a/` and `b/`), against the working tree: the test-author applies it to show the new test's red.
+3. **Test findings**: the test, what it fails to prove, the spec's line, and the path of its mutant's diff file.
 4. **Not verified**, short.
 
 Nothing else.
