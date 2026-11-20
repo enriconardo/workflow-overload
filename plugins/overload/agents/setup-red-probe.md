@@ -33,7 +33,7 @@ The measure is reliable only when both runs print the same lines, and in them:
 - the stub test has the type of the error it throws: `NotImplementedError` in Python, `NotImplemented` in TypeScript and JavaScript, the error's name elsewhere;
 - the load test has `LOAD ERROR`, or a type that is neither of those two, or its run's report lacks it while the runner collects the other two files from the same folder.
 
-Then `red_types` is the assert test's type and the stub test's, comma-separated. An assert type that names the matcher (Playwright's `expect.toBe`) changes with each matcher: write its prefix with `*` (`expect.*`), which matches every type it starts.
+Then `red_types` is the assert test's type and the stub test's, comma-separated. An assert type that holds a `.` names the matcher (Playwright's `expect.toBe`) and changes with each one: write what comes before its first `.`, then `.*` (`expect.*`), which matches every type it starts.
 
 ## Rules
 
