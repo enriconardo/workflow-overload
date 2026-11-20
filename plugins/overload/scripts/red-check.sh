@@ -199,18 +199,20 @@ of_key() {
 
 # run_all <output> <integrate-output> <file>...: each key's files through
 # its command, run_tests's into <output>, run_integrate_tests's into the
-# other; sets junit_runs to junit.py's arguments for those runs.
+# other; sets junit_runs to junit.py's arguments for those runs, and written
+# to the outputs it wrote.
 run_all() {
   local inside_into="$1" outside_into="$2" key into file first=1
   local -a group=() also=()
   shift 2
-  junit_runs=()
+  junit_runs=() written=()
   for key in "${keys[@]}"; do
     mapfile -t group < <(of_key "$key" "$@")
     ((${#group[@]})) || continue
     into="$inside_into"
     [[ "$key" == run_tests ]] || into="$outside_into"
     save_run "$into" "$key" "${group[@]}"
+    written+=("$into")
     if ((first)); then
       junit_runs=(--key "$key" "$into")
       first=0
@@ -266,5 +268,8 @@ if ((status == 0 && !without_code)); then
 fi
 # A load error can leave a file, or with Playwright every file of its run,
 # out of the report: the cause is in the runner's own output.
-((status == 0)) || echo "The runners' output: $output${is_outside[*]:+, $state/red-check-integrate-output.txt}."
+if ((status != 0)); then
+  printf -v outputs '%s, ' "${written[@]}"
+  echo "The runners' output: ${outputs%, }."
+fi
 exit "$status"

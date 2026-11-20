@@ -151,6 +151,17 @@ test_red_check_runs_each_test_file_through_its_own_command() {
   expect_eq "$(cat e2e/old.e2e.ts)" $'case old pass\ncase new notimpl' "the working file restored"
 }
 
+test_red_check_names_only_the_output_its_runs_wrote() {
+  e2e_runner
+  open_l_task
+  write_e2e a.e2e.ts "case a typeerror"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  set +e
+  out="$(bash "$SCRIPTS/red-check.sh" 2>&1)"
+  set -e
+  [[ "$out" == *"red-check-integrate-output.txt"* && "$out" != *"red-check-output.txt"* ]] || fail "$out"
+}
+
 test_red_check_without_run_integrate_tests_skips_only_those_files() {
   fake_runner
   integrate_tests
