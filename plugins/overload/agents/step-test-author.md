@@ -32,7 +32,14 @@ On a test-first chunk, each new test fails on an assertion or a stub's not-imple
 
 ## After the code
 
-On a step review's test finding the code is already written: you add or fix the test the finding names, and its red cannot come from the stubs. Show it where the fault is: in a copy of the project under a folder made with `mktemp -d`, put back the fault the finding names (the mutant the reviewer ran, the alternative the spec rejects), reading only the source lines the finding names; run the test there, once, through the project's command, and see it fail on an assertion; then delete the copy. Those lines are the one exception to never reading the source the chunk changes. A fault you cannot put back from those lines alone: stop and say so.
+On a step review's test finding the code is already written: you add or fix the test the finding names, and its red cannot come from the stubs. It comes from the finding's mutant, a diff of the source, which you apply without reading any other source:
+
+1. Copy the working tree as it is, uncommitted code and untracked files included, the dependencies it ignores (`node_modules`, a virtualenv) too, `.git` left out, into a folder made with `mktemp -d`. A copy of `HEAD` lacks the chunk's code, and there the test fails whatever it tests.
+2. In the copy, run the test through the project's command and see it pass.
+3. Apply the mutant from the copy's root (`patch -p1 < <diff-file>`), run the test again and see it fail on an assertion.
+4. Delete the copy. A server a run starts is stopped before the next run: the copy uses the project's ports.
+
+A finding with no mutant, or one that does not apply: stop and say so, never write the fault yourself.
 
 ## Last
 
@@ -46,4 +53,4 @@ Record the suite: `bash <scripts>/suite.sh record`. Run the chunk's tests once, 
 
 ## Output
 
-The test files and stubs you wrote, the record's number, and for each test case of the chunk the test that covers it. After the code: the lines you changed in the copy and the failing line of its run. Then any case you could not write, and why. Nothing else.
+The test files and stubs you wrote, the record's number, and for each test case of the chunk the test that covers it. After the code: the passing line of the run before the mutant and the failing line of the run after it. Then any case you could not write, and why. Nothing else.

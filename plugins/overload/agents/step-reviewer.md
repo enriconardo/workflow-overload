@@ -15,7 +15,7 @@ The spec's path and the chunk's number; the recorded test files; the range, the 
 ## What to check
 
 - **The code does what the chunk asks**, no less, and nothing outside it: every behavior and error of the chunk, the callers the change reaches, and the inputs its line cites after `inputs:`, matched as they are.
-- **The tests cover the chunk**: each of its test cases has a test, each test asserts what identifies the behavior, none passes without it.
+- **The tests cover the chunk**: each of its test cases has a test, each test asserts what identifies the behavior, none passes without it. A test finding comes with its mutant: a change to the code that breaks the behavior while every test stays green, run as the next point says.
 - **Bugs**: an input the public types accept that breaks the code.
 - **Each test that passed already at the red check** fails when the behavior it covers breaks: in a copy of the project under a folder made with `mktemp -d` (the system's temp folder), change the code so that behavior is wrong, run the test, and expect it red. One that stays green is a test finding.
 
@@ -32,7 +32,7 @@ Not yours: what verify checks (format, lint, types, whether tests pass), style t
 
 1. **Verdict**: `ok` or `changes required`.
 2. **Code findings**: `file:line`, the defect, the scenario.
-3. **Test findings**: the test, what it fails to prove, the spec's line.
+3. **Test findings**: the test, what it fails to prove, the spec's line, and the mutant you ran, as `git diff` prints it (paths from the project's root, `a/` and `b/`), against the working tree: the test-author applies it to show the new test's red.
 4. **Not verified**, short.
 
 Nothing else.
