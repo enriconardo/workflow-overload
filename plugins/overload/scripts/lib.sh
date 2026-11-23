@@ -288,6 +288,65 @@ outside_check() {
   return 0
 }
 
+# green_lists <branch>: the folder of a branch's green lists, the new tests
+# a valid red found passing already, for the step review. A list is named
+# after the HEAD it was made on: the next chunk, on another HEAD, finds none.
+green_lists() {
+  printf '%s/red-check-green/%s\n' "$(state_dir)" "$1"
+}
+
+# The green list of this branch and HEAD; the file exists after a valid red
+# on them, empty when no new test passed.
+green_list() {
+  printf '%s/%s.txt\n' "$(green_lists "$(current_branch)")" "$(git rev-parse HEAD)"
+}
+
+# Phases set by the scripts: running a script is the decision, so its
+# outcome moves the phase, only from the phases its header names, and only
+# when what it checked is what the next phase needs. A red never moves it;
+# any other phase is left alone.
+
+# phase_to <phase>: sets the journal's phase, and says so.
+phase_to() {
+  bash "$OVERLOAD_SCRIPTS/journal.sh" set phase "$1"
+  echo "phase: $1"
+}
+
+# phase_stays <why>: a phase the outcome could have moved, left as it is.
+phase_stays() {
+  echo "phase stays $(journal_get phase): $1"
+}
+
+# spec_chunks [<commit>]: the chunks of the journal's spec, a line each as
+# spec.py prints them, from the working tree or from a commit (none when the
+# commit lacks the spec). Fails with spec.py's message.
+# shellcheck disable=SC2120 # the commit is optional
+spec_chunks() {
+  local spec
+  spec="$(journal_get spec)"
+  [[ -n "$spec" ]] || {
+    echo "the journal names no spec" >&2
+    return 1
+  }
+  if [[ -z "${1:-}" ]]; then
+    python3 "$OVERLOAD_SCRIPTS/spec.py" chunks "$spec"
+  elif git cat-file -e "$1:$spec" 2>/dev/null; then
+    git show "$1:$spec" | python3 "$OVERLOAD_SCRIPTS/spec.py" chunks -
+  fi
+}
+
+# next_chunk_phase <chunks>: the first open chunk's first step, or the close.
+next_chunk_phase() {
+  local n state first
+  while IFS=$'\t' read -r n state _ first; do
+    if [[ "$state" == open ]]; then
+      echo "l/chunk-$n/$first"
+      return
+    fi
+  done <<<"$1"
+  echo close/check
+}
+
 suite_refs() {
   # for-each-ref matches a pattern up to a slash: the records of fix/x/y are
   # not those of fix/x/y-other.

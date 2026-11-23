@@ -294,7 +294,54 @@ test_red_check_hands_new_green_tests_to_the_step_reviewer() {
   bash "$SCRIPTS/suite.sh" record >/dev/null
   out="$(bash "$SCRIPTS/red-check.sh")"
   [[ "$out" == *"valid red"*"1 new test passes already"*"mutation check"* ]] || fail "$out"
-  expect_eq "$(cat "$(git rev-parse --git-path overload)/red-check-green.txt")" "__tests__/a.test.ts > green"
+  green="$(green_list)"
+  [[ "$out" == *"$green"* ]] || fail "the list's path not named: $out"
+  expect_eq "$(cat "$green")" "__tests__/a.test.ts > green"
+}
+
+# The green list of the branch and HEAD.
+green_list() {
+  printf '%s/red-check-green/%s/%s.txt\n' "$(git rev-parse --git-path overload)" "$(git branch --show-current)" "$(git rev-parse HEAD)"
+}
+
+test_the_green_list_is_bound_to_the_branch_and_its_head() {
+  fake_runner
+  open_l_task
+  write_test a.test.ts "case red assert" "case green pass"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  bash "$SCRIPTS/red-check.sh" >/dev/null
+  [[ -s "$(green_list)" ]] || fail "no list"
+  write_test a.test.ts "case red pass" "case green pass"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message 'feat(greet): x')" >/dev/null
+  [[ ! -e "$(green_list)" ]] || fail "a list on the new HEAD"
+  # a red check skipped leaves no list of an earlier run
+  write_test b.test.ts "case red assert" "case green pass"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  bash "$SCRIPTS/red-check.sh" >/dev/null
+  [[ -s "$(green_list)" ]] || fail "no list"
+  OVERLOAD_RUN_TESTS='' bash "$SCRIPTS/red-check.sh" | grep -q skipped || fail "not skipped"
+  [[ ! -e "$(green_list)" ]] || fail "a skipped red check left the earlier list"
+  bash "$SCRIPTS/red-check.sh" >/dev/null
+  bash "$SCRIPTS/suite.sh" clear
+  [[ ! -e "$(green_list)" ]] || fail "suite.sh clear left the list"
+}
+
+test_integrate_clears_the_green_list() {
+  fake_runner
+  open_l_task
+  write_test a.test.ts "case red assert" "case green pass"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  bash "$SCRIPTS/red-check.sh" >/dev/null
+  folder="$(dirname "$(green_list)")"
+  [[ -d "$folder" ]] || fail "no folder"
+  write_test a.test.ts "case red pass" "case green pass"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message 'feat(greet): x')" >/dev/null
+  bash "$SCRIPTS/integrate.sh" >/dev/null
+  [[ ! -e "$folder" ]] || fail "integrate left the branch's lists"
 }
 
 test_red_check_leaves_out_the_test_files_the_suite_deletes() {
@@ -532,4 +579,150 @@ test_integrate_refuses_an_l_spec_not_done() {
   bash "$SCRIPTS/verify.sh" >/dev/null
   bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): done')" >/dev/null
   bash "$SCRIPTS/integrate.sh" >/dev/null
+}
+
+# write_spec <status> <chunk line>...: the journal's spec.
+write_spec() {
+  mkdir -p .workflow/specs
+  {
+    printf -- '---\nstatus: %s\n---\n\n# Greet\n\n## Chunks\n' "$1"
+    printf '%s\n' "${@:2}"
+  } >.workflow/specs/s.md
+  bash "$SCRIPTS/journal.sh" set spec .workflow/specs/s.md
+}
+
+tick() {
+  local n
+  for n in "$@"; do
+    sed -i.bak "s/^- \[ \] $n\./- [x] $n./" .workflow/specs/s.md
+  done
+  rm -f .workflow/specs/s.md.bak
+}
+
+phase() {
+  bash "$SCRIPTS/journal.sh" get phase
+}
+
+test_the_scripts_move_an_l_task_through_its_chunks() {
+  fake_runner
+  open_l_task
+  write_spec draft "- [ ] 1. Greet (test-first): a.ts; cases: 1" "- [ ] 2. Wire (no test-first): b.ts"
+  bash "$SCRIPTS/journal.sh" set phase l/checkpoint
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  out="$(bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): draft spec')")"
+  [[ "$out" == *"phase stays l/checkpoint"* ]] || fail "a draft spec moved: $out"
+  sed -i.bak 's/^status: draft/status: approved/' .workflow/specs/s.md && rm .workflow/specs/s.md.bak
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  out="$(bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): spec')")"
+  [[ "$out" == *"phase: l/chunk-1/test"* ]] || fail "$out"
+  expect_eq "$(phase)" l/chunk-1/test
+  write_test a.test.ts "case a typeerror"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  if bash "$SCRIPTS/red-check.sh" >/dev/null 2>&1; then fail "a wrong red passed"; fi
+  expect_eq "$(phase)" l/chunk-1/test "an invalid red moved"
+  write_test a.test.ts "case a assert"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/red-check.sh")"
+  [[ "$out" == *"phase: l/chunk-1/implement"* ]] || fail "$out"
+  touch red
+  if bash "$SCRIPTS/verify.sh" >/dev/null 2>&1; then fail "green"; fi
+  expect_eq "$(phase)" l/chunk-1/implement "a red verify moved"
+  rm red
+  # the test passing stands in for the chunk's code
+  write_test a.test.ts "case a pass"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"phase: l/chunk-1/review"* ]] || fail "two chunks, no review: $out"
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  expect_eq "$(phase)" l/chunk-1/review "a verify in review moved"
+  tick 1
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  out="$(bash "$SCRIPTS/commit.sh" "$(message 'feat(greet): greet')")"
+  [[ "$out" == *"phase: l/chunk-2/implement"* ]] || fail "$out"
+  echo code >b.ts
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"phase: l/chunk-2/review"* ]] || fail "$out"
+  tick 2
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  out="$(bash "$SCRIPTS/commit.sh" "$(message 'feat(greet): wire')")"
+  [[ "$out" == *"phase: close/check"* ]] || fail "$out"
+}
+
+test_commit_moves_a_chunk_on_only_when_it_ticks_that_chunk_alone() {
+  open_l_task
+  write_spec approved "- [ ] 1. A (no test-first): a" "- [ ] 2. B (tests only): b" "- [ ] 3. C (no test-first): c"
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  out="$(bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): spec')")"
+  [[ "$out" != *"phase"* ]] || fail "l/spec is no phase of commit.sh: $out"
+  bash "$SCRIPTS/journal.sh" set phase l/chunk-1/commit
+  echo a >a
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  out="$(bash "$SCRIPTS/commit.sh" "$(message 'feat(greet): a, not ticked')")"
+  [[ "$out" == *"phase stays l/chunk-1/commit: the commit does not tick chunk 1 alone"* ]] || fail "$out"
+  tick 1 2
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  out="$(bash "$SCRIPTS/commit.sh" "$(message 'feat(greet): two ticks')")"
+  [[ "$out" == *"phase stays l/chunk-1/commit"* ]] || fail "$out"
+  bash "$SCRIPTS/journal.sh" set phase l/chunk-3/implement
+  tick 3
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  out="$(bash "$SCRIPTS/commit.sh" "$(message 'feat(greet): c')")"
+  [[ "$out" == *"phase: close/check"* ]] || fail "$out"
+}
+
+test_commit_moves_to_the_next_open_chunk_and_its_first_step() {
+  open_l_task
+  write_spec approved "- [ ] 1. A (no test-first): a" "- [x] 2. B (tests only): b" "- [ ] 3. C (test-first): c; dependencies: left-pad"
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): spec')" >/dev/null
+  bash "$SCRIPTS/journal.sh" set phase l/chunk-1/commit
+  tick 1
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  out="$(bash "$SCRIPTS/commit.sh" "$(message 'feat(greet): a')")"
+  [[ "$out" == *"phase: l/chunk-3/stub"* ]] || fail "$out"
+}
+
+test_verify_skips_the_step_review_of_a_lone_chunk_with_no_test_passing_already() {
+  open_l_task
+  write_spec approved "- [ ] 1. Greet (test-first): a.ts"
+  bash "$SCRIPTS/journal.sh" set phase l/chunk-1/implement
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"phase: l/chunk-1/commit"* ]] || fail "$out"
+  bash "$SCRIPTS/journal.sh" set phase l/chunk-1/verify
+  mkdir -p "$(dirname "$(green_list)")"
+  : >"$(green_list)"
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"phase: l/chunk-1/commit"* ]] || fail "an empty list: $out"
+  bash "$SCRIPTS/journal.sh" set phase l/chunk-1/verify
+  echo "__tests__/a.test.ts > green" >"$(green_list)"
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"phase: l/chunk-1/review"* ]] || fail "a test passing already: $out"
+}
+
+test_verify_sends_a_chunk_of_tests_only_to_the_step_review() {
+  fake_runner
+  open_l_task
+  write_spec approved "- [ ] 1. More cases (tests only): a.test.ts"
+  bash "$SCRIPTS/journal.sh" set phase l/chunk-1/test
+  write_test a.test.ts "case a pass"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"phase: l/chunk-1/review"* ]] || fail "$out"
+}
+
+test_verify_leaves_the_phase_on_a_spec_it_cannot_read() {
+  open_l_task
+  write_spec approved "- [ ] 1. Greet: a.ts"
+  bash "$SCRIPTS/journal.sh" set phase l/chunk-1/implement
+  out="$(bash "$SCRIPTS/verify.sh")"
+  [[ "$out" == *"verify: green"*"phase stays l/chunk-1/implement"*"chunk 1 has no type"* ]] || fail "$out"
+  expect_eq "$(phase)" l/chunk-1/implement
+}
+
+test_a_skipped_red_check_moves_to_the_implementation() {
+  open_l_task
+  write_spec approved "- [ ] 1. Greet (test-first): a.ts"
+  bash "$SCRIPTS/journal.sh" set phase l/chunk-1/red
+  out="$(bash "$SCRIPTS/red-check.sh")"
+  [[ "$out" == *"skipped"*"phase: l/chunk-1/implement"* ]] || fail "$out"
 }

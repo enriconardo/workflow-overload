@@ -6,7 +6,7 @@ Both paths end here: the slow tests, one final review, one round of lessons, the
 
 1. `bash <scripts>/sync.sh`: when main moved since the branch started or last took it in, it merges main into the branch without committing, and the journal's `base` becomes main's commit. A conflict goes to `phases/escalate.md`; on the human's go, resolve it on the branch. A merge already under way (an interrupted session): finish it, from 2.
 2. `bash <scripts>/verify.sh --integrate`: `check`, then the config's `check_integrate`, the tests too slow for every commit. With no `check_integrate` it runs `check` alone. Red: fix it (you on S, the step-implementer on L, from a test that reproduces it when the failing test does not already) and verify with `--integrate` again; the script stops you at the third red in a row (`phases/escalate.md`). After a sync, a red may come from main rather than the branch: run the same command on main alone, in a worktree under a folder made with `mktemp -d` (`git worktree add --detach <dir> <main>`, removed afterwards). Red there too, it is another task's regression: `phases/escalate.md`, and the human decides.
-3. Commit: the merge, with its fixes, as one commit (`Merge branch '<main>' into <branch>`, unless the project's rules say otherwise); otherwise each fix on its own.
+3. Commit: the merge, with its fixes, as one commit (`Merge branch '<main>' into <branch>`, unless the project's rules say otherwise); otherwise each fix on its own. A green `verify.sh --integrate` on a committed tree, or the commit of the tree it checked, moves the phase to `close/review`.
 
 ## 2. Final review — phase `close/review`
 
@@ -42,7 +42,7 @@ One message to the human:
 - the lessons the critic kept, each with its verdict; a dropped one as a single line, so they can take it back.
 - the defects of the workflow itself that the task met, each in one line.
 
-Then stop and wait. The human gives the go and picks the lessons and backlog items to keep, or asks for changes: on S you are back in `s/implement`; on L you add the changes to the spec as one more chunk, and it goes through `phases/l-chunk.md`, then this file again from 1. Log their words.
+Then stop and wait. The human gives the go and picks the lessons and backlog items to keep, or asks for changes: on S you are back in `s/implement`; on L you add the changes to the spec as one more chunk, and it goes through `phases/l-chunk.md` from its first step, then this file again from 1. Set the phase accordingly. Log their words.
 
 ## 5. Lessons and backlog — phase `close/write`
 

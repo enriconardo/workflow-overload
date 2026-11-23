@@ -28,7 +28,7 @@ The spec's path and the chunk's number; the project's rule files; the config's `
 
 ## The valid red
 
-On a test-first chunk, each new test fails on an assertion or a stub's not-implemented error, or passes already, the code already there covering it; at least one fails, and none is skipped. On a chunk of tests only, each passes already. A failure on an import, a load or any other error is no valid red. A test already in HEAD may pass. A case whose test passes already is still written, neither left out nor skipped: the step review checks that it fails under a mutant.
+On a test-first chunk, each new test fails on an assertion or a stub's not-implemented error, or passes already, the code already there covering it; at least one fails, and none is skipped. On a chunk of tests only (its line says `(tests only)`), each passes already. A failure on an import, a load or any other error is no valid red. A test already in HEAD may pass. A case whose test passes already is still written, neither left out nor skipped: the step review checks that it fails under a mutant.
 
 ## After the code
 

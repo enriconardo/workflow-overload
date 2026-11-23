@@ -175,11 +175,11 @@ Branch names and commit messages follow the project's rules (its CLAUDE.md, its 
        close: slow tests → final review → lessons → checkpoint → integrate
 ```
 
-Every step is a phase recorded in the branch's journal, so a task survives an interruption, a `/clear` or a compaction: `/overload:task` reads the journal and resumes where it stopped.
+Every step is a phase recorded in the branch's journal, so a task survives an interruption, a `/clear` or a compaction: `/overload:task` reads the journal and resumes where it stopped. Where a script's outcome decides the next step (a green verify, a valid red, a commit), the script moves the phase itself, and a red never moves it.
 
 ### Brainstorming and triage
 
-The main agent restates the request (the problem, the goal, the constraints) and maps the code it touches through `code-explorer`, which returns a short map with `file:line`; on a plainly small change it reads the files and their callers itself. It asks its questions in one message, then proposes a tier with a line of reasons. The documents you give with the request (a brief, a mockup, a sample format) are copied into `.workflow/inputs/<slug>/` when the branch opens and reach main with the task, so that a later session finds them; it tells you which, and one you leave out stays out. The spec translates them, and the spec reviewer checks that each of their points is covered or out of scope.
+The main agent restates the request (the problem, the goal, the constraints) and maps the code it touches through `code-explorer`, which returns a short map with `file:line`, kept with the task for the sessions to come; on a plainly small change it reads the files and their callers itself. It asks its questions in one message, then proposes a tier with a line of reasons. The documents you give with the request (a brief, a mockup, a sample format) are copied into `.workflow/inputs/<slug>/` when the branch opens and reach main with the task, so that a later session finds them; it tells you which, and one you leave out stays out. The spec translates them, and the spec reviewer checks that each of their points is covered or out of scope.
 
 **S** when all of these hold:
 
@@ -206,7 +206,7 @@ A task that turns out bigger goes to the L path on your go: its commits stay, un
 1. **Spec**, written by the main agent, which held the discussion: why, what, decisions with their alternatives, test cases, the docs that change with the behavior, chunks. A decision that outlives the task also gets a decision record.
 2. **Probe** (`prober`), only for external facts the spec rests on (versions, APIs, a dependency's behavior), in a temporary folder outside the repository.
 3. **Spec review** (`spec-reviewer`): correctness, and a critique of the premises: was the problem seen, what is the strongest alternative, what is missing. It gets the spec and the code map, never a summary of the discussion, and does not read the journal.
-4. **Split** (`spec-splitter`), above about 6–7 files or 10–15 test cases: the fewest chunks, each green alone, each test-first or not.
+4. **Split** (`spec-splitter`), above about 6–7 files or 10–15 test cases: the fewest chunks, each green alone, each test-first, of tests only, or neither.
 5. **Checkpoint 1**: you approve the plan, and the spec is committed. This is the moment for `/clear` and `/overload:task`: the next session resumes from the journal and the spec with a small context.
 
 ### The L path: chunks
@@ -242,7 +242,7 @@ All are internal to the two skills and called as `overload:<name>`.
 | --- | --- | --- |
 | `setup-explorer` | sonnet | reads a project and proposes its config; read-only |
 | `setup-red-probe` | sonnet | measures `red_types` with throwaway tests |
-| `code-explorer` | sonnet | maps the code a request touches; read-only |
+| `code-explorer` | sonnet | maps the code a request touches and saves the map; changes nothing in the repository |
 | `prober` | sonnet | checks external facts in a throwaway environment |
 | `spec-reviewer` | opus | reviews an L spec and challenges its premises; read-only |
 | `spec-splitter` | sonnet | splits a spec into the fewest green chunks; read-only |
