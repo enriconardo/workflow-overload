@@ -4,7 +4,7 @@ Produces a reviewed spec, split into chunks, that the human approves before any 
 
 ## 1. Spec — phase `l/spec`
 
-You write it, because you hold the discussion with the human: an agent given a summary would lose the intent. Start from the explorer's map, which the spec reviewer and the splitter read too: if the brainstorming logged none, run the `overload:code-explorer` agent now, as `phases/brainstorm.md` says, and keep its map (`journal.sh keep map <file>`). Write it at `.workflow/specs/<YYYY-MM-DD>-<description>.md`, or, with inputs (the journal's *Inputs*), at `.workflow/specs/<slug>.md`, named as their folder, and record its path: `journal.sh set spec <path>`. The inputs stay the source and the spec translates them: each point of an input becomes a behavior of *What* or a case of *Test cases*, or is named out of scope in *What*.
+You write it, because you hold the discussion with the human: an agent given a summary would lose the intent. Start from the explorer's map, which the spec reviewer and the splitter read too: if the brainstorming logged none, run the `overload:code-explorer` agent now, as `phases/brainstorm.md` says, and keep the file it saved: `journal.sh keep map <path>`. Write it at `.workflow/specs/<YYYY-MM-DD>-<description>.md`, or, with inputs (the journal's *Inputs*), at `.workflow/specs/<slug>.md`, named as their folder, and record its path: `journal.sh set spec <path>`. The inputs stay the source and the spec translates them: each point of an input becomes a behavior of *What* or a case of *Test cases*, or is named out of scope in *What*.
 
 ```
 ---
@@ -31,12 +31,12 @@ The cases that prove the behavior, each one line: input, expected result.
 The files that describe this behavior and change with it (a README, API docs, a guide), or none.
 
 ## Chunks
-- [ ] 1. <title> (test-first | no test-first): the files, the test cases it covers[; signatures: the existing declarations whose signature changes][; inputs: those its code must match as they are]
+- [ ] 1. <title> (test-first | no test-first | tests only): the files, the test cases it covers[; signatures: the existing declarations whose signature changes][; dependencies: the packages it adds][; inputs: those its code must match as they are]
 ```
 
 A decision that outlives the task also gets a decision record, in a folder of the config's `rules` that already holds decision records. With no such folder, write none and create none: the human hears it at checkpoint 1, with `/overload:setup`, which proposes one.
 
-**Chunk types.** Test-first: a new or changed behavior of the public API, domain logic, a bug, whose tests fail at runtime against its stubs. No test-first: a refactor (the existing tests stay green unchanged), wiring (tested afterwards by the implementer), docs, config, a chunk whose code is only declarations (types, interfaces: its stub is its code, and its tests fail only in the type checker), and a chunk of tests only (it changes no other file).
+**Chunk types.** Test-first: a new or changed behavior of the public API, domain logic, a bug, whose tests fail at runtime against its stubs. Tests only: tests with their fixtures and helpers, no other file, for behavior already there. No test-first: a refactor (the existing tests stay green unchanged), wiring (tested afterwards by the implementer), docs, config, a chunk whose code is only declarations (types, interfaces: its stub is its code, and its tests fail only in the type checker).
 
 ## 2. Probe — phase `l/probe`, only when the spec rests on external facts not yet checked
 
@@ -64,7 +64,7 @@ The human approves, or sends the spec back for corrections (to 1, then 3), or th
 
 ## 7. Commit the spec
 
-Set `status: approved`, then verify and commit the spec and the decision record, so that an interrupted session resumes from them. Set the phase to chunk 1's first step (`phases/l-chunk.md`).
+Set `status: approved`, then verify and commit the spec and the decision record, so that an interrupted session resumes from them. The commit moves the phase to chunk 1's first step (`phases/l-chunk.md`).
 
 ## 8. Restart, recommended
 
