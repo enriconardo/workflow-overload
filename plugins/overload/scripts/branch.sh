@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Opens a task after the triage: checks the name, creates the branch from an
-# up-to-date main, and writes the journal with the tier and the intent.
+# Opens a task: checks the name, creates the branch from an up-to-date main,
+# and writes the journal with the tier, the command that runs the task and
+# the intent.
 #
 #   branch.sh <tier> <name> <intent-file> [--map <file>] [--inputs <slug> <file>...]
+#   branch.sh --build <name> <spec>
+#
+# The first form opens a task of /overload:task after the triage; the second
+# a task of /overload:build, from a spec approved on main with a chunk left
+# to build: its journal names the spec, which holds the intent, and its phase
+# is that chunk's first step.
 #
 # <tier> is S or L; <name> is the branch's whole name, which the model writes
 # following the project's rules: no part of it is read, so only git and the
@@ -23,11 +30,19 @@ in_project
 require_config
 
 usage() {
-  echo "Usage: branch.sh <S|L> <name> <intent-file> [--map <file>] [--inputs <slug> <file>...]" >&2
+  echo "Usage: branch.sh <S|L> <name> <intent-file> [--map <file>] [--inputs <slug> <file>...] | branch.sh --build <name> <spec>" >&2
   exit 2
 }
 (($# >= 3)) || usage
-tier="$1" branch="$2" intent="$3"
+command=task spec=""
+if [[ "$1" == --build ]]; then
+  (($# == 3)) || usage
+  command=build tier=L branch="$2" spec="$3"
+  set -- "$tier" "$branch" ""
+else
+  tier="$1"
+fi
+branch="$2" intent="$3"
 shift 3
 map="" slug="" inputs=()
 if [[ "${1:-}" == --map ]]; then
@@ -43,7 +58,7 @@ fi
 INPUTS_DIR=".workflow/inputs"
 
 [[ "$tier" == S || "$tier" == L ]] || die "the tier is S or L, not '$tier'."
-[[ -s "$intent" ]] || die "the intent file '$intent' is missing or empty."
+[[ "$command" == build || -s "$intent" ]] || die "the intent file '$intent' is missing or empty."
 [[ -z "$map" || -f "$map" ]] || die "the map '$map' is not a file."
 if [[ -n "$slug" ]]; then
   [[ "$slug" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || die "'$slug' is not a folder name for the inputs: letters, digits, '.', '_' and '-'."
@@ -96,6 +111,19 @@ if git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' >/dev/null 2>&1
   git pull --ff-only --quiet
 fi
 
+# A build starts from the spec as main holds it: approved, with a chunk
+# left to build.
+phase=s/implement
+[[ "$tier" == S ]] || phase=l/spec
+if [[ "$command" == build ]]; then
+  git cat-file -e "HEAD:$spec" 2>/dev/null || die "'$spec' is not a file on $main: /overload:build builds a spec that a task approved and integrated."
+  status="$(git show "HEAD:$spec" | python3 "$OVERLOAD_SCRIPTS/spec.py" status -)"
+  [[ "$status" == approved ]] || die "$spec is not 'status: approved' but '${status:-none}': /overload:task approves a spec."
+  chunks="$(git show "HEAD:$spec" | python3 "$OVERLOAD_SCRIPTS/spec.py" chunks - 2>&1)" || die "$chunks"
+  phase="$(next_chunk_phase "$chunks")"
+  [[ "$phase" != close/check ]] || die "$spec has no chunk left to build."
+fi
+
 git switch --quiet -c "$branch"
 
 copied=()
@@ -111,15 +139,21 @@ mkdir -p "$(dirname "$JOURNAL_FILE")"
   echo
   echo "branch: $branch"
   echo "tier: $tier"
-  echo "phase: $([[ "$tier" == S ]] && echo s/implement || echo l/spec)"
+  echo "command: $command"
+  echo "phase: $phase"
   echo "base: $(git rev-parse --short HEAD)"
   echo "started: $(now)"
   echo "verify_red_streak: 0"
+  [[ -z "$spec" ]] || echo "spec: $spec"
   echo
   echo "## Intent"
   echo
-  # Its headings go below the journal's sections, which the scripts read.
-  sed -E 's/^(#+ )/##\1/' "$intent"
+  if [[ -n "$spec" ]]; then
+    echo "Build the approved spec $spec: its *Why*, *What* and *Decisions* hold the intent."
+  else
+    # Its headings go below the journal's sections, which the scripts read.
+    sed -E 's/^(#+ )/##\1/' "$intent"
+  fi
   echo
   if ((${#copied[@]})); then
     echo "## Inputs"

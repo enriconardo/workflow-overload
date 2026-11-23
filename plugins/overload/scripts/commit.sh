@@ -13,10 +13,12 @@ set -euo pipefail
 #
 # The commit moves the phase, in the journal it commits: from s/implement to
 # close/check when it changes more than the config; from close/check to
-# close/review when its tree is the one verify.sh --integrate checked; from
-# l/checkpoint to the first open chunk's first step when it holds the spec
-# approved; from any step of l/chunk-<n> to the next open chunk's first
-# step, or close/check, when it ticks chunk <n> and no other.
+# close/review when its tree is the one verify.sh --integrate checked, or to
+# close/write on a spec task of docs only (lib.sh's docs_only); from
+# l/checkpoint to close/check when it holds the spec approved with a chunk
+# to build, which ends a spec task; from any step of l/chunk-<n> to the next
+# open chunk's first step, or close/check, when it ticks chunk <n> and no
+# other.
 
 # shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -71,6 +73,7 @@ case "$phase" in
     read -r checked checked_on _ 2>/dev/null <"$(integrated_file)" || checked="" checked_on=""
     if [[ "$checked" == "$verified_tree" && "$checked_on" == "$(current_branch)" ]]; then
       next=close/review
+      ! docs_only "$verified_tree" || next=close/write
     else
       stays="verify.sh --integrate did not check this tree."
     fi
@@ -78,10 +81,12 @@ case "$phase" in
   l/checkpoint)
     spec="$(journal_get spec)"
     if [[ -n "$spec" && -f "$spec" && "$(python3 "$OVERLOAD_SCRIPTS/spec.py" status "$spec")" == approved ]]; then
-      if chunks="$(spec_chunks 2>&1)"; then
-        next="$(next_chunk_phase "$chunks")"
-      else
+      if ! chunks="$(spec_chunks 2>&1)"; then
         stays="$chunks"
+      elif [[ "$(next_chunk_phase "$chunks")" == close/check ]]; then
+        stays="the spec has no chunk left to build."
+      else
+        next=close/check
       fi
     else
       stays="the commit holds no spec with 'status: approved'."

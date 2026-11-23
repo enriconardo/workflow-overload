@@ -53,6 +53,7 @@ test_branch_opens_task_with_journal() {
   expect_eq "$(git branch --show-current)" "docs/readme/describe-project"
   expect_eq "$(bash "$SCRIPTS/journal.sh" get tier)" "S"
   expect_eq "$(bash "$SCRIPTS/journal.sh" get phase)" "s/implement"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get command)" "task"
   # base is a short sha, which may be all digits
   expect_eq "$(sed -n '/^## /q; /^base:/d; /^[a-z_]*: [0-9]*$/p' .workflow/journal.md)" "verify_red_streak: 0" "the only counter"
   grep -q "Goal: say what the project does." .workflow/journal.md || fail "intent missing from the journal"
@@ -587,6 +588,11 @@ test_session_start_speaks_only_inside_a_task() {
   expect_eq "$(session_start resume)" "" "a resumed session holds the task"
 }
 
+test_session_start_names_the_command_a_build_waits_for() {
+  open_build_task
+  [[ "$(session_start startup)" == *"continues only when the user types /overload:build"* ]] || fail "$(session_start startup)"
+}
+
 test_status_reports_config_journal_and_verify() {
   out="$(OVERLOAD_RUN_TESTS="pytest {files}" bash "$SCRIPTS/status.sh")"
   [[ "$out" == *"journal: none"* ]] || fail "$out"
@@ -765,4 +771,124 @@ test_verify_integrate_leaves_a_merge_under_way_in_the_check() {
   [[ "$out" == *"verify: green"* && "$out" != *"phase"* ]] || fail "a merge under way moved: $out"
   out="$(bash "$SCRIPTS/commit.sh" "$(message "Merge branch 'main'")")"
   [[ "$out" == *"phase: close/review"* ]] || fail "$out"
+}
+
+test_branch_opens_a_build_from_an_approved_spec_on_main() {
+  approved_spec_on_main "- [x] 1. Greet (test-first): a.ts" "- [ ] 2. Wire (no test-first): b.ts"
+  out="$(bash "$SCRIPTS/branch.sh" --build feature/greet/build .workflow/specs/s.md)"
+  [[ "$out" == *"On 'feature/greet/build'"* ]] || fail "$out"
+  expect_eq "$(git branch --show-current)" feature/greet/build
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get command)" build
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get tier)" L
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get spec)" .workflow/specs/s.md
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get phase)" l/chunk-2/implement
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get base)" "$(git rev-parse --short main)"
+  grep -q "^Build the approved spec .workflow/specs/s.md" .workflow/journal.md || fail "no intent: $(cat .workflow/journal.md)"
+}
+
+test_branch_refuses_a_build_of_a_spec_not_ready() {
+  expect_fail "Usage" bash "$SCRIPTS/branch.sh" --build feature/greet/build
+  expect_fail "not a file on main" bash "$SCRIPTS/branch.sh" --build feature/greet/build .workflow/specs/s.md
+  approved_spec_on_main "- [x] 1. Greet (test-first): a.ts"
+  expect_fail "no chunk left to build" bash "$SCRIPTS/branch.sh" --build feature/greet/build .workflow/specs/s.md
+  sed -i.bak 's/^- \[x\] 1/- [ ] 1/; s/^status: approved/status: draft/' .workflow/specs/s.md && rm .workflow/specs/s.md.bak
+  git commit -qam "docs(greet): draft again"
+  expect_fail "is not 'status: approved'" bash "$SCRIPTS/branch.sh" --build feature/greet/build .workflow/specs/s.md
+  sed -i.bak 's/^status: draft/status: approved/; s/ (test-first)//' .workflow/specs/s.md && rm .workflow/specs/s.md.bak
+  git commit -qam "docs(greet): no type"
+  expect_fail "chunk 1 has no type" bash "$SCRIPTS/branch.sh" --build feature/greet/build .workflow/specs/s.md
+  expect_eq "$(git branch --show-current)" main
+}
+
+# A spec task of docs only: the spec, its inputs, a decision record it adds
+# to a folder of `rules`, the backlog.
+docs_spec_task() {
+  slow_check
+  mkdir -p docs/adr
+  echo "# 0000 template" >docs/adr/0000-template.md
+  set_config rules 'CLAUDE.md, docs/adr/'
+  git add -A && git commit -qm "chore(repo): decision records"
+  open_l_task
+  write_spec draft "- [ ] 1. Greet (test-first): a.ts"
+  echo "# 0001 greet" >docs/adr/0001-greet.md
+  echo "- an item" >>.workflow/backlog.md
+  bash "$SCRIPTS/journal.sh" set phase l/checkpoint
+  sed -i.bak 's/^status: draft/status: approved/' .workflow/specs/s.md && rm .workflow/specs/s.md.bak
+  bash "$SCRIPTS/verify.sh" >/dev/null
+}
+
+test_commit_closes_a_spec_task_once_its_spec_is_approved() {
+  docs_spec_task
+  out="$(bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): spec')")"
+  [[ "$out" == *"phase: close/check"* ]] || fail "$out"
+}
+
+test_verify_integrate_closes_a_spec_task_of_docs_only_without_check_integrate() {
+  docs_spec_task
+  bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): spec')" >/dev/null
+  # ignored, so that it is no change of the task
+  echo slow-red >>.git/info/exclude
+  touch slow-red
+  out="$(bash "$SCRIPTS/verify.sh" --integrate)"
+  [[ "$out" == *"verify: green"*"docs only"*"phase: close/write"* && "$out" != *"slow tests"* ]] || fail "$out"
+  bash "$SCRIPTS/journal.sh" set phase close/integrate
+  out="$(bash "$SCRIPTS/integrate.sh")"
+  [[ "$out" == *"integrated"* ]] || fail "$out"
+}
+
+test_a_spec_task_that_changes_more_than_docs_has_the_whole_close() {
+  docs_spec_task
+  echo "# more rules" >>CLAUDE.md
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): spec')" >/dev/null
+  out="$(bash "$SCRIPTS/verify.sh" --integrate)"
+  [[ "$out" == *"slow tests"* || "$out" == *"check_integrate"* ]] || fail "check_integrate skipped: $out"
+  [[ "$out" == *"phase: close/review"* && "$out" != *"docs only"* ]] || fail "$out"
+  # an S task changes the backlog alone, and keeps its whole close
+  bash "$SCRIPTS/journal.sh" set phase close/check
+  git switch -q main
+  git branch -q -D feature/greet/default-name
+  open_task
+  echo "- other" >>.workflow/backlog.md
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message 'docs(backlog): more')" >/dev/null
+  out="$(bash "$SCRIPTS/verify.sh" --integrate)"
+  [[ "$out" == *"phase: close/review"* ]] || fail "$out"
+}
+
+test_a_decision_record_changed_rather_than_added_is_no_doc_of_the_spec() {
+  docs_spec_task
+  echo "superseded" >>docs/adr/0000-template.md
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): spec')" >/dev/null
+  out="$(bash "$SCRIPTS/verify.sh" --integrate)"
+  [[ "$out" == *"phase: close/review"* ]] || fail "$out"
+}
+
+test_commit_of_a_sync_moves_a_spec_task_of_docs_only_to_the_write() {
+  docs_spec_task
+  bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): spec')" >/dev/null
+  git switch -q main
+  echo other >other.txt
+  git add -A && git commit -qm "chore(repo): move main"
+  git switch -q feature/greet/default-name
+  bash "$SCRIPTS/sync.sh" >/dev/null
+  bash "$SCRIPTS/verify.sh" --integrate >/dev/null
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get phase)" close/check "a merge under way moved"
+  out="$(bash "$SCRIPTS/commit.sh" "$(message "Merge branch 'main'")")"
+  [[ "$out" == *"phase: close/write"* ]] || fail "$out"
+}
+
+test_every_skill_allows_the_scripts_its_phases_run() {
+  local plugin="$SCRIPTS/.." skill dir name allowed
+  local -a missing=()
+  for skill in "$plugin"/skills/*/SKILL.md; do
+    dir="${skill%/SKILL.md}"
+    allowed="$(sed -n '2,/^---$/p' "$skill" | grep '^allowed-tools:' || true)"
+    # integrate.sh asks the human each time, on purpose
+    while read -r name; do
+      [[ "$name" == integrate.sh || "$allowed" == *"scripts/$name"* ]] || missing+=("${dir##*/}: $name")
+    done < <(cat "$skill" "$dir"/phases/*.md 2>/dev/null | grep -oE '(<scripts>|scripts)/[a-z-]+\.sh' | sed 's|.*/||' | sort -u)
+  done
+  ((${#missing[@]} == 0)) || fail "run, but not allowed: ${missing[*]}"
 }

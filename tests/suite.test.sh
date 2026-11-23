@@ -563,15 +563,13 @@ test_integrate_clears_the_suite() {
   [[ -z "$(git for-each-ref refs/overload/suite refs/overload/base)" ]] || fail "suite refs left"
 }
 
-test_integrate_refuses_an_l_spec_not_done() {
-  open_l_task
-  mkdir -p .workflow/specs
-  printf -- '---\nstatus: approved\n---\n\n## Chunks\n\n- [x] 1. first\n- [ ] 2. second\n' >.workflow/specs/s.md
-  bash "$SCRIPTS/journal.sh" set spec .workflow/specs/s.md
+test_integrate_wants_a_built_spec_done_and_ticked() {
+  open_build_task "- [x] 1. First (no test-first): a" "- [ ] 2. Second (no test-first): b"
+  echo b >b
   bash "$SCRIPTS/verify.sh" >/dev/null
-  bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): spec')" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message 'feat(greet): b')" >/dev/null
   expect_fail "chunks not ticked" bash "$SCRIPTS/integrate.sh"
-  sed -i.bak 's/^- \[ \] 2/- [x] 2/' .workflow/specs/s.md && rm .workflow/specs/s.md.bak
+  tick 2
   bash "$SCRIPTS/verify.sh" >/dev/null
   bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): tick')" >/dev/null
   expect_fail "is not 'status: done'" bash "$SCRIPTS/integrate.sh"
@@ -581,40 +579,48 @@ test_integrate_refuses_an_l_spec_not_done() {
   bash "$SCRIPTS/integrate.sh" >/dev/null
 }
 
-# write_spec <status> <chunk line>...: the journal's spec.
-write_spec() {
-  mkdir -p .workflow/specs
-  {
-    printf -- '---\nstatus: %s\n---\n\n# Greet\n\n## Chunks\n' "$1"
-    printf '%s\n' "${@:2}"
-  } >.workflow/specs/s.md
-  bash "$SCRIPTS/journal.sh" set spec .workflow/specs/s.md
-}
-
-tick() {
-  local n
-  for n in "$@"; do
-    sed -i.bak "s/^- \[ \] $n\./- [x] $n./" .workflow/specs/s.md
-  done
-  rm -f .workflow/specs/s.md.bak
+test_integrate_wants_a_spec_task_s_spec_approved_with_chunks_to_build() {
+  open_l_task
+  write_spec draft "- [ ] 1. First (no test-first): a"
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): draft')" >/dev/null
+  expect_fail "is not 'status: approved'" bash "$SCRIPTS/integrate.sh"
+  sed -i.bak 's/^status: draft/status: approved/' .workflow/specs/s.md && rm .workflow/specs/s.md.bak
+  tick 1
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): ticked')" >/dev/null
+  expect_fail "no chunk left to build" bash "$SCRIPTS/integrate.sh"
+  sed -i.bak 's/^- \[x\] 1/- [ ] 1/' .workflow/specs/s.md && rm .workflow/specs/s.md.bak
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): spec')" >/dev/null
+  out="$(bash "$SCRIPTS/integrate.sh")"
+  [[ "$out" == *"integrated"* ]] || fail "$out"
 }
 
 phase() {
   bash "$SCRIPTS/journal.sh" get phase
 }
 
-test_the_scripts_move_an_l_task_through_its_chunks() {
-  fake_runner
+test_commit_moves_a_spec_task_to_the_close_only_with_its_spec_approved() {
   open_l_task
-  write_spec draft "- [ ] 1. Greet (test-first): a.ts; cases: 1" "- [ ] 2. Wire (no test-first): b.ts"
+  write_spec draft "- [ ] 1. Greet (test-first): a.ts"
   bash "$SCRIPTS/journal.sh" set phase l/checkpoint
   bash "$SCRIPTS/verify.sh" >/dev/null
   out="$(bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): draft spec')")"
-  [[ "$out" == *"phase stays l/checkpoint"* ]] || fail "a draft spec moved: $out"
-  sed -i.bak 's/^status: draft/status: approved/' .workflow/specs/s.md && rm .workflow/specs/s.md.bak
+  [[ "$out" == *"phase stays l/checkpoint: the commit holds no spec with 'status: approved'"* ]] || fail "a draft spec moved: $out"
+  write_spec approved "- [x] 1. Greet (test-first): a.ts"
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  out="$(bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): ticked spec')")"
+  [[ "$out" == *"phase stays l/checkpoint: the spec has no chunk left to build"* ]] || fail "$out"
+  write_spec approved "- [ ] 1. Greet (test-first): a.ts"
   bash "$SCRIPTS/verify.sh" >/dev/null
   out="$(bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): spec')")"
-  [[ "$out" == *"phase: l/chunk-1/test"* ]] || fail "$out"
+  [[ "$out" == *"phase: close/check"* ]] || fail "$out"
+}
+
+test_the_scripts_move_a_build_through_its_chunks() {
+  fake_runner
+  open_build_task "- [ ] 1. Greet (test-first): a.ts; cases: 1" "- [ ] 2. Wire (no test-first): b.ts"
   expect_eq "$(phase)" l/chunk-1/test
   write_test a.test.ts "case a typeerror"
   bash "$SCRIPTS/suite.sh" record >/dev/null

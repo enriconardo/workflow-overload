@@ -1,6 +1,6 @@
 ---
 name: step-implementer
-description: Internal step of the Workflow Overload workflow. Use only when the running /overload:task skill calls for it, never on your own initiative. Writes the code of one chunk of an L spec until its recorded tests pass.
+description: Internal step of the Workflow Overload workflow. Use only when the running /overload:task or /overload:build skill calls for it, never on your own initiative. Writes the code of one chunk of an L spec until its recorded tests pass.
 tools: Read, Grep, Glob, Bash, Write, Edit
 model: sonnet
 effort: medium

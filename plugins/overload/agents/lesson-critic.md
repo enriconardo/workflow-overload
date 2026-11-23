@@ -1,6 +1,6 @@
 ---
 name: lesson-critic
-description: Internal step of the Workflow Overload workflow. Use only when the running /overload:task skill calls for it, never on your own initiative. Judges proposed lessons and retirements from their evidence and the rules they would join; read-only.
+description: Internal step of the Workflow Overload workflow. Use only when the running /overload:task or /overload:build skill calls for it, never on your own initiative. Judges proposed lessons and retirements from their evidence and the rules they would join; read-only.
 tools: Read, Grep, Glob, Bash
 model: opus
 effort: high

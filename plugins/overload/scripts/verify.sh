@@ -18,7 +18,8 @@ set -euo pipefail
 # --integrate runs the config's `check_integrate` too, after a green check:
 # the slow but local tests, once per task before the final review and again
 # after a sync with main. Green, it records the branch and main's commit for
-# integrate.sh.
+# integrate.sh. A spec task of docs only (lib.sh's docs_only) runs `check`
+# alone: the slow tests have nothing of it to test.
 #
 # The full output goes to a file; the terminal gets its last lines on red
 # (80 by default) and a single line on green, so that the caller needs no
@@ -29,7 +30,9 @@ set -euo pipefail
 # On a task's branch, a green run moves the phase (lib.sh's phase_to): from
 # l/chunk-<n>/implement or /verify, or /test on a chunk of tests only, to
 # /review or /commit; with --integrate, from close/check to close/review
-# when the tree is HEAD's and no merge is under way.
+# when the tree is HEAD's and no merge is under way, or to close/write on a
+# spec task of docs only, whose lessons and backlog went to the spec's
+# checkpoint and which has no final review.
 
 # shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -69,8 +72,15 @@ fi
 # What ran, for the last line, and what did not, said once.
 ran=()
 notes=""
+docs=0
+((integrate && task)) && docs_only "$tree" && docs=1
 [[ -n "$command" ]] || notes+="; the config has no 'check' command, nothing checked"
-((integrate)) && [[ -z "$slow" ]] && notes+="; the config has no 'check_integrate', nothing more to run"
+if ((docs)); then
+  notes+="; docs only (the spec, its inputs and decision records, the backlog): no check_integrate, no final review"
+  slow=""
+elif ((integrate)) && [[ -z "$slow" ]]; then
+  notes+="; the config has no 'check_integrate', nothing more to run"
+fi
 
 # The phase after a green run: an L chunk's implementation (or its tests,
 # on a chunk of tests only) goes to the step review when the spec has more
@@ -83,7 +93,7 @@ green_phase() {
   phase="$(journal_get phase)"
   if [[ "$phase" == close/check ]]; then
     if ((integrate)) && [[ "$tree" == "$(commit_tree_hash HEAD)" && ! -f "$(git rev-parse --git-path MERGE_HEAD)" ]]; then
-      phase_to close/review
+      if ((docs)); then phase_to close/write; else phase_to close/review; fi
     fi
     return 0
   fi

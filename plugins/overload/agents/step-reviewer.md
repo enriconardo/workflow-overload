@@ -1,6 +1,6 @@
 ---
 name: step-reviewer
-description: Internal step of the Workflow Overload workflow. Use only when the running /overload:task skill calls for it, never on your own initiative. Reviews one chunk's uncommitted code and tests against the spec; read-only.
+description: Internal step of the Workflow Overload workflow. Use only when the running /overload:task or /overload:build skill calls for it, never on your own initiative. Reviews one chunk's uncommitted code and tests against the spec; read-only.
 tools: Read, Grep, Glob, Bash
 model: opus
 effort: high

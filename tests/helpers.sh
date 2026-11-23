@@ -117,3 +117,37 @@ refusing_hook() {
   chmod +x "$WORK/hooks/$1"
   git config core.hooksPath "$WORK/hooks"
 }
+
+# approved_spec_on_main [<chunk line>...]: an approved spec, .workflow/specs/s.md,
+# committed on main, as a spec task leaves it for /overload:build.
+approved_spec_on_main() {
+  mkdir -p .workflow/specs
+  {
+    printf -- '---\nstatus: approved\n---\n\n# Greet\n\n## Chunks\n'
+    if (($#)); then printf '%s\n' "$@"; else echo "- [ ] 1. Greet (test-first): a.ts"; fi
+  } >.workflow/specs/s.md
+  git add -A && git commit -qm "docs(greet): spec"
+}
+
+open_build_task() {
+  approved_spec_on_main "$@"
+  bash "$SCRIPTS/branch.sh" --build feature/greet/build .workflow/specs/s.md >/dev/null
+}
+
+# write_spec <status> <chunk line>...: the journal's spec.
+write_spec() {
+  mkdir -p .workflow/specs
+  {
+    printf -- '---\nstatus: %s\n---\n\n# Greet\n\n## Chunks\n' "$1"
+    printf '%s\n' "${@:2}"
+  } >.workflow/specs/s.md
+  bash "$SCRIPTS/journal.sh" set spec .workflow/specs/s.md
+}
+
+tick() {
+  local n
+  for n in "$@"; do
+    sed -i.bak "s/^- \[ \] $n\./- [x] $n./" .workflow/specs/s.md
+  done
+  rm -f .workflow/specs/s.md.bak
+}

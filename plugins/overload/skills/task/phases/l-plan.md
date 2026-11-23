@@ -1,6 +1,6 @@
-# L path: planning
+# L path: the spec
 
-Produces a reviewed spec, split into chunks, that the human approves before any production code.
+Produces a reviewed spec, split into chunks, that the human approves before any production code. The task ends there, with the spec on main; `/overload:build` builds it, from main, in a session of its own. The spec is all that session gets: the journal stays on this branch, and goes with its merge.
 
 ## 1. Spec — phase `l/spec`
 
@@ -11,6 +11,7 @@ You write it, because you hold the discussion with the human: an agent given a s
 status: draft
 branch: <branch>
 inputs: <the inputs' paths, or none>
+depends_on: <the files the spec rests on, comma-separated>
 ---
 
 # <What changes, in a line>
@@ -22,7 +23,7 @@ The problem, and how it was seen: a commit, a finding, a failing test, a measure
 The behavior after the change, for a caller: signatures, errors, defaults, what is out of scope.
 
 ## Decisions
-Each decision, the alternatives weighed (doing nothing included) and why this one.
+Each decision, the alternatives weighed (doing nothing included) and why this one. A decision of the human is marked as theirs, with their words.
 
 ## Test cases
 The cases that prove the behavior, each one line: input, expected result.
@@ -34,7 +35,11 @@ The files that describe this behavior and change with it (a README, API docs, a 
 - [ ] 1. <title> (test-first | no test-first | tests only): the files, the test cases it covers[; signatures: the existing declarations whose signature changes][; dependencies: the packages it adds][; inputs: those its code must match as they are]
 ```
 
-A decision that outlives the task also gets a decision record, in a folder of the config's `rules` that already holds decision records. With no such folder, write none and create none: the human hears it at checkpoint 1, with `/overload:setup`, which proposes one.
+**What the build needs from the journal** goes in the spec before each spec review round, so that the reviewer judges it too: the human's decisions and rulings that bear on the code, in *Decisions*, marked as theirs with their words; a ruling on one chunk, in that chunk's line.
+
+`depends_on` names the files the chunks name and those of the explorer's map, so that a build can tell whether main changed them since the approval. Write it with the chunks (4, 5).
+
+A decision that outlives the task also gets a decision record, in a folder of the config's `rules` that already holds decision records. With no such folder, write none and create none: the human hears it at the checkpoint (7), with `/overload:setup`, which proposes one.
 
 **Chunk types.** Test-first: a new or changed behavior of the public API, domain logic, a bug, whose tests fail at runtime against its stubs. Tests only: tests with their fixtures and helpers, no other file, for behavior already there. No test-first: a refactor (the existing tests stay green unchanged), wiring (tested afterwards by the implementer), docs, config, a chunk whose code is only declarations (types, interfaces: its stub is its code, and its tests fail only in the type checker).
 
@@ -44,28 +49,28 @@ Versions, APIs, a dependency's behavior. Run the `overload:prober` agent with th
 
 ## 3. Spec review — phase `l/spec-review`
 
-Run the `overload:spec-reviewer` agent with the spec's path, the map's path (the journal's `map`), the inputs' paths, and the config's `rules`. Never a summary of the discussion. Log the round: `journal.sh log "spec review round <n>: <k> blocking"`.
+Run the `overload:spec-reviewer` agent with the spec's path, the map's path (the journal's `map`), the inputs' paths, the decision records the spec writes, and the config's `rules`. Never a summary of the discussion. Log the round: `journal.sh log "spec review round <n>: <k> blocking"`.
 
 For each objection: accept it and fix the spec, or reject it with a reason, which goes under *Open findings*. A new question about external facts goes back to 2; a question only the human can answer goes to them now. The loop ends when the reviewer's last round raises no blocking objection you accept. A minor one you fix, or reject, without another round; an accepted blocking one fixes the spec and calls for another round. At most three rounds, then `shared/escalate.md`; past the third, every round ends there again while a blocking objection stays open.
 
 ## 4. Threshold
 
-A chunk stays under about 6–7 files touched or 10–15 test cases, so that its implementer works with all of it in context. Estimate from the spec and the map. One chunk: skip 5.
+A chunk stays under about 6–7 files touched or 10–15 test cases, so that its implementer works with all of it in context. Estimate from the spec and the map. One chunk: skip 5, and write its line and `depends_on` yourself.
 
 ## 5. Split — phase `l/split`
 
-Run the `overload:spec-splitter` agent with the spec's path and the map's path (the journal's `map`). It returns the fewest chunks, each able to leave the repository green alone, each with its type. Write them in the spec's *Chunks*.
+Run the `overload:spec-splitter` agent with the spec's path and the map's path (the journal's `map`). It returns the fewest chunks, each able to leave the repository green alone, each with its type. Write them in the spec's *Chunks*, and `depends_on`.
 
-## 6. Summary and checkpoint 1 — phase `l/checkpoint`
+## 6. Lessons — phase `l/lessons`
 
-One message to the human: what changes according to the spec, how it splits into chunks and their types, the decision record if any, and a decision left without one because `rules` holds no folder of them (`/overload:setup` proposes one), the facts the prober checked, the spec reviewer's objections still open and those you rejected, each with its title and reason, the risks and the questions. Then stop and wait.
+As `shared/close.md` step 3 says, on this task's planning: the spec's checkpoint is the task's only one, and the lessons go to it.
 
-The human approves, or sends the spec back for corrections (to 1, then 3), or the requirements back to the brainstorming. Log their words.
+## 7. Summary and checkpoint — phase `l/checkpoint`
 
-## 7. Commit the spec
+One message to the human, the task's only checkpoint: what changes according to the spec, how it splits into chunks and their types, the decision record if any, and a decision left without one because `rules` holds no folder of them (`/overload:setup` proposes one), the facts the prober checked, the spec reviewer's objections still open and those you rejected, each with its title and reason, the risks and the questions; then, as `shared/close.md` step 4 says, the backlog candidates, the lessons the critic kept, and the defects of the workflow. Then stop and wait.
 
-Set `status: approved`, then verify and commit the spec and the decision record, so that an interrupted session resumes from them. The commit moves the phase to chunk 1's first step (`phases/l-chunk.md`).
+The human approves the spec and picks the lessons and backlog items to keep, or sends the spec back for corrections (to 1, then 3), or the requirements back to the brainstorming. Log their words.
 
-## 8. Restart, recommended
+## 8. Commit the spec
 
-Tell the human, in one line, that this is the moment for `/clear` and then `/overload:task`: the next session resumes from the journal and the spec, with a few thousand tokens of context instead of the whole brainstorming. Every call of this session rereads its whole context; the agents start from their own. The chunks and the close make most of a task's calls: on a large task, a fresh session saves about a sixth of its cost. Wait for them, or go on if they say so: then read `phases/l-chunk.md`.
+Set `status: approved`, then verify and commit the spec, its decision record and its inputs. The commit moves the phase to `close/check`: go on with `shared/close.md` from 1. On a task of docs only, its verify moves the phase on to the writing of the lessons and backlog items the human picked, with no final review; a task that holds more, such as the commits of an S turned L, has the whole close.

@@ -1,6 +1,6 @@
 ---
 name: step-test-author
-description: Internal step of the Workflow Overload workflow. Use only when the running /overload:task skill calls for it, never on your own initiative. Writes a chunk's tests from the spec, before the code, without reading the code under change.
+description: Internal step of the Workflow Overload workflow. Use only when the running /overload:task or /overload:build skill calls for it, never on your own initiative. Writes a chunk's tests from the spec, before the code, without reading the code under change.
 tools: Read, Grep, Glob, Bash, Write, Edit
 model: opus
 effort: high

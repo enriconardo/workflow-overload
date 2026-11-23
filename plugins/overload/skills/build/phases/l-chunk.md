@@ -1,4 +1,4 @@
-# L path: chunks
+# Chunks
 
 Each chunk goes through agents that did not write the spec, and scripts, and ends in a green commit. The chunk to work is the first one the spec does not tick; its phase is `l/chunk-<n>/<step>`.
 
@@ -12,7 +12,7 @@ The test-author cannot stub a declaration that already exists (a changed constru
 
 ### 1. Tests — `l/chunk-<n>/test`, test-first chunks and chunks of tests only
 
-Run the `overload:step-test-author` agent with the spec's path, the chunk's number, the config's `rules`, `tests_glob` and `integrate_tests_glob`, and the scripts' folder. It writes the chunk's tests before any code, and stubs only for the new interfaces the spec declares, and records the suite with `suite.sh record`. It never reads the source the chunk changes. When it reports a module the tests need and the project lacks, add it to the chunk line's `dependencies` and go back to 0. When it reports that every case of the chunk is at the type level, the chunk has no red: change its type to `no test-first` in the spec, log it, set the phase to `l/chunk-<n>/implement`, and go to 3. On a chunk of tests only, go to 4. A chunk whose tests all run outside `check` (end-to-end, through `run_integrate_tests`) stays test-first: the red check and verify run them through their own command. Never retype it for that.
+Run the `overload:step-test-author` agent with the spec's path, the chunk's number, the config's `rules`, `tests_glob` and `integrate_tests_glob`, and the scripts' folder. It writes the chunk's tests before any code, and stubs only for the new interfaces the spec declares, and records the suite with `suite.sh record`. It never reads the source the chunk changes. When it reports a module the tests need and the project lacks, add it to the chunk line's `dependencies`, a correction of the spec (*A spec correction*), and go back to 0. When it reports that every case of the chunk is at the type level, the chunk has no red: change its type to `no test-first`, a correction of the spec, then set the phase to `l/chunk-<n>/implement` and go to 3. On a chunk of tests only, go to 4. A chunk whose tests all run outside `check` (end-to-end, through `run_integrate_tests`) stays test-first: the red check and verify run them through their own command. Never retype it for that.
 
 ### 2. Red check — `l/chunk-<n>/red`, test-first chunks only
 
@@ -51,4 +51,13 @@ A test "in the way" is how a test most often gets loosened to let code pass, so 
 
 - the spec agrees with the test: back to the implementer;
 - the spec disagrees: back to the test-author, who fixes it, records the suite again, and the red check runs again;
-- the spec is ambiguous or silent: the human decides, since it is a decision on the spec. Note it under *Open findings* and ask.
+- the spec is ambiguous or silent: the human decides, since it is a decision on the spec. Note it under *Open findings* and ask; their ruling is a correction of the spec.
+
+## A spec correction
+
+The spec is what the human approved: you change it to tick a chunk and, at the close, to set its status, and otherwise only through a correction. A correction is any other change: a chunk's type or `dependencies`, a ruling on a case the spec left open, a chunk added at the checkpoint. Stop the chunk where it is, and:
+
+1. Write the correction in the spec, and its reason in *Decisions*, a ruling of the human marked as theirs, with their words.
+2. Run the `overload:code-explorer` agent with the correction, the spec's path, its inputs and the config's `rules`; keep its map (`journal.sh keep map <path>`): the map of the spec's task went with its merge.
+3. Run the `overload:spec-reviewer` agent with the spec's path, the command that shows the correction (`git diff HEAD -- <spec>`), the map's path (the journal's `map`), the spec's inputs, its decision records, and the config's `rules`. For each objection: fix the spec, or reject it with a reason under *Open findings*. An accepted blocking one calls for another round; at most three, then `shared/escalate.md`.
+4. Tell the human the correction and the reviewer's verdict in a few lines, then stop and wait. Log their words. On their go, the chunk goes on from the step the correction sends it to; the correction is committed with the chunk.

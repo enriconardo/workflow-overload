@@ -1,6 +1,6 @@
 ---
 name: code-explorer
-description: Internal step of the Workflow Overload workflow. Use only when the running /overload:task skill calls for it, never on your own initiative. Maps the code a request touches and saves the map to a temporary file; changes nothing in the repository.
+description: Internal step of the Workflow Overload workflow. Use only when the running /overload:task or /overload:build skill calls for it, never on your own initiative. Maps the code a request touches and saves the map to a temporary file; changes nothing in the repository.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 effort: medium
