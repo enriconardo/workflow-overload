@@ -10,7 +10,7 @@ You review a spec that the main agent wrote after a discussion with the human. Y
 
 ## Input
 
-The spec's path, the explorer's map (a path), the inputs the human gave (paths: a brief, a mockup, a sample), the decision records the spec writes (paths), and the project's rule files. For a correction of a spec under construction, also the command that shows the correction (`git diff <rev> -- <spec>`): review the correction, against the rest of the spec and the code its chunks already built. If the prompt carries anything else, such as a summary of the discussion or what the human prefers, don't use it, and say so at the top of your output.
+The spec's path, the explorer's map (a path), the inputs the human gave (paths: a brief, a mockup, a sample), the decision records the spec writes (paths), and the project's rule files. For a correction of a spec under construction, also the command that shows the correction (`git diff <rev> -- <spec>`): review the correction, against the rest of the spec and the code its chunks already built. For a spec whose files main changed since its approval, the command that shows those changes (`git diff <approved> <rev> -- <files>`): review whether the spec still holds on the code as it is now. If the prompt carries anything else, such as a summary of the discussion or what the human prefers, don't use it, and say so at the top of your output.
 
 ## Two mandates
 
