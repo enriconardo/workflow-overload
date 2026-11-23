@@ -4,7 +4,7 @@ set -euo pipefail
 # Opens a task after the triage: checks the name, creates the branch from an
 # up-to-date main, and writes the journal with the tier and the intent.
 #
-#   branch.sh <tier> <name> <intent-file> [--inputs <slug> <file>...]
+#   branch.sh <tier> <name> <intent-file> [--map <file>] [--inputs <slug> <file>...]
 #
 # <tier> is S or L; <name> is the branch's whole name, which the model writes
 # following the project's rules: no part of it is read, so only git and the
@@ -14,7 +14,8 @@ set -euo pipefail
 # copied into .workflow/inputs/<slug>/, which the journal's *Inputs* lists:
 # the first commit takes them to the branch, and the merge to main, where a
 # later session finds them. <slug> is the name of the spec that will use
-# them, or the task's.
+# them, or the task's. The explorer's map, when it ran, is kept for the
+# sessions to come, as `journal.sh keep map` does.
 
 # shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -22,21 +23,28 @@ in_project
 require_config
 
 usage() {
-  echo "Usage: branch.sh <S|L> <name> <intent-file> [--inputs <slug> <file>...]" >&2
+  echo "Usage: branch.sh <S|L> <name> <intent-file> [--map <file>] [--inputs <slug> <file>...]" >&2
   exit 2
 }
-(($# == 3 || $# >= 6)) || usage
+(($# >= 3)) || usage
 tier="$1" branch="$2" intent="$3"
-slug="" inputs=()
-if (($# > 3)); then
-  [[ "$4" == --inputs ]] || usage
-  slug="$5"
-  inputs=("${@:6}")
+shift 3
+map="" slug="" inputs=()
+if [[ "${1:-}" == --map ]]; then
+  (($# >= 2)) || usage
+  map="$2"
+  shift 2
+fi
+if (($#)); then
+  [[ "$1" == --inputs && $# -ge 3 ]] || usage
+  slug="$2"
+  inputs=("${@:3}")
 fi
 INPUTS_DIR=".workflow/inputs"
 
 [[ "$tier" == S || "$tier" == L ]] || die "the tier is S or L, not '$tier'."
 [[ -s "$intent" ]] || die "the intent file '$intent' is missing or empty."
+[[ -z "$map" || -f "$map" ]] || die "the map '$map' is not a file."
 if [[ -n "$slug" ]]; then
   [[ "$slug" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || die "'$slug' is not a folder name for the inputs: letters, digits, '.', '_' and '-'."
   declare -A seen=()
@@ -129,5 +137,7 @@ mkdir -p "$(dirname "$JOURNAL_FILE")"
   echo
   echo "- $(now) opened on $(git rev-parse --short HEAD) of $main"
 } >"$JOURNAL_FILE"
+
+[[ -z "$map" ]] || bash "$OVERLOAD_SCRIPTS/journal.sh" keep map "$map" >/dev/null
 
 echo "On '$branch', tier $tier; the journal is $JOURNAL_FILE."

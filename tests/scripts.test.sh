@@ -183,6 +183,19 @@ test_journal_keeps_a_file_where_a_later_session_finds_it() {
   [[ ! -e "$kept" ]] || fail "kept after the merge"
 }
 
+test_branch_keeps_the_explorer_s_map() {
+  printf 'map of the code\n' >"$WORK/map.md"
+  printf 'The brief.\n' >"$WORK/brief.md"
+  expect_fail "not a file" bash "$SCRIPTS/branch.sh" L feature/greet/x "$(intent)" --map "$WORK/none.md"
+  expect_fail "Usage" bash "$SCRIPTS/branch.sh" L feature/greet/x "$(intent)" --map
+  expect_eq "$(git branch --show-current)" "main" "no branch for a refused map"
+  bash "$SCRIPTS/branch.sh" L feature/greet/x "$(intent)" --map "$WORK/map.md" --inputs greet "$WORK/brief.md" >/dev/null
+  kept="$(git rev-parse --git-path overload)/kept/feature/greet/x/map.md"
+  expect_eq "$(cat "$kept")" "map of the code"
+  grep -q "^- .* map: $kept$" .workflow/journal.md || fail "not logged: $(cat .workflow/journal.md)"
+  [[ -f .workflow/inputs/greet/brief.md ]] || fail "inputs lost"
+}
+
 test_branch_keeps_the_intent_inside_its_section() {
   printf '## Problem\nThe README is short.\n# Goal\nSay more.\n' >"$WORK/headed.md"
   bash "$SCRIPTS/branch.sh" S docs/readme/describe-project "$WORK/headed.md" >/dev/null
