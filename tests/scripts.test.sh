@@ -172,7 +172,10 @@ test_journal_keeps_a_file_where_a_later_session_finds_it() {
   printf 'map of the other\n' >"$WORK/map.md"
   bash "$SCRIPTS/journal.sh" keep map "$WORK/map.md" >/dev/null
   expect_eq "$(cat "$kept")" "map of the code" "the first task's map"
-  verified_commit "Other."
+  # another file, so that the first task's sync takes main in without a conflict
+  echo "Other." >OTHER.md
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message "docs(other): Other.")" >/dev/null
   bash "$SCRIPTS/integrate.sh" >/dev/null
   [[ -f "$kept" ]] || fail "the merge of the other task removed the first task's files"
   [[ ! -e "$(git rev-parse --git-path overload)/kept/docs/readme/other" ]] || fail "kept after the merge"
