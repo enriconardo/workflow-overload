@@ -46,7 +46,7 @@ Versions, APIs, a dependency's behavior. Run the `overload:prober` agent with th
 
 Run the `overload:spec-reviewer` agent with the spec's path, the map's path (the journal's `map`), the inputs' paths, and the config's `rules`. Never a summary of the discussion. Log the round: `journal.sh log "spec review round <n>: <k> blocking"`.
 
-For each objection: accept it and fix the spec, or reject it with a reason, which goes under *Open findings*. A new question about external facts goes back to 2; a question only the human can answer goes to them now. The loop ends when the reviewer's last round raises no blocking objection you accept. A minor one you fix, or reject, without another round; an accepted blocking one fixes the spec and calls for another round. At most three rounds, then `phases/escalate.md`; past the third, every round ends there again while a blocking objection stays open.
+For each objection: accept it and fix the spec, or reject it with a reason, which goes under *Open findings*. A new question about external facts goes back to 2; a question only the human can answer goes to them now. The loop ends when the reviewer's last round raises no blocking objection you accept. A minor one you fix, or reject, without another round; an accepted blocking one fixes the spec and calls for another round. At most three rounds, then `shared/escalate.md`; past the third, every round ends there again while a blocking objection stays open.
 
 ## 4. Threshold
 

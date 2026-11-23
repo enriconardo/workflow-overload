@@ -660,6 +660,28 @@ test_every_skill_runs_only_when_the_user_types_it() {
   ((${#open[@]} == 0)) || fail "the model could load: ${open[*]}"
 }
 
+test_every_phase_a_skill_or_a_phase_names_exists() {
+  local plugin="$SCRIPTS/.." file dir name
+  local -a missing=()
+  # `phases/<name>.md` is the running skill's folder, `shared/<name>.md` the
+  # plugin's; a shared file runs under any skill, so its `phases/` names
+  # must exist in one of them.
+  for file in "$plugin"/skills/*/SKILL.md "$plugin"/skills/*/phases/*.md "$plugin"/shared/*.md; do
+    dir="${file%/*}"
+    [[ "$dir" == */phases ]] && dir="${dir%/phases}"
+    while read -r name; do
+      if [[ "$name" == shared/* ]]; then
+        [[ -f "$plugin/$name" ]] || missing+=("${file#"$plugin"/}: $name")
+      elif [[ "$dir" == */shared ]]; then
+        compgen -G "$plugin/skills/*/$name" >/dev/null || missing+=("${file#"$plugin"/}: $name")
+      else
+        [[ -f "$dir/$name" ]] || missing+=("${file#"$plugin"/}: $name")
+      fi
+    done < <(grep -oE '(phases|shared)/[a-z-]+\.md' "$file" | sort -u)
+  done
+  ((${#missing[@]} == 0)) || fail "named, but no such file: ${missing[*]}"
+}
+
 test_the_phases_and_agents_name_only_the_config_s_keys() {
   source_lib
   local plugin="$SCRIPTS/.." readme="$SCRIPTS/../../../README.md" key explorer_keys
@@ -672,7 +694,7 @@ test_the_phases_and_agents_name_only_the_config_s_keys() {
   # shellcheck disable=SC2016 # backticks to match, not to expand
   mapfile -t named < <({
     grep -ohE "config's (\`[a-z_]+\`(, | and |, and )?)+" "$plugin"/skills/*/SKILL.md \
-      "$plugin"/skills/task/phases/*.md "$plugin"/agents/*.md | grep -oE '`[a-z_]+`' | tr -d '`'
+      "$plugin"/skills/*/phases/*.md "$plugin"/shared/*.md "$plugin"/agents/*.md | grep -oE '`[a-z_]+`' | tr -d '`'
     printf '%s\n' "$explorer_keys"
     grep -ohE '^[a-z_]+ +=' "$readme" | tr -d ' ='
   } | sort -u)

@@ -16,7 +16,7 @@ Run the `overload:step-test-author` agent with the spec's path, the chunk's numb
 
 ### 2. Red check — `l/chunk-<n>/red`, test-first chunks only
 
-`bash <scripts>/red-check.sh`. It checks the valid red that `overload:step-test-author` defines; a valid red, or a skip, moves the phase to `l/chunk-<n>/implement`. A new test that passes already is listed, for the step review, in the file its summary names. When it says it was skipped (no `run_tests` in the config), log that and go on; when it skipped some files only (no `run_integrate_tests`), log those files, and the rest is judged as usual. Otherwise the test-author gets the path of `red-check-report.txt` that the summary names, not its text, and the runners' output it names, if any, for a new record and a new red check; three rounds at most, then `phases/escalate.md`. When the code is already in the working tree (a suite recorded again after a test reported wrong), run `red-check.sh --without-code`: it runs the suite against the source as it was at the last valid red, the stubs included, and puts the working tree back.
+`bash <scripts>/red-check.sh`. It checks the valid red that `overload:step-test-author` defines; a valid red, or a skip, moves the phase to `l/chunk-<n>/implement`. A new test that passes already is listed, for the step review, in the file its summary names. When it says it was skipped (no `run_tests` in the config), log that and go on; when it skipped some files only (no `run_integrate_tests`), log those files, and the rest is judged as usual. Otherwise the test-author gets the path of `red-check-report.txt` that the summary names, not its text, and the runners' output it names, if any, for a new record and a new red check; three rounds at most, then `shared/escalate.md`. When the code is already in the working tree (a suite recorded again after a test reported wrong), run `red-check.sh --without-code`: it runs the suite against the source as it was at the last valid red, the stubs included, and puts the working tree back.
 
 ### 3. Implementation — `l/chunk-<n>/implement`
 
@@ -24,7 +24,7 @@ Run the `overload:step-implementer` agent with the spec's path, the chunk's numb
 
 Read its report before verify, heading by heading:
 
-- **No report**, one without the headings of its *Output* (an empty or one-word answer): do not redo its work or its checks yourself. Ask it once for the report, continuing it with `SendMessage` when you can, else running it again on the chunk with a note that the working tree holds its work; still none, `phases/escalate.md`.
+- **No report**, one without the headings of its *Output* (an empty or one-word answer): do not redo its work or its checks yourself. Ask it once for the report, continuing it with `SendMessage` when you can, else running it again on the chunk with a note that the working tree holds its work; still none, `shared/escalate.md`.
 - **Not done**: each item is settled before verify. One the implementer can finish goes back to it; one it cannot goes under *Open findings*, for the human.
 - **Cases missing**: to the test-author, who records the suite again, and the red check runs again.
 - **Tests wrong**: decide on the spec (*A test reported wrong*).
@@ -39,7 +39,7 @@ Run the `overload:step-reviewer` agent with the spec's path, the chunk's number,
 
 ### 6. Commit — `l/chunk-<n>/commit`
 
-Tick the chunk in the spec (`- [x]`), then verify and commit: one commit for the chunk, its tests, its code and its tick, its message as *Names and messages* in the skill's rules says, the chunk's title in the body. The commit moves the phase to the next chunk's first step, or after the last to `close/check`: then go on with `phases/close.md`.
+Tick the chunk in the spec (`- [x]`), then verify and commit: one commit for the chunk, its tests, its code and its tick, its message as *Names and messages* in the rules of every task says, the chunk's title in the body. The commit moves the phase to the next chunk's first step, or after the last to `close/check`: then go on with `shared/close.md`.
 
 ## A chunk of tests only
 

@@ -9,8 +9,9 @@ The Claude Code plugin `overload` and its marketplace `workflow-overload`. Its c
 plugins/overload/                 what an install copies
   .claude-plugin/plugin.json      name, version
   skills/task/SKILL.md            /overload:task, opens or resumes a task
-  skills/task/phases/             one file per phase, read by the task skill
+  skills/task/phases/             the task skill's own phases, one file each
   skills/setup/SKILL.md           /overload:setup, writes .workflow/config
+  shared/                         the phases every task command shares
   agents/                         the agents, all internal to the two skills
   hooks/hooks.json                hooks, silent without a journal
   scripts/                        bash for the steps, python3 for parsing
