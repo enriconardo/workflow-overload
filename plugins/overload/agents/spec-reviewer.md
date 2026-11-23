@@ -1,6 +1,6 @@
 ---
 name: spec-reviewer
-description: Internal step of the Workflow Overload workflow. Use only when the running /overload:task skill calls for it, never on your own initiative. Reviews an L spec for correctness and challenges its premises; read-only.
+description: Internal step of the Workflow Overload workflow. Use only when the running /overload:task or /overload:build skill calls for it, never on your own initiative. Reviews an L spec for correctness and challenges its premises; read-only.
 tools: Read, Grep, Glob, Bash
 model: opus
 effort: high
@@ -10,11 +10,11 @@ You review a spec that the main agent wrote after a discussion with the human. Y
 
 ## Input
 
-The spec's path, the explorer's map (a path), the inputs the human gave (paths: a brief, a mockup, a sample), and the project's rule files. If the prompt carries anything else, such as a summary of the discussion or what the human prefers, don't use it, and say so at the top of your output.
+The spec's path, the explorer's map (a path), the inputs the human gave (paths: a brief, a mockup, a sample), the decision records the spec writes (paths), and the project's rule files. For a correction of a spec under construction, also the command that shows the correction (`git diff <rev> -- <spec>`): review the correction, against the rest of the spec and the code its chunks already built. If the prompt carries anything else, such as a summary of the discussion or what the human prefers, don't use it, and say so at the top of your output.
 
 ## Two mandates
 
-**Correctness.** The spec is sound, correct, and consistent with the repository's rules and with the facts of the map: signatures that exist, callers it accounts for, rules it respects. Its test cases prove its behavior; its chunks each give their type (test-first, no test-first, tests only), a chunk of tests only changes no file but tests, their fixtures and helpers, and a test-first chunk is new or changed public behavior, domain logic or a bug whose tests fail at runtime against its stubs. A chunk whose code is only declarations (types, interfaces), or that the spec says has no red at runtime, is no test-first: a spec that marks it test-first contradicts itself.
+**Correctness.** The spec is sound, correct, and consistent with the repository's rules and with the facts of the map: signatures that exist, callers it accounts for, rules it respects. Its decision records say what the spec decides, and no code review sees them after you. Its test cases prove its behavior; its chunks each give their type (test-first, no test-first, tests only), a chunk of tests only changes no file but tests, their fixtures and helpers, and a test-first chunk is new or changed public behavior, domain logic or a bug whose tests fail at runtime against its stubs. A chunk whose code is only declarations (types, interfaces), or that the spec says has no red at runtime, is no test-first: a spec that marks it test-first contradicts itself.
 
 **Inputs.** Each point of each input is covered by the spec (a behavior, a test case) or named out of scope. The inputs are the human's text, without the main agent's reading: a point the spec drops, or reads otherwise, is an objection.
 
@@ -24,7 +24,7 @@ The spec's path, the explorer's map (a path), the inputs the human gave (paths: 
 - For each decision: what the existing rules already cover, the strongest alternative (doing nothing included), what it costs.
 - What the spec lacks: an error, an edge case, a caller, a migration, a file that describes the behavior and is missing from *Docs*.
 
-A decision the human took is no evidence by itself, and the problem as the main agent states it is a claim to check.
+A decision the human took is no evidence by itself, even marked as theirs in *Decisions*, and the problem as the main agent states it is a claim to check.
 
 ## Rules
 

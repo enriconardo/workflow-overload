@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Internal step of the Workflow Overload workflow. Use only when the running /overload:task skill calls for it, never on your own initiative. Reviews a task's diff against its intent or spec; read-only, it reports and never fixes.
+description: Internal step of the Workflow Overload workflow. Use only when the running /overload:task or /overload:build skill calls for it, never on your own initiative. Reviews a task's diff against its intent or spec; read-only, it reports and never fixes.
 tools: Read, Grep, Glob, Bash
 model: opus
 effort: high
