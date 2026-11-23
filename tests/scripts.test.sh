@@ -585,6 +585,18 @@ test_status_reports_config_journal_and_verify() {
   [[ "$(bash "$SCRIPTS/status.sh")" == *"config: none"* ]] || fail "no config not reported"
 }
 
+test_status_lists_the_spec_s_chunks_with_their_first_step() {
+  open_l_task
+  mkdir -p .workflow/specs
+  printf -- '---\nstatus: approved\n---\n\n## Chunks\n- [x] 1. A (test-first): a\n- [ ] 2. B (test-first): b; signatures: f(x)\n- [ ] 3. C (tests only): c\n' >.workflow/specs/s.md
+  bash "$SCRIPTS/journal.sh" set spec .workflow/specs/s.md
+  out="$(bash "$SCRIPTS/status.sh")"
+  [[ "$out" == *"- spec: .workflow/specs/s.md, status approved"*"  - chunk 1: done"*"  - chunk 2: open, test-first, first step stub"*"  - chunk 3: open, tests-only, first step test"* ]] || fail "$out"
+  printf -- '## Chunks\n- [ ] 1. A: a\n' >.workflow/specs/s.md
+  out="$(bash "$SCRIPTS/status.sh")"
+  [[ "$out" == *"chunk 1 has no type"* ]] || fail "$out"
+}
+
 empty_repo() {
   mkdir -p "$WORK/empty" && cd "$WORK/empty" && git init -q
   mkdir -p .workflow

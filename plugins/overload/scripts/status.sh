@@ -39,6 +39,19 @@ fi
 if [[ -f "$JOURNAL_FILE" ]]; then
   echo "- journal: $JOURNAL_FILE"
   sed -n '/^## /q; /^[a-z_]*: /s/^/  - /p' "$JOURNAL_FILE"
+  spec="$(journal_get spec)"
+  if [[ -n "$spec" && -f "$spec" ]]; then
+    echo "- spec: $spec, status $(python3 "$OVERLOAD_SCRIPTS/spec.py" status "$spec")"
+    python3 "$OVERLOAD_SCRIPTS/spec.py" chunks "$spec" 2>&1 | while IFS=$'\t' read -r n state type first; do
+      if [[ "$state" == open ]]; then
+        echo "  - chunk $n: open, $type, first step $first"
+      elif [[ "$state" == "done" ]]; then
+        echo "  - chunk $n: done"
+      else
+        echo "  - $n"
+      fi
+    done
+  fi
   if is_verified 2>/dev/null; then
     echo "- working tree: verified"
   else
