@@ -24,12 +24,13 @@ State of this project, read by a script as this skill loaded:
    - its `command` is not `build`: the task is `/overload:task`'s, which resumes it. Say so in one line and stop;
    - no arguments, or the journal's spec: read `shared/resume.md`;
    - another spec: the open build must be integrated or stopped first. Say so in one line and stop.
-3. No journal: with a spec's path, open the build (below); without, ask which spec to build: one of `.workflow/specs/` that main holds with `status: approved`.
+3. No journal: with a spec's path, open the build (below); without, show the human the specs to build that the status lists, choose none, and stop.
 
 ## Open the build
 
 1. Read the spec in full: what it asks, its decisions, its chunks. Its `inputs` are the human's documents: the agents that need them read them.
-2. `bash <scripts>/branch.sh --build <name> <spec>`, from main; the name follows *Names and messages* in the rules of every task. It refuses a spec that main does not hold approved with a chunk left to build. The journal names the spec, and its phase is that chunk's first step.
-3. Go on with `phases/l-chunk.md`.
+2. `bash <scripts>/branch.sh --build <name> <spec>`, from main; the name follows *Names and messages* in the rules of every task. It refuses a spec that main does not hold approved with a chunk left to build. The journal names the spec and its approval, and its phase is that chunk's first step, or `l/expiry` when main changed the files the spec rests on since its approval.
+3. When it says main moved since the approval, none of the spec's files changed: tell the human in one line, with the dependencies the spec's *Decisions* name in words, which no script sees change.
+4. Go on with `phases/l-chunk.md`, from *Expiry* on `l/expiry`.
 
 !`bash ${CLAUDE_PLUGIN_ROOT}/scripts/rules.sh`

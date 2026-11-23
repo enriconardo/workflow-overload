@@ -37,7 +37,7 @@ The files that describe this behavior and change with it (a README, API docs, a 
 
 **What the build needs from the journal** goes in the spec before each spec review round, so that the reviewer judges it too: the human's decisions and rulings that bear on the code, in *Decisions*, marked as theirs with their words; a ruling on one chunk, in that chunk's line.
 
-`depends_on` names the files the chunks name and those of the explorer's map, so that a build can tell whether main changed them since the approval. Write it with the chunks (4, 5).
+`depends_on` names the files the chunks name and those of the explorer's map, so that a build can tell whether main changed them since the approval. Write it with the chunks (4, 5). A dependency no file holds (a contract with another system, the behavior of a service or a library) goes in *Decisions*, in words: no script sees it change, and the build shows it to the human when main has moved.
 
 A decision that outlives the task also gets a decision record, in a folder of the config's `rules` that already holds decision records. With no such folder, write none and create none: the human hears it at the checkpoint (7), with `/overload:setup`, which proposes one.
 
@@ -73,4 +73,4 @@ The human approves the spec and picks the lessons and backlog items to keep, or 
 
 ## 8. Commit the spec
 
-Set `status: approved`, then verify and commit the spec, its decision record and its inputs. The commit moves the phase to `close/check`: go on with `shared/close.md` from 1. On a task of docs only, its verify moves the phase on to the writing of the lessons and backlog items the human picked, with no final review; a task that holds more, such as the commits of an S turned L, has the whole close.
+Set `status: approved`, then verify and commit the spec, its decision record and its inputs. The commit moves the phase to `close/check`: go on with `shared/close.md` from 1. On a task of docs only, its verify moves the phase on to the writing of the lessons and backlog items the human picked, with no final review; a task that holds more has the whole close.
