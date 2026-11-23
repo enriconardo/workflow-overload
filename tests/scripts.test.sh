@@ -878,3 +878,17 @@ test_commit_of_a_sync_moves_a_spec_task_of_docs_only_to_the_write() {
   out="$(bash "$SCRIPTS/commit.sh" "$(message "Merge branch 'main'")")"
   [[ "$out" == *"phase: close/write"* ]] || fail "$out"
 }
+
+test_every_skill_allows_the_scripts_its_phases_run() {
+  local plugin="$SCRIPTS/.." skill dir name allowed
+  local -a missing=()
+  for skill in "$plugin"/skills/*/SKILL.md; do
+    dir="${skill%/SKILL.md}"
+    allowed="$(sed -n '2,/^---$/p' "$skill" | grep '^allowed-tools:' || true)"
+    # integrate.sh asks the human each time, on purpose
+    while read -r name; do
+      [[ "$name" == integrate.sh || "$allowed" == *"scripts/$name"* ]] || missing+=("${dir##*/}: $name")
+    done < <(cat "$skill" "$dir"/phases/*.md 2>/dev/null | grep -oE '(<scripts>|scripts)/[a-z-]+\.sh' | sed 's|.*/||' | sort -u)
+  done
+  ((${#missing[@]} == 0)) || fail "run, but not allowed: ${missing[*]}"
+}

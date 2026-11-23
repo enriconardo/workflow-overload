@@ -13,7 +13,7 @@ Turns the request into an understood problem and a tier the human confirms, with
      - one package or area, within one chunk: about 6–7 files touched or 10–15 test cases;
      - no data migration, nothing on security (authentication, permissions, secrets);
      - no high uncertainty: clear requirements, known code and dependencies. A dependency upgrade that changes behavior is L.
-   - **L**: everything else.
+   - **L**: everything else. This task writes its spec, up to the human's approval and its merge; `/overload:build` builds it.
 
    A task that turns out bigger changes tier later, on the human's go: *Turning L* in `phases/s-path.md` says how.
 5. **Open the branch.** Write the intent to a file outside the repository (your scratchpad, or a temporary file): the problem, the goal, the constraints, the decisions the human took, with their words where they matter, and the item of the config's `backlog` the task works, if any, as the file writes it. On S, the intent cites by name the inputs to see as they are (the screenshot of a bug): the code reviewer reads those. Then:
