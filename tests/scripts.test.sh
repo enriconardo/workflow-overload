@@ -660,6 +660,13 @@ test_every_skill_runs_only_when_the_user_types_it() {
   ((${#open[@]} == 0)) || fail "the model could load: ${open[*]}"
 }
 
+test_rules_prints_the_shared_rules_from_any_folder() {
+  local out
+  out="$(cd / && bash "$SCRIPTS/rules.sh")"
+  expect_eq "$out" "$(cat "$SCRIPTS/../shared/rules.md")"
+  [[ "$out" == "## Rules of every task"* ]] || fail "$out"
+}
+
 test_every_phase_a_skill_or_a_phase_names_exists() {
   local plugin="$SCRIPTS/.." file dir name
   local -a missing=()

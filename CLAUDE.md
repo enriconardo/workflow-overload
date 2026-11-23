@@ -11,7 +11,7 @@ plugins/overload/                 what an install copies
   skills/task/SKILL.md            /overload:task, opens or resumes a task
   skills/task/phases/             the task skill's own phases, one file each
   skills/setup/SKILL.md           /overload:setup, writes .workflow/config
-  shared/                         the phases every task command shares
+  shared/                         the rules and phases every task command shares
   agents/                         the agents, all internal to the two skills
   hooks/hooks.json                hooks, silent without a journal
   scripts/                        bash for the steps, python3 for parsing

@@ -3,7 +3,7 @@ name: task
 description: Starts or resumes a Workflow Overload development task. Runs only when the user types /overload:task.
 disable-model-invocation: true
 argument-hint: "[request, with the paths of its inputs]"
-allowed-tools: Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/status.sh), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/journal.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/verify.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/branch.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/commit.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/suite.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/red-check.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/sync.sh:*)
+allowed-tools: Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/status.sh), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/rules.sh), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/journal.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/verify.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/branch.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/commit.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/suite.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/red-check.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/sync.sh:*)
 ---
 
 # Workflow Overload
@@ -25,19 +25,4 @@ State of this project, read by a script as this skill loaded:
    - arguments: ask the human whether they change the open task (then resume, and take them as new input to the phase the journal gives) or open a new one (then the open task must be integrated or stopped first).
 3. No journal: with arguments, read `phases/brainstorm.md`; without, ask for the request.
 
-## Rules of every task
-
-- **Scripts do the mechanical steps**: `branch.sh` opens the task, `verify.sh` checks the tree, `commit.sh` commits the verified tree, `suite.sh` records the test-author's suite, `red-check.sh` checks it fails for the right reason, `sync.sh` takes a moved main into the branch, `integrate.sh` merges. Never `git commit` or `git merge` yourself: a hook refuses them while a journal exists. The scripts print only what you need: never pipe their output.
-- **Every commit is green and holds one logical change.** Code, review fixes, lessons and backlog items are separate rounds of verify and commit.
-- **Who writes does not judge.** Reviewers report and never fix. You fix on the S path. Give an agent exactly what its definition says it receives, and never a summary of your discussion with the human, which carries your drift toward their ideas.
-- **Three rounds at most.** Any automatic loop (a red verify, a review that keeps finding blocking issues) stops at its third round and goes to the human, as `shared/escalate.md` says.
-- **Stop what you start.** A process you start in the background to try or measure something (a server, a watcher) is stopped before you change phase, as its background task or by its PID, never by name (`pkill`). One you cannot stop, or one an agent reports it left running, goes to the human at once, with its PID, before the next step: it may hold a port a test needs.
-- **The journal is the task's memory** across sessions. Note in its sections the lesson candidates, backlog candidates and open findings as they come up, and log what the human decides with `journal.sh log`. What a later session needs goes in the journal, or, for a file (the explorer's map), through `branch.sh --map` or `journal.sh keep`, which keep it under `.git/overload/`; never in your scratchpad or a temporary file, which may be cleared before the next session.
-- **The scripts move the phase** where their outcome decides it: `verify.sh`, `red-check.sh` and `commit.sh` print `phase: <phase>` when they move it, and `phase stays <phase>: <why>` when what they checked does not allow it; settle the why before you go on. A red never moves it. Elsewhere, set it as you enter a step: `journal.sh set phase <phase>`.
-- **A human's ruling** goes in the journal while the task runs (`journal.sh log`, with their words); one that outlives the task also goes in a file of the config's `rules`, in the task's diff, never in Claude Code's memory. A ruling on the workflow itself goes to the checkpoint as a defect of the workflow.
-- **An empty `check` checks nothing**: every commit passes, and the status says so. The task that brings the project's first tools (language, test runner, linter) writes `check` and `run_tests` in `.workflow/config` in its own diff, so that its verify runs them; its tests get no red check while `run_tests` is empty. After its merge, `/overload:setup` measures `red_types`.
-- **The backlog holds only what the human approves.** Agents and you propose candidates; the human picks at the checkpoint.
-- **The project's rules** are the files of the config's `rules` (its CLAUDE.md files, ADRs): read those that bear on the change before you write code. Commands run as they say (a container, a wrapper).
-- **Names and messages are the project's.** The branch's name and every commit's message follow its rules. Where they state no convention: a branch `<type>/<description>` in kebab-case (`fix/empty-cart-total`), a subject in the imperative of at most 72 characters. The project's hooks have the last word: when one refuses a name or a message, change it; never bypass the hook.
-- **Talk to the human in their language.** Commits, the journal and the project's files follow the project's own conventions.
-- **The human decides** the tier, the result, the lessons and backlog items to keep, and every escalation. A step that cannot be undone outside the branch waits for them.
+!`bash ${CLAUDE_PLUGIN_ROOT}/scripts/rules.sh`
