@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SessionStart hook: on a branch with a Workflow Overload task, a new or cleared
-# session learns that the task waits for /overload:task, and a compacted one that
+# session learns that the task waits for its command, /overload:task or
+# /overload:build as the journal records it, and a compacted one that
 # it must reread the journal. Silent everywhere else, and on a resumed
 # session, which already holds the task.
 journal="${CLAUDE_PROJECT_DIR:-$PWD}/.workflow/journal.md"
@@ -10,13 +11,14 @@ try: print(json.load(sys.stdin).get("source", ""))
 except Exception: print("")' 2>/dev/null)"
 phase="$(sed -n 's/^phase: *//p' "$journal" | head -n 1)"
 branch="$(sed -n 's/^branch: *//p' "$journal" | head -n 1)"
+command="$(sed -n 's/^command: *//p' "$journal" | head -n 1)"
 case "$source" in
   resume) ;;
   compact)
     echo "This session runs the Workflow Overload task $branch, phase ${phase:-unknown}. The summary above may have lost its rules: reread .workflow/journal.md and the phase's file before the next step."
     ;;
   *)
-    echo "This branch holds an open Workflow Overload task ($branch, phase ${phase:-unknown}). It continues only when the user types /overload:task; until then, work as asked and do not commit or merge on this branch."
+    echo "This branch holds an open Workflow Overload task ($branch, phase ${phase:-unknown}). It continues only when the user types /overload:${command:-task}; until then, work as asked and do not commit or merge on this branch."
     ;;
 esac
 exit 0

@@ -301,6 +301,41 @@ green_list() {
   printf '%s/%s.txt\n' "$(green_lists "$(current_branch)")" "$(git rev-parse HEAD)"
 }
 
+# docs_only <tree>: succeeds when the task is a spec task of /overload:task
+# (a spec in the journal, not a build) whose changes from its base to <tree>
+# are the spec's docs only: the spec, the inputs, a decision record it adds
+# to a folder of `rules`, the backlog. Such a task closes without
+# `check_integrate` and without the final review: the spec reviewer judged
+# the spec and its decision records, the human approved them at the spec's
+# checkpoint. The journal is never part of the change.
+docs_only() {
+  local tree="$1" spec base backlog entry state file
+  local -a folders=()
+  [[ "$(journal_get command)" != build ]] || return 1
+  spec="$(journal_get spec)"
+  base="$(journal_get base)"
+  [[ -n "$spec" && -n "$base" ]] || return 1
+  backlog="$(cfg backlog)"
+  IFS=',' read -ra folders <<<"$(cfg rules)"
+  for entry in "${!folders[@]}"; do
+    file="${folders[$entry]}"
+    file="${file#"${file%%[![:space:]]*}"}"
+    file="${file%"${file##*[![:space:]]}"}"
+    file="${file%/}"
+    if [[ -n "$file" && -d "$file" ]]; then folders[entry]="$file/"; else unset 'folders[entry]'; fi
+  done
+  while IFS=$'\t' read -r state file; do
+    [[ "$file" == "$spec" || "$file" == "$backlog" || "$file" == "$JOURNAL_FILE" || "$file" == .workflow/inputs/* ]] && continue
+    if [[ "$state" == A ]]; then
+      for entry in ${folders[@]+"${folders[@]}"}; do
+        [[ "$file" == "$entry"* ]] && continue 2
+      done
+    fi
+    return 1
+  done < <(git diff --name-status --no-renames "$base" "$tree")
+  return 0
+}
+
 # Phases set by the scripts: running a script is the decision, so its
 # outcome moves the phase, only from the phases its header names, and only
 # when what it checked is what the next phase needs. A red never moves it;

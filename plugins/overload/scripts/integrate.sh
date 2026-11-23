@@ -7,7 +7,9 @@ set -euo pipefail
 # config has a `check_integrate`, a branch where `verify.sh --integrate` has
 # not run green since main last moved. Then merges with --no-ff into main
 # without the journal, whose result is the branch's verified tree, and
-# deletes the branch and its records. A refusal leaves main as it was.
+# deletes the branch and its records. A branch with a spec holds it as its
+# command leaves it: approved with a chunk to build after /overload:task,
+# done after /overload:build. A refusal leaves main as it was.
 #
 #   integrate.sh
 
@@ -44,15 +46,23 @@ if [[ -n "$(cfg check_integrate)" ]]; then
     die "check_integrate has not run green on '$branch' since '$main' last moved: run verify.sh --integrate, then integrate again."
 fi
 
-# An L task's spec is done: every chunk ticked, its status set.
+# The spec is in the state its command leaves it: a task's approved, with a
+# chunk left to build; a build's done, every chunk ticked.
 spec="$(journal_get spec)"
 if [[ -n "$spec" ]]; then
   [[ -f "$spec" ]] || die "the journal's spec '$spec' does not exist."
-  if grep -q '^- \[ \]' "$spec"; then
-    die "$spec has chunks not ticked:
+  status="$(python3 "$OVERLOAD_SCRIPTS/spec.py" status "$spec")"
+  chunks="$(python3 "$OVERLOAD_SCRIPTS/spec.py" chunks "$spec" 2>&1)" || die "$chunks"
+  if [[ "$(journal_get command)" == build ]]; then
+    if grep -q $'\topen\t' <<<"$chunks"; then
+      die "$spec has chunks not ticked:
 $(grep '^- \[ \]' "$spec")"
+    fi
+    [[ "$status" == "done" ]] || die "$spec is not 'status: done': set it, verify and commit, then integrate."
+  else
+    [[ "$status" == approved ]] || die "$spec is not 'status: approved': the human approves it at the checkpoint, then it is committed."
+    grep -q $'\topen\t' <<<"$chunks" || die "$spec has no chunk left to build: /overload:build would have nothing to do."
   fi
-  grep -qx 'status: done' "$spec" || die "$spec is not 'status: done': set it, verify and commit, then integrate."
 fi
 
 # The journal is tracked on the branch: a local edit to it would block the
