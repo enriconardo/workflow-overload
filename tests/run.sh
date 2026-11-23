@@ -4,11 +4,15 @@ set -euo pipefail
 # Runs every tests/*.test.sh. Each test is a function named test_*, run in a
 # subshell inside a fresh temporary git repository, so that one test cannot
 # leak into the next. `tests/run.sh [pattern]` runs the tests whose name
-# matches the pattern.
+# matches the pattern. Every temporary file of a run, the scripts' own
+# included, goes in one folder removed when the run ends.
 
 TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export SCRIPTS="$TESTS_DIR/../plugins/overload/scripts"
 pattern="${1:-}"
+root="$(mktemp -d)"
+trap 'rm -rf "$root"' EXIT
+export TMPDIR="$root"
 passed=0
 failed=0
 failures=()
@@ -41,7 +45,6 @@ if ((status == 0)); then
   echo "run.sh: a test passed past a failing step; this harness ignores set -e, refusing to run." >&2
   exit 2
 fi
-rm -f "$canary"
 
 for file in "$TESTS_DIR"/*.test.sh; do
   mapfile -t names < <(bash -c "source '$TESTS_DIR/helpers.sh'; source '$file'; declare -F" | awk '$3 ~ /^test_/ { print $3 }')
