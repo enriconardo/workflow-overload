@@ -25,6 +25,11 @@ set -euo pipefail
 # pipe. On a task's branch, a red run adds to the journal's red streak and
 # the third one in a row says to stop and ask the human. With an empty
 # `check` in the config, nothing runs and the tree is recorded as unchecked.
+#
+# On a task's branch, a green run moves the phase (lib.sh's phase_to): from
+# l/chunk-<n>/implement or /verify, or /test on a chunk of tests only, to
+# /review or /commit; with --integrate, from close/check to close/review
+# when the tree is HEAD's and no merge is under way.
 
 # shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -66,6 +71,41 @@ ran=()
 notes=""
 [[ -n "$command" ]] || notes+="; the config has no 'check' command, nothing checked"
 ((integrate)) && [[ -z "$slow" ]] && notes+="; the config has no 'check_integrate', nothing more to run"
+
+# The phase after a green run: an L chunk's implementation (or its tests,
+# on a chunk of tests only) goes to the step review when the spec has more
+# than one chunk, the chunk is of tests only, or the red check found new
+# tests passing already; otherwise to the commit. The close's check, run
+# with --integrate on a committed tree with no merge under way, goes to the
+# final review.
+green_phase() {
+  local phase n step chunks type count
+  phase="$(journal_get phase)"
+  if [[ "$phase" == close/check ]]; then
+    if ((integrate)) && [[ "$tree" == "$(commit_tree_hash HEAD)" && ! -f "$(git rev-parse --git-path MERGE_HEAD)" ]]; then
+      phase_to close/review
+    fi
+    return 0
+  fi
+  [[ "$phase" =~ ^l/chunk-([0-9]+)/(test|implement|verify)$ ]] || return 0
+  n="${BASH_REMATCH[1]}" step="${BASH_REMATCH[2]}"
+  if ! chunks="$(spec_chunks 2>&1)"; then
+    phase_stays "$chunks"
+    return 0
+  fi
+  type="$(awk -F'\t' -v n="$n" '$1 == n { print $3 }' <<<"$chunks")"
+  if [[ -z "$type" ]]; then
+    phase_stays "the spec has no chunk $n."
+    return 0
+  fi
+  [[ "$step" != test || "$type" == tests-only ]] || return 0
+  count="$(grep -c . <<<"$chunks")"
+  if ((count > 1)) || [[ "$type" == tests-only || -s "$(green_list)" ]]; then
+    phase_to "l/chunk-$n/review"
+  else
+    phase_to "l/chunk-$n/commit"
+  fi
+}
 
 started="$(date +%s)"
 status=0
@@ -165,6 +205,7 @@ if ((status == 0)) && [[ -z "$changed" ]]; then
   else
     echo "verify: ${notes#; }; tree ${tree:0:12} recorded."
   fi
+  ((task)) && green_phase
   exit 0
 fi
 

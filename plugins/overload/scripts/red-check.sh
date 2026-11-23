@@ -29,6 +29,9 @@ set -euo pipefail
 #
 # A file whose command is empty in the config is skipped, and said so; with
 # nothing left to run, the whole check is skipped, and logged.
+#
+# A valid red, or a check skipped, moves the phase from l/chunk-<n>/test or
+# /red to /implement (lib.sh's phase_to).
 
 # shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -43,13 +46,24 @@ case "${1:-}" in
   *) die "usage: red-check.sh [--without-code]" ;;
 esac
 
+# A valid red, or a check skipped, moves the chunk from its tests to its
+# implementation.
+red_done() {
+  local phase
+  phase="$(journal_get phase)"
+  if [[ "$phase" =~ ^l/chunk-([0-9]+)/(test|red)$ ]]; then
+    phase_to "l/chunk-${BASH_REMATCH[1]}/implement"
+  fi
+  exit 0
+}
+
 # The list of an earlier run never outlives this one, even when it skips.
 rm -rf -- "$(green_lists "$(current_branch)")"
 
 # No command to run any test: skipped before the suite is looked at.
 if [[ -z "$(cfg run_tests)" && -z "$(cfg run_integrate_tests)" ]]; then
   echo "red check skipped: the config has no 'run_tests', the command that runs given test files and prints JUnit XML."
-  exit 0
+  red_done
 fi
 
 mapfile -t files < <(bash "$OVERLOAD_SCRIPTS/suite.sh" files)
@@ -68,7 +82,7 @@ for file in "${files[@]}"; do
 done
 if ((${#present[@]} == 0)); then
   echo "red check: the suite only deletes test files, nothing to run."
-  exit 0
+  red_done
 fi
 
 # Each file runs through the command of its glob: `run_tests`, or
@@ -90,7 +104,7 @@ for key in run_tests run_integrate_tests; do
   if [[ -z "$command" ]]; then
     if [[ "$key" == run_tests && ${#outside[@]} -eq 0 ]]; then
       echo "red check skipped: the config has no 'run_tests', the command that runs given test files and prints JUnit XML."
-      exit 0
+      red_done
     fi
     echo "red check skipped for ${group[*]}: the config has no '$key', the command that runs them and prints JUnit XML."
     continue
@@ -102,7 +116,7 @@ for key in run_tests run_integrate_tests; do
 done
 if ((${#keys[@]} == 0)); then
   echo "red check skipped: no recorded test file has a command to run it."
-  exit 0
+  red_done
 fi
 
 branch="$(current_branch)"
@@ -281,4 +295,5 @@ if ((status != 0)); then
   printf -v outputs '%s, ' "${written[@]}"
   echo "The runners' output: ${outputs%, }."
 fi
+((status)) || red_done
 exit "$status"

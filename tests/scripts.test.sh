@@ -279,7 +279,7 @@ test_commit_needs_a_verified_tree_and_a_subject() {
   printf '# a comment\n\n' >"$WORK/no-subject.txt"
   expect_fail "no subject line" bash "$SCRIPTS/commit.sh" "$WORK/no-subject.txt"
   # the subject's form is the project's rules', and its hooks': none here
-  bash "$SCRIPTS/commit.sh" "$(message 'Update README')" | grep -q "committed" || fail "no commit"
+  [[ "$(bash "$SCRIPTS/commit.sh" "$(message 'Update README')")" == "committed "* ]] || fail "no commit"
   git show --name-only --format= HEAD | grep -qx .workflow/journal.md || fail "journal not committed"
   echo "Again." >>README.md
   expect_fail "not the one the last green verify checked" bash "$SCRIPTS/commit.sh" "$(message 'docs(readme): again')"
@@ -300,6 +300,7 @@ test_commit_undoes_a_commit_whose_tree_a_pre_commit_hook_changed() {
   fi
   [[ "$out" == *"changed the commit's tree"*"README.md"* ]] || fail "$out"
   expect_eq "$(git rev-parse HEAD)" "$before" "the commit undone"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get phase)" s/implement "the phase of an undone commit"
   grep -qx formatted README.md || fail "the hook's change lost"
   bash "$SCRIPTS/verify.sh" >/dev/null
   bash "$SCRIPTS/commit.sh" "$(message 'docs(readme): say more')" >/dev/null
@@ -315,6 +316,7 @@ test_commit_reports_a_refusal_of_the_commit_msg_hook() {
   expect_fail "subject over 20" bash "$SCRIPTS/commit.sh" "$(message 'docs(readme): a subject over twenty')"
   expect_fail "git refused the commit" bash "$SCRIPTS/commit.sh" "$(message 'docs(readme): a subject over twenty')"
   expect_eq "$(git rev-parse HEAD)" "$before" "nothing committed"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get phase)" s/implement "the phase of a refused commit"
   bash "$SCRIPTS/commit.sh" "$(message 'docs(x): short')" >/dev/null
 }
 
@@ -671,4 +673,54 @@ test_the_phases_and_agents_name_only_the_config_s_keys() {
     grep -qE "^$key +=" "$readme" || missing+=("README.md: $key")
   done
   ((${#missing[@]} == 0)) || fail "keys missing from a key list: ${missing[*]}"
+}
+
+test_commit_moves_an_s_task_to_the_close_unless_it_holds_only_the_config() {
+  open_task
+  set_config check_integrate ''
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  out="$(bash "$SCRIPTS/commit.sh" "$(message 'chore(repo): config')")"
+  [[ "$out" == *"phase stays s/implement: the commit changes only the config"* ]] || fail "$out"
+  out="$(verified_commit_out "More.")"
+  [[ "$out" == *"phase: close/check"* ]] || fail "$out"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get phase)" close/check
+}
+
+verified_commit_out() {
+  echo "$1" >>README.md
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message "docs(readme): $1")"
+}
+
+test_verify_integrate_moves_the_close_to_review_on_a_committed_tree() {
+  slow_check
+  open_task
+  verified_commit "More."
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get phase)" close/check
+  echo "Fix." >>README.md
+  out="$(bash "$SCRIPTS/verify.sh" --integrate)"
+  [[ "$out" == *"verify: green"* && "$out" != *"phase"* ]] || fail "an uncommitted tree moved: $out"
+  out="$(bash "$SCRIPTS/commit.sh" "$(message 'docs(readme): fix')")"
+  [[ "$out" == *"phase: close/review"* ]] || fail "$out"
+  bash "$SCRIPTS/journal.sh" set phase close/check
+  out="$(verified_commit_out "Plain.")"
+  [[ "$out" == *"phase stays close/check: verify.sh --integrate did not check this tree"* ]] || fail "$out"
+  touch slow-red
+  if bash "$SCRIPTS/verify.sh" --integrate >/dev/null 2>&1; then fail "green"; fi
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get phase)" close/check "a red moved"
+  rm slow-red
+  out="$(bash "$SCRIPTS/verify.sh" --integrate)"
+  [[ "$out" == *"phase: close/review"* ]] || fail "$out"
+}
+
+test_verify_integrate_leaves_a_merge_under_way_in_the_check() {
+  open_task
+  echo "same" >other.txt
+  verified_commit "more"
+  move_main other.txt same
+  bash "$SCRIPTS/sync.sh" >/dev/null
+  out="$(bash "$SCRIPTS/verify.sh" --integrate)"
+  [[ "$out" == *"verify: green"* && "$out" != *"phase"* ]] || fail "a merge under way moved: $out"
+  out="$(bash "$SCRIPTS/commit.sh" "$(message "Merge branch 'main'")")"
+  [[ "$out" == *"phase: close/review"* ]] || fail "$out"
 }
