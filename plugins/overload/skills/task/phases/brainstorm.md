@@ -22,7 +22,7 @@ Turns the request into an understood problem and a tier the human confirms, with
    bash <scripts>/branch.sh <S|L> <name> <intent-file> [--map <file>] [--inputs <slug> <file>...]
    ```
 
-   On L, when the explorer ran, `--map` takes the path of its map: the script keeps it for the spec reviewer and the splitter, and logs it as `map`. The name is short, and follows *Names and messages* in the skill's rules. If the script refuses, change the name, not the script.
+   On L, when the explorer ran, `--map` takes the path of its map: the script keeps it for the spec reviewer and the splitter, and logs it as `map`. The name is short, and follows *Names and messages* in the rules of every task. If the script refuses, change the name, not the script.
 
    With inputs, choose `<slug>` with the name: on L the spec's name, `<YYYY-MM-DD>-<description>`; on S the task's. The script copies them into `.workflow/inputs/<slug>/`, and they reach main with the task. Before it runs, tell the human in one line which files will: one they leave out (a private brief on a public repository, a heavy file a link stands for) is not passed, and its content goes in the intent on S, in the spec on L.
 
