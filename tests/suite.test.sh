@@ -294,7 +294,54 @@ test_red_check_hands_new_green_tests_to_the_step_reviewer() {
   bash "$SCRIPTS/suite.sh" record >/dev/null
   out="$(bash "$SCRIPTS/red-check.sh")"
   [[ "$out" == *"valid red"*"1 new test passes already"*"mutation check"* ]] || fail "$out"
-  expect_eq "$(cat "$(git rev-parse --git-path overload)/red-check-green.txt")" "__tests__/a.test.ts > green"
+  green="$(green_list)"
+  [[ "$out" == *"$green"* ]] || fail "the list's path not named: $out"
+  expect_eq "$(cat "$green")" "__tests__/a.test.ts > green"
+}
+
+# The green list of the branch and HEAD.
+green_list() {
+  printf '%s/red-check-green/%s/%s.txt\n' "$(git rev-parse --git-path overload)" "$(git branch --show-current)" "$(git rev-parse HEAD)"
+}
+
+test_the_green_list_is_bound_to_the_branch_and_its_head() {
+  fake_runner
+  open_l_task
+  write_test a.test.ts "case red assert" "case green pass"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  bash "$SCRIPTS/red-check.sh" >/dev/null
+  [[ -s "$(green_list)" ]] || fail "no list"
+  write_test a.test.ts "case red pass" "case green pass"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message 'feat(greet): x')" >/dev/null
+  [[ ! -e "$(green_list)" ]] || fail "a list on the new HEAD"
+  # a red check skipped leaves no list of an earlier run
+  write_test b.test.ts "case red assert" "case green pass"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  bash "$SCRIPTS/red-check.sh" >/dev/null
+  [[ -s "$(green_list)" ]] || fail "no list"
+  OVERLOAD_RUN_TESTS='' bash "$SCRIPTS/red-check.sh" | grep -q skipped || fail "not skipped"
+  [[ ! -e "$(green_list)" ]] || fail "a skipped red check left the earlier list"
+  bash "$SCRIPTS/red-check.sh" >/dev/null
+  bash "$SCRIPTS/suite.sh" clear
+  [[ ! -e "$(green_list)" ]] || fail "suite.sh clear left the list"
+}
+
+test_integrate_clears_the_green_list() {
+  fake_runner
+  open_l_task
+  write_test a.test.ts "case red assert" "case green pass"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  bash "$SCRIPTS/red-check.sh" >/dev/null
+  folder="$(dirname "$(green_list)")"
+  [[ -d "$folder" ]] || fail "no folder"
+  write_test a.test.ts "case red pass" "case green pass"
+  bash "$SCRIPTS/suite.sh" record >/dev/null
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message 'feat(greet): x')" >/dev/null
+  bash "$SCRIPTS/integrate.sh" >/dev/null
+  [[ ! -e "$folder" ]] || fail "integrate left the branch's lists"
 }
 
 test_red_check_leaves_out_the_test_files_the_suite_deletes() {

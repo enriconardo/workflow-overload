@@ -288,6 +288,19 @@ outside_check() {
   return 0
 }
 
+# green_lists <branch>: the folder of a branch's green lists, the new tests
+# a valid red found passing already, for the step review. A list is named
+# after the HEAD it was made on: the next chunk, on another HEAD, finds none.
+green_lists() {
+  printf '%s/red-check-green/%s\n' "$(state_dir)" "$1"
+}
+
+# The green list of this branch and HEAD; the file exists after a valid red
+# on them, empty when no new test passed.
+green_list() {
+  printf '%s/%s.txt\n' "$(green_lists "$(current_branch)")" "$(git rev-parse HEAD)"
+}
+
 suite_refs() {
   # for-each-ref matches a pattern up to a slash: the records of fix/x/y are
   # not those of fix/x/y-other.

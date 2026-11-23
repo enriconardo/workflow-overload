@@ -22,7 +22,8 @@ set -euo pipefail
 #                                The working tree is put back afterwards.
 #
 # A valid red leaves the stubs' state in refs/overload/base/<branch>, which
-# integrate.sh removes with the suite's records. The judgment prints a
+# integrate.sh removes with the suite's records, and the new tests that pass
+# already in a list of the branch and HEAD (lib.sh's green_list). The judgment prints a
 # summary and leaves its line per test in red-check-report.txt, in the state
 # folder.
 #
@@ -41,6 +42,9 @@ case "${1:-}" in
   --without-code) without_code=1 ;;
   *) die "usage: red-check.sh [--without-code]" ;;
 esac
+
+# The list of an earlier run never outlives this one, even when it skips.
+rm -rf -- "$(green_lists "$(current_branch)")"
 
 # No command to run any test: skipped before the suite is looked at.
 if [[ -z "$(cfg run_tests)" && -z "$(cfg run_integrate_tests)" ]]; then
@@ -263,8 +267,10 @@ restore_code
 trap - EXIT
 
 status=0
-rm -f "$state/red-check-green.txt" "$state/red-check-report.txt"
-python3 "$OVERLOAD_SCRIPTS/junit.py" --types "$(cfg red_types)" --existing "$existing" --green "$state/red-check-green.txt" \
+rm -f "$state/red-check-report.txt"
+green="$(green_list)"
+mkdir -p "$(dirname "$green")"
+python3 "$OVERLOAD_SCRIPTS/junit.py" --types "$(cfg red_types)" --existing "$existing" --green "$green" \
   --report "$state/red-check-report.txt" "${junit_runs[@]}" "${files[@]}" || status=$?
 if ((status == 0 && !without_code)); then
   git update-ref "$base_ref" "$(git commit-tree "$(source_tree)" -p HEAD -m "stubs state of $branch")"

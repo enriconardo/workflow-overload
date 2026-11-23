@@ -88,5 +88,5 @@ for ref in $(git for-each-ref --format='%(refname)' "refs/overload/suite/$branch
   git update-ref -d "$ref"
 done
 rm -f "$verified" "$integrated"
-rm -rf "$(state_dir)/kept/$branch"
+rm -rf "$(state_dir)/kept/$branch" "$(green_lists "$branch")"
 git log -1 --format="integrated '$branch' into '$main' as %h %s"
