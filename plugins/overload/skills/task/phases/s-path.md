@@ -20,8 +20,8 @@ Go on with `shared/close.md`. On the S path you are the one who fixes what the r
 
 ## Turning L
 
-When the change proves to be L by step 4 of `phases/brainstorm.md`, at any step of this path or of the close, stop and tell the human why: the tier is theirs. On their go:
+When the change proves to be L by step 4 of `phases/brainstorm.md`, at any step of this path or of the close, stop and tell the human why: the tier is theirs. On their go, the attempt's code goes and the task starts again from main, as L: its code did not go through the L path's tests first, and the spec must come from the problem, not from a sketched solution.
 
-1. Put the uncommitted work in a stash (`git stash push -u -m "S work" -- <paths>`: stash paths, so the journal stays out of it) and log it. The commits stay.
-2. `journal.sh set tier L`, `journal.sh log "tier L: <reason>"`, `journal.sh set phase l/spec`.
-3. Go on with `phases/l-plan.md` from 1; it runs the explorer when the brainstorming logged no map. The spec describes the whole change and names the commits already made; its chunks cover only what is left, for the build. You may read the stash while you write it. The commits reach main with the spec, after the whole close.
+1. Log what the attempt found that the spec needs, a fact per line (`journal.sh log "found: <fact>"`): facts about the code and the problem, not the attempt's code.
+2. `bash <scripts>/restart.sh "<reason>"`. It recreates the branch from main and keeps the journal, as tier L in phase `l/spec`, without its open findings, and the inputs; the uncommitted work goes to a stash. It prints what it discarded, for the human: do not read the attempt's commits or stash.
+3. Go on with `phases/l-plan.md` from 1; it runs the explorer when the brainstorming logged no map.

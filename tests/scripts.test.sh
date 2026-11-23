@@ -783,7 +783,78 @@ test_branch_opens_a_build_from_an_approved_spec_on_main() {
   expect_eq "$(bash "$SCRIPTS/journal.sh" get spec)" .workflow/specs/s.md
   expect_eq "$(bash "$SCRIPTS/journal.sh" get phase)" l/chunk-2/implement
   expect_eq "$(bash "$SCRIPTS/journal.sh" get base)" "$(git rev-parse --short main)"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get approved)" "$(git rev-parse --short main)"
+  [[ "$out" != *"main moved"* && "$out" != *"expiry"* ]] || fail "$out"
   grep -q "^Build the approved spec .workflow/specs/s.md" .workflow/journal.md || fail "no intent: $(cat .workflow/journal.md)"
+}
+
+# spec_merged <depends_on>: an approved spec whose frontmatter names
+# <depends_on> (none when empty), merged into main as its task leaves it.
+spec_merged() {
+  echo "a" >a.ts
+  git add -A && git commit -qm "feat(greet): a"
+  git switch -q -c docs/greet/spec
+  mkdir -p .workflow/specs
+  {
+    printf -- '---\nstatus: approved\n'
+    [[ -z "$1" ]] || printf 'depends_on: %s\n' "$1"
+    printf -- '---\n\n# Greet\n\n## Chunks\n- [ ] 1. Greet (test-first): a.ts\n'
+  } >.workflow/specs/s.md
+  git add -A && git commit -qm "docs(greet): spec"
+  git switch -q main
+  git merge -q --no-ff -m "Merge branch 'docs/greet/spec'" docs/greet/spec
+  git branch -q -D docs/greet/spec
+}
+
+# main_changes <file>...: a commit on main that changes each file.
+main_changes() {
+  local file
+  for file in "$@"; do echo "changed" >>"$file"; done
+  git add -A && git commit -qm "chore(repo): main moves"
+}
+
+build_spec() {
+  bash "$SCRIPTS/branch.sh" --build feature/greet/build .workflow/specs/s.md
+}
+
+test_branch_goes_on_with_a_build_whose_files_main_left_alone() {
+  spec_merged a.ts
+  approval="$(git rev-parse --short HEAD)"
+  main_changes other.txt
+  out="$(build_spec)"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get approved)" "$approval"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get phase)" l/chunk-1/test
+  [[ "$out" == *"main moved since the spec's approval: 1 commit (git log --first-parent --oneline $approval..$(git rev-parse --short main)), none on its files"* ]] || fail "$out"
+  [[ "$out" != *"expiry"* ]] || fail "$out"
+  grep -q "main moved since the spec's approval" .workflow/journal.md || fail "not logged: $(cat .workflow/journal.md)"
+}
+
+test_branch_sends_a_build_whose_files_main_changed_to_its_expiry() {
+  spec_merged a.ts
+  approval="$(git rev-parse --short HEAD)"
+  set_config check_integrate 'bash slow.sh'
+  main_changes a.ts CLAUDE.md other.txt
+  head="$(git rev-parse --short HEAD)"
+  out="$(build_spec)"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get phase)" l/expiry
+  [[ "$out" == *"main changed the spec's files since its approval: .workflow/config, CLAUDE.md, a.ts"* ]] || fail "$out"
+  [[ "$out" == *"git diff $approval $head -- a.ts CLAUDE.md .workflow/config"* ]] || fail "$out"
+  [[ "$out" != *"other.txt"* ]] || fail "$out"
+  grep -q "expiry: main changed the spec's files" .workflow/journal.md || fail "not logged: $(cat .workflow/journal.md)"
+}
+
+test_branch_checks_the_rules_and_the_config_of_a_spec_without_depends_on() {
+  spec_merged ""
+  main_changes a.ts
+  out="$(build_spec)"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get phase)" l/chunk-1/test
+  [[ "$out" == *"the spec names no depends_on: only the rules and the config were checked"* ]] || fail "$out"
+  rm .workflow/journal.md
+  git switch -q main
+  git branch -q -D feature/greet/build
+  main_changes CLAUDE.md
+  out="$(build_spec)"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get phase)" l/expiry
 }
 
 test_branch_refuses_a_build_of_a_spec_not_ready() {
@@ -891,4 +962,99 @@ test_every_skill_allows_the_scripts_its_phases_run() {
     done < <(cat "$skill" "$dir"/phases/*.md 2>/dev/null | grep -oE '(<scripts>|scripts)/[a-z-]+\.sh' | sed 's|.*/||' | sort -u)
   done
   ((${#missing[@]} == 0)) || fail "run, but not allowed: ${missing[*]}"
+}
+
+# An S task with a commit, uncommitted work, an input, the explorer's map,
+# an open finding and a lesson candidate, on a main that moved since.
+s_attempt() {
+  printf 'the brief\n' >"$WORK/brief.md"
+  bash "$SCRIPTS/branch.sh" S docs/readme/describe-project "$(intent)" --inputs readme "$WORK/brief.md" >/dev/null
+  printf 'the map\n' >"$WORK/map.md"
+  bash "$SCRIPTS/journal.sh" keep map "$WORK/map.md" >/dev/null
+  verified_commit "Attempt."
+  move_main
+  echo "More attempt." >>README.md
+  echo "draft" >draft.txt
+  awk '{ print } /^## Open findings$/ { print ""; print "- a finding on the attempt" }
+    /^## Lesson candidates$/ { print ""; print "- a lesson candidate" }' .workflow/journal.md >"$WORK/journal" &&
+    mv "$WORK/journal" .workflow/journal.md
+}
+
+test_restart_reopens_an_s_task_as_l_from_an_up_to_date_main() {
+  s_attempt
+  tip="$(git rev-parse HEAD)"
+  out="$(bash "$SCRIPTS/restart.sh" "the default name is public behavior")"
+  expect_eq "$(git branch --show-current)" docs/readme/describe-project
+  expect_eq "$(git rev-parse HEAD)" "$(git rev-parse main)"
+  if git merge-base --is-ancestor "$tip" HEAD; then fail "the attempt is still on the branch"; fi
+  expect_eq "$(git status --porcelain | sort | tr '\n' ' ')" "?? .workflow/inputs/ ?? .workflow/journal.md "
+  expect_eq "$(cat .workflow/inputs/readme/brief.md)" "the brief"
+  [[ ! -e draft.txt ]] || fail "the attempt's new file stayed"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get tier)" L
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get phase)" l/spec
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get command)" task
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get base)" "$(git rev-parse --short main)"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get verify_red_streak)" 0
+  journal="$(cat .workflow/journal.md)"
+  [[ "$journal" != *"a finding on the attempt"* ]] || fail "open findings kept: $journal"
+  [[ "$journal" == *"- a lesson candidate"*"## Backlog candidates"* ]] || fail "lesson candidates lost: $journal"
+  [[ "$journal" == *"tier L: the default name is public behavior"* ]] || fail "reason not logged: $journal"
+  [[ "$journal" == *"## Inputs"*"- .workflow/inputs/readme/brief.md"* ]] || fail "inputs lost: $journal"
+  [[ "$journal" != *"${tip:0:7}"* ]] || fail "the attempt's tip in the journal: $journal"
+  [[ -f "$(sed -n 's/^- .* map: //p' .workflow/journal.md)" ]] || fail "the map is gone"
+  [[ ! -e .git/overload/verified ]] || fail "the attempt's verified tree is kept"
+  [[ "$out" == *"1 commit"*"${tip:0:7}"*"git reflog docs/readme/describe-project"* ]] || fail "$out"
+  [[ "$out" == *"stash@{0}"* ]] || fail "$out"
+  git stash show --include-untracked --name-only 'stash@{0}' | grep -qx draft.txt || fail "the uncommitted work is not in the stash"
+  [[ "$(bash "$SCRIPTS/status.sh")" == *"tier: L"* ]] || fail "status"
+}
+
+test_restart_takes_only_an_s_task() {
+  expect_fail "task's branch" bash "$SCRIPTS/restart.sh" "why"
+  open_l_task
+  expect_fail "tier L already" bash "$SCRIPTS/restart.sh" "why"
+  git switch -q main
+  rm .workflow/journal.md
+  open_task
+  expect_fail "Usage" bash "$SCRIPTS/restart.sh"
+}
+
+test_restart_aborts_a_sync_under_way() {
+  open_task
+  echo "mine" >other.txt
+  verified_commit "more"
+  move_main other.txt theirs
+  bash "$SCRIPTS/sync.sh" >/dev/null 2>&1 || true
+  [[ -f .git/MERGE_HEAD ]] || fail "no merge under way"
+  out="$(bash "$SCRIPTS/restart.sh" "why")"
+  [[ ! -f .git/MERGE_HEAD ]] || fail "the merge is still under way"
+  expect_eq "$(git rev-parse HEAD)" "$(git rev-parse main)"
+  [[ "$out" == *"aborted"* ]] || fail "$out"
+}
+
+test_restart_keeps_the_first_config_that_main_lacks() {
+  git rm -q --cached .workflow/config
+  git commit -qm "chore(repo): no config yet"
+  open_task
+  verified_commit "Attempt."
+  bash "$SCRIPTS/restart.sh" "why" >/dev/null || fail "refused"
+  expect_eq "$(git rev-parse HEAD)" "$(git rev-parse main)"
+  [[ -f .workflow/config ]] || fail "the config is gone"
+  [[ "$(bash "$SCRIPTS/status.sh")" == *"check = bash check.sh"* ]] || fail "$(bash "$SCRIPTS/status.sh")"
+}
+
+test_status_lists_on_main_the_specs_approved_and_not_built() {
+  out="$(bash "$SCRIPTS/status.sh")"
+  [[ "$out" == *"- specs to build: none"* ]] || fail "$out"
+  mkdir -p .workflow/specs
+  printf -- '---\nstatus: approved\n---\n\n## Chunks\n- [x] 1. A (test-first): a\n- [ ] 2. B (test-first): b\n' >.workflow/specs/a.md
+  printf -- '---\nstatus: approved\n---\n\n## Chunks\n- [x] 1. A (test-first): a\n' >.workflow/specs/b.md
+  printf -- '---\nstatus: dropped\n---\n\n## Chunks\n- [ ] 1. A (test-first): a\n' >.workflow/specs/c.md
+  printf -- '---\nstatus: done\n---\n\n## Chunks\n- [x] 1. A (test-first): a\n' >.workflow/specs/d.md
+  git add -A && git commit -qm "docs(repo): specs"
+  out="$(bash "$SCRIPTS/status.sh")"
+  [[ "$out" == *"- specs to build:"$'\n'"  - .workflow/specs/a.md: 1 of 2 chunks open"* ]] || fail "$out"
+  [[ "$out" != *"b.md"* && "$out" != *"c.md"* && "$out" != *"d.md"* ]] || fail "$out"
+  open_task
+  [[ "$(bash "$SCRIPTS/status.sh")" != *"specs to build"* ]] || fail "listed on a task's branch"
 }

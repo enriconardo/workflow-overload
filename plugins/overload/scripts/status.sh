@@ -59,6 +59,18 @@ if [[ -f "$JOURNAL_FILE" ]]; then
   fi
 else
   echo "- journal: none on this branch"
+  # On main, what /overload:build takes: the approved specs with a chunk
+  # left to build; a done or dropped one is not listed.
+  if [[ "$(current_branch)" == "$(cfg main)" ]]; then
+    mapfile -t specs < <(git ls-files -- '.workflow/specs/*.md')
+    ready="$( ((${#specs[@]})) && python3 "$OVERLOAD_SCRIPTS/spec.py" ready "${specs[@]}")"
+    if [[ -z "$ready" ]]; then
+      echo "- specs to build: none"
+    else
+      echo "- specs to build:"
+      printf '%s\n' "$ready" | sed 's/\t/: /; s/^/  - /'
+    fi
+  fi
 fi
 dirty="$(git status --porcelain | head -n 10)"
 if [[ -n "$dirty" ]]; then
