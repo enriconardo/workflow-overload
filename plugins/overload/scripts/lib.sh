@@ -301,6 +301,19 @@ green_list() {
   printf '%s/%s.txt\n' "$(green_lists "$(current_branch)")" "$(git rev-parse HEAD)"
 }
 
+# The config's `rules` entries, files and folders, one per line, trimmed.
+rules_entries() {
+  local entry
+  local -a entries=()
+  IFS=',' read -ra entries <<<"$(cfg rules)"
+  for entry in ${entries[@]+"${entries[@]}"}; do
+    entry="${entry#"${entry%%[![:space:]]*}"}"
+    entry="${entry%"${entry##*[![:space:]]}"}"
+    [[ -n "$entry" ]] && printf '%s\n' "$entry"
+  done
+  return 0
+}
+
 # docs_only <tree>: succeeds when the task is a spec task of /overload:task
 # (a spec in the journal, not a build) whose changes from its base to <tree>
 # are the spec's docs only: the spec, the inputs, a decision record it adds
@@ -316,14 +329,10 @@ docs_only() {
   base="$(journal_get base)"
   [[ -n "$spec" && -n "$base" ]] || return 1
   backlog="$(cfg backlog)"
-  IFS=',' read -ra folders <<<"$(cfg rules)"
-  for entry in "${!folders[@]}"; do
-    file="${folders[$entry]}"
-    file="${file#"${file%%[![:space:]]*}"}"
-    file="${file%"${file##*[![:space:]]}"}"
-    file="${file%/}"
-    if [[ -n "$file" && -d "$file" ]]; then folders[entry]="$file/"; else unset 'folders[entry]'; fi
-  done
+  while IFS= read -r entry; do
+    entry="${entry%/}"
+    [[ -d "$entry" ]] && folders+=("$entry/")
+  done < <(rules_entries)
   while IFS=$'\t' read -r state file; do
     [[ "$file" == "$spec" || "$file" == "$backlog" || "$file" == "$JOURNAL_FILE" || "$file" == .workflow/inputs/* ]] && continue
     if [[ "$state" == A ]]; then

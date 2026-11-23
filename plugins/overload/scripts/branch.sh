@@ -11,7 +11,11 @@ set -euo pipefail
 # The first form opens a task of /overload:task after the triage; the second
 # a task of /overload:build, from a spec approved on main with a chunk left
 # to build: its journal names the spec, which holds the intent, and its phase
-# is that chunk's first step.
+# is that chunk's first step. Unless the spec expired: the files it rests on
+# (its frontmatter's depends_on, the config's rules, the config) changed on
+# main since the commit that brought it there, its approval. Then the phase
+# is l/expiry, and the build reviews the spec against those changes first.
+# The journal records the approval as `approved`, and logs what main changed.
 #
 # <tier> is S or L; <name> is the branch's whole name, which the model writes
 # following the project's rules: no part of it is read, so only git and the
@@ -34,7 +38,7 @@ usage() {
   exit 2
 }
 (($# >= 3)) || usage
-command=task spec=""
+command=task spec="" approved="" note="" log=""
 if [[ "$1" == --build ]]; then
   (($# == 3)) || usage
   command=build tier=L branch="$2" spec="$3"
@@ -122,6 +126,27 @@ if [[ "$command" == build ]]; then
   chunks="$(git show "HEAD:$spec" | python3 "$OVERLOAD_SCRIPTS/spec.py" chunks - 2>&1)" || die "$chunks"
   phase="$(next_chunk_phase "$chunks")"
   [[ "$phase" != close/check ]] || die "$spec has no chunk left to build."
+  # The approval: the last commit of main's own line that changed the spec,
+  # the merge of the task that approved it.
+  approved="$(git log --first-parent -1 --format=%h HEAD -- "$spec")"
+  head="$(git rev-parse --short HEAD)"
+  mapfile -t watched < <(git show "HEAD:$spec" | python3 "$OVERLOAD_SCRIPTS/spec.py" depends -)
+  ((${#watched[@]})) || note="the spec names no depends_on: only the rules and the config were checked."
+  mapfile -t -O "${#watched[@]}" watched < <(rules_entries)
+  watched+=("$CONFIG_FILE")
+  mapfile -t changed < <(git diff --name-only --no-renames "$approved" HEAD -- "${watched[@]}")
+  if ((${#changed[@]})); then
+    phase=l/expiry
+    shown="$(printf '%s, ' "${changed[@]:0:10}")"
+    ((${#changed[@]} <= 10)) || shown+="and $((${#changed[@]} - 10)) more, "
+    log="expiry: main changed the spec's files since its approval: ${shown%, }; see git diff $approved $head -- $(printf '%q ' "${watched[@]}")"
+    log="${log% }"
+  else
+    moved="$(git rev-list --first-parent --count "$approved..HEAD")"
+    if ((moved)); then
+      log="main moved since the spec's approval: $moved commit$( ((moved == 1)) || echo s) (git log --first-parent --oneline $approved..$head), none on its files"
+    fi
+  fi
 fi
 
 git switch --quiet -c "$branch"
@@ -145,6 +170,7 @@ mkdir -p "$(dirname "$JOURNAL_FILE")"
   echo "started: $(now)"
   echo "verify_red_streak: 0"
   [[ -z "$spec" ]] || echo "spec: $spec"
+  [[ -z "$spec" ]] || echo "approved: $approved"
   echo
   echo "## Intent"
   echo
@@ -170,8 +196,11 @@ mkdir -p "$(dirname "$JOURNAL_FILE")"
   echo "## Log"
   echo
   echo "- $(now) opened on $(git rev-parse --short HEAD) of $main"
+  [[ -z "$log" ]] || echo "- $(now) $log"
 } >"$JOURNAL_FILE"
 
 [[ -z "$map" ]] || bash "$OVERLOAD_SCRIPTS/journal.sh" keep map "$map" >/dev/null
 
 echo "On '$branch', tier $tier; the journal is $JOURNAL_FILE."
+[[ -z "$note" ]] || echo "$note"
+[[ -z "$log" ]] || echo "${log#expiry: }; phase $phase."

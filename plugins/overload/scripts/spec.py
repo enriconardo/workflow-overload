@@ -2,8 +2,16 @@
 """Reads a spec of the L path: its frontmatter's status and its chunk lines,
 the ones under its `## Chunks` heading.
 
-  spec.py chunks <spec>   a line per chunk: <n> <open|done> <type> <first step>
-  spec.py status <spec>   the frontmatter's status
+  spec.py chunks <spec>       a line per chunk: <n> <open|done> <type> <first step>
+  spec.py status <spec>       the frontmatter's status: draft, approved, done
+                              or dropped
+  spec.py depends <spec>      the files of the frontmatter's depends_on, one
+                              per line: those main must not have changed
+                              since the approval for a build to start as is
+  spec.py ready <spec>...     those of the specs that /overload:build takes:
+                              approved, with a chunk left to build, each as
+                              <path> <k of n chunks open>; one it cannot
+                              read as <path> unreadable: <why>
 
 A chunk line is `- [ ] <n>. <title> (<type>): <files>; <key>: <value>...`,
 its type `test-first`, `no test-first` or `tests only`, printed with dashes.
@@ -67,7 +75,8 @@ def chunks(text):
     return found
 
 
-def status(text):
+def frontmatter(text, wanted):
+    """A key's value in the frontmatter, between the first two `---`."""
     lines = text.splitlines()
     if not lines or lines[0].strip() != "---":
         return ""
@@ -75,9 +84,37 @@ def status(text):
         if line.strip() == "---":
             break
         key, _, value = line.partition(":")
-        if key.strip() == "status":
+        if key.strip() == wanted:
             return value.strip()
     return ""
+
+
+def status(text):
+    return frontmatter(text, "status")
+
+
+def depends_on(text):
+    value = frontmatter(text, "depends_on")
+    if value in ("", "none"):
+        return []
+    return [path.strip() for path in value.split(",") if path.strip()]
+
+
+def ready(paths):
+    found = []
+    for path in paths:
+        try:
+            text = read(path)
+            if status(text) != "approved":
+                continue
+            all_chunks = chunks(text)
+        except (OSError, SpecError) as error:
+            found.append("%s\tunreadable: %s" % (path, error))
+            continue
+        left = sum(1 for chunk in all_chunks if not chunk.done)
+        if left:
+            found.append("%s\t%d of %d chunks open" % (path, left, len(all_chunks)))
+    return found
 
 
 def read(path):
@@ -88,14 +125,22 @@ def read(path):
 
 
 def main(argv):
-    if len(argv) != 2 or argv[0] not in ("chunks", "status"):
-        print("Usage: spec.py chunks <spec> | status <spec>", file=sys.stderr)
+    if not argv or argv[0] not in ("chunks", "status", "depends", "ready") or (argv[0] != "ready" and len(argv) != 2):
+        print("Usage: spec.py chunks <spec> | status <spec> | depends <spec> | ready <spec>...", file=sys.stderr)
         return 2
+    if argv[0] == "ready":
+        for line in ready(argv[1:]):
+            print(line)
+        return 0
     command, path = argv
     try:
         text = read(path)
         if command == "status":
             print(status(text))
+            return 0
+        if command == "depends":
+            for file in depends_on(text):
+                print(file)
             return 0
         for chunk in chunks(text):
             print("%d\t%s\t%s\t%s" % (chunk.number, "done" if chunk.done else "open", chunk.type, chunk.first_step))
