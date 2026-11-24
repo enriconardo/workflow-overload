@@ -8,7 +8,7 @@ The Claude Code plugin `overload` and its marketplace `workflow-overload`. Its c
 .claude-plugin/marketplace.json   the marketplace: one plugin, ./plugins/overload
 plugins/overload/                 what an install copies
   .claude-plugin/plugin.json      name, version
-  skills/task/SKILL.md            /overload:task, opens or resumes a task: an S, or an L's spec
+  skills/task/SKILL.md            /overload:task, opens or resumes a task: an S, an L's spec, a plan or its items
   skills/task/phases/             the task skill's own phases, one file each
   skills/build/SKILL.md           /overload:build, builds a spec approved on main, or runs a plan's acceptance
   skills/build/phases/            the build skill's own phases
