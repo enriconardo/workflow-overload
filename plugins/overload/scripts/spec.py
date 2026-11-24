@@ -37,6 +37,9 @@
   spec.py revision <old> <new>
                               the items a revision of the plan adds, removes
                               or changes: <n> <added|removed|changed>
+  spec.py dropped <doc>       the reason a dropped spec or plan gives under
+                              its `## Dropped`, on one line; refused for a
+                              document not dropped, or dropped without one
 
 <doc> is a path, or `-` for the standard input; a command on a plan refuses a
 plan out of format, with every way it is.
@@ -65,7 +68,8 @@ A spec of a plan's item names both in its frontmatter: `plan:
 .workflow/plans/<name>.md` and `item: <n>`. A revision keeps the numbers of
 the plan's items, numbers its new items from the old highest on, one after
 the other (a split item's new part included), and leaves a ticked item as it
-is."""
+is. A dropped spec or plan, `status: dropped`, says why under a `## Dropped`
+heading."""
 
 import os
 import re
@@ -158,6 +162,17 @@ def frontmatter(text, wanted):
 
 def status(text):
     return frontmatter(text, "status")
+
+
+def dropped(text):
+    """Why a dropped document was dropped, its `## Dropped` on one line;
+    SpecError for a document not dropped, or with no reason."""
+    if status(text) != "dropped":
+        raise SpecError("status is %s, not dropped" % (status(text) or "none"))
+    reason = " ".join(line.strip() for line in section(text, "Dropped") if line.strip())
+    if not reason:
+        raise SpecError("no reason under ## Dropped")
+    return reason
 
 
 def depends_on(text):
@@ -401,6 +416,8 @@ def plan(text):
     problems = []
     found = Plan(status(text), requirements(text, problems), items(text, problems), steps(text, problems))
     check_plan(found, problems)
+    if found.status == "dropped" and not any(line.strip() for line in section(text, "Dropped")):
+        problems.append("a dropped plan says why under ## Dropped")
     if problems:
         raise SpecError(*problems)
     return found
@@ -563,6 +580,8 @@ def run(command, args):
     text = read(args[0])
     if command == "status":
         return [status(text)]
+    if command == "dropped":
+        return [dropped(text)]
     if command == "depends":
         return depends_on(text)
     if command == "link":
@@ -618,13 +637,13 @@ def started_and_specs(args):
     return started, paths
 
 
-ARGUMENTS = {"status": 1, "chunks": 1, "depends": 1, "link": 1, "check": 1, "steps": 1, "revision": 2}
+ARGUMENTS = {"status": 1, "dropped": 1, "chunks": 1, "depends": 1, "link": 1, "check": 1, "steps": 1, "revision": 2}
 # The commands that take an item's states: their least count of arguments.
 WITH_STATES = {"items": 1, "next": 1, "opens": 2}
 USAGE = (
     "Usage: spec.py status <doc> | chunks <spec> | depends <spec> | link <spec> | ready <spec>... "
     "| check <plan> | items|next <plan> [--started <n>]... [<spec>...] "
-    "| opens <plan> <n> [--started <n>]... [<spec>...] | steps <plan> | revision <old> <new>"
+    "| opens <plan> <n> [--started <n>]... [<spec>...] | steps <plan> | revision <old> <new> | dropped <doc>"
 )
 
 
