@@ -507,3 +507,60 @@ test_a_revision_keeps_a_changed_item_s_spec_for_its_build_to_review() {
   [[ "$out" == *"main changed the spec's files since its approval: $PLAN"* ]] || fail "$out"
   expect_eq "$(bash "$SCRIPTS/journal.sh" get phase)" l/expiry
 }
+
+# A spec task too large for a spec: its spec, still a draft, becomes a plan,
+# or for an item a revision of the plan that splits it.
+
+test_restart_turns_a_spec_task_into_a_plan_task() {
+  open_l_task
+  write_spec draft "- [ ] 1. Greet (test-first): a.ts"
+  printf 'the map\n' >"$WORK/map.md"
+  bash "$SCRIPTS/journal.sh" keep map "$WORK/map.md" >/dev/null
+  bash "$SCRIPTS/journal.sh" set phase l/checkpoint
+  out="$(bash "$SCRIPTS/restart.sh" --plan "seven chunks")"
+  [[ "$out" == *"tier P, phase p/plan: a new plan"* ]] || fail "$out"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get tier)" P
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get phase)" p/plan
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get spec)" ""
+  expect_eq "$(git branch --show-current)" feature/greet/default-name
+  [[ ! -e .workflow/specs/s.md ]] || fail "the draft spec stayed in the tree"
+  kept="$(sed -n 's/^- .* spec: //p' .workflow/journal.md)"
+  [[ "$out" == *"$kept"* ]] || fail "$out"
+  [[ "$(cat "$kept")" == *"# Greet"* ]] || fail "the spec is not kept"
+  [[ -f "$(sed -n 's/^- .* map: //p' .workflow/journal.md)" ]] || fail "the map is gone"
+  [[ "$(cat .workflow/journal.md)" == *"tier P: seven chunks"* ]] || fail "reason not logged"
+}
+
+test_restart_keeps_a_spec_while_a_plan_is_open() {
+  plan_on_main
+  open_l_task
+  write_spec draft "- [ ] 1. Greet (test-first): a.ts"
+  expect_fail "a plan is open on main, $PLAN: one plan at a time, the spec stays a spec" bash "$SCRIPTS/restart.sh" --plan "why"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get tier)" L
+}
+
+test_restart_turns_an_item_s_spec_task_into_a_revision_of_its_plan() {
+  plan_on_main
+  tick_item 1
+  git commit -qam "feat(greet): item 1"
+  open_item L feature/greet/default 2 >/dev/null
+  item_spec draft 2
+  bash "$SCRIPTS/journal.sh" set spec .workflow/specs/s.md
+  out="$(bash "$SCRIPTS/restart.sh" --plan "item 2 splits in two")"
+  [[ "$out" == *"tier P, phase p/plan: a revision of $PLAN that splits item 2"* ]] || fail "$out"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get plan)" "$PLAN"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get change)" "$PLAN"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get item)" ""
+  [[ ! -e .git/overload/items/feature/greet/default ]] || fail "the branch still works the item"
+}
+
+test_restart_to_a_plan_takes_only_a_spec_task_before_its_approval() {
+  open_task
+  expect_fail "turns into a plan the task of a spec not approved yet (tier L), not tier S" bash "$SCRIPTS/restart.sh" --plan "why"
+  leave_task
+  open_l_task
+  write_spec draft "- [ ] 1. Greet (test-first): a.ts"
+  bash "$SCRIPTS/journal.sh" set phase close/check
+  expect_fail "phase close/check" bash "$SCRIPTS/restart.sh" --plan "why"
+  expect_fail "Usage" bash "$SCRIPTS/restart.sh" --plan
+}
