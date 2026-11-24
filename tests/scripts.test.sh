@@ -940,14 +940,20 @@ test_commit_of_a_sync_moves_a_spec_task_of_docs_only_to_the_write() {
 
 test_every_skill_allows_the_scripts_its_phases_run() {
   local plugin="$SCRIPTS/.." skill dir name allowed
-  local -a missing=()
+  local -a missing=() files=()
   for skill in "$plugin"/skills/*/SKILL.md; do
     dir="${skill%/SKILL.md}"
     allowed="$(sed -n '2,/^---$/p' "$skill" | grep '^allowed-tools:' || true)"
-    # integrate.sh asks the human each time, on purpose
+    files=("$skill")
+    compgen -G "$dir/phases/*.md" >/dev/null && files+=("$dir"/phases/*.md)
+    # A skill that reads the shared phases runs their scripts too.
+    grep -q 'shared/' "$skill" && files+=("$plugin"/shared/*.md)
     while read -r name; do
-      [[ "$name" == integrate.sh || "$allowed" == *"scripts/$name"* ]] || missing+=("${dir##*/}: $name")
-    done < <(cat "$skill" "$dir"/phases/*.md 2>/dev/null | grep -oE '(<scripts>|scripts)/[a-z-]+\.sh' | sed 's|.*/||' | sort -u)
+      # integrate.sh asks the human each time, on purpose; close.md runs
+      # suite.sh in a build only.
+      [[ "$name" == integrate.sh || "${dir##*/}/$name" == task/suite.sh ]] && continue
+      [[ "$allowed" == *"scripts/$name"* ]] || missing+=("${dir##*/}: $name")
+    done < <(cat "${files[@]}" | grep -oE '(<scripts>|scripts)/[a-z-]+\.sh' | sed 's|.*/||' | sort -u)
   done
   ((${#missing[@]} == 0)) || fail "run, but not allowed: ${missing[*]}"
 }
