@@ -578,7 +578,7 @@ plan_built_on_main() {
 }
 
 open_acceptance() {
-  bash "$SCRIPTS/branch.sh" --build "${1:-$ACCEPTANCE}" "$PLAN"
+  bash "$SCRIPTS/branch.sh" --build "$ACCEPTANCE" "$PLAN"
 }
 
 # step_outcome <passed|failed> [<status>]: the outcome of the plan's one
@@ -620,7 +620,7 @@ test_branch_opens_the_acceptance_once_every_item_is_ticked() {
   expect_eq "$(bash "$SCRIPTS/journal.sh" get item)" ""
   expect_eq "$(cat ".git/overload/items/$ACCEPTANCE")" "$PLAN	acceptance	build"
   leave_open
-  expect_fail "the acceptance of $PLAN is open on branch $ACCEPTANCE" open_acceptance test/greet/again
+  expect_fail "the acceptance of $PLAN is open on branch $ACCEPTANCE" bash "$SCRIPTS/branch.sh" --build test/greet/again "$PLAN"
   expect_fail "the acceptance of $PLAN is open on branch $ACCEPTANCE: it ends first" change_task P docs/greet/revise "$PLAN"
   expect_fail "the acceptance of $PLAN is open on branch $ACCEPTANCE: stop that task" change_task D docs/greet/drop "$PLAN"
   git branch -q -D "$ACCEPTANCE"
