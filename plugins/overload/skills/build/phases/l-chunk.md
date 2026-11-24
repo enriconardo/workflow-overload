@@ -6,10 +6,10 @@ A chunk's first step comes from its line: the status lists it with each open chu
 
 ## Expiry — phase `l/expiry`
 
-The spec was judged on the code as it was at its approval, and main changed since then the files it rests on (its `depends_on`, the config's `rules`, the config): the journal logs which, and the command that shows the changes. Judge it again before any chunk.
+The spec was judged on the code as it was at its approval, and main changed since then the files it rests on (its `depends_on`, the config's `rules`, the config, the plan of an item's spec): the journal logs which, and the command that shows the changes. Judge it again before any chunk.
 
 1. Run the `overload:code-explorer` agent with the spec's path and that command as the request, the spec's inputs and the config's `rules`; keep its map (`journal.sh keep map <path>`): the map of the spec's task went with its merge.
-2. Run the `overload:spec-reviewer` agent with the spec's path, that command, the map's path (the journal's `map`), the spec's inputs, its decision records, and the config's `rules`. Log the round (`journal.sh log "expiry review round <n>: <k> blocking"`).
+2. Run the `overload:spec-reviewer` agent with the spec's path, that command, the map's path (the journal's `map`), the spec's inputs, its decision records, the plan's path for an item's spec, and the config's `rules`. Log the round (`journal.sh log "expiry review round <n>: <k> blocking"`).
 3. No objection you accept: tell the human so in one line, set the phase to the first chunk's first step, which the status lists, and go on. An accepted one is a correction of the spec: write it in the spec and its reason in *Decisions*, then *A spec correction* from 3. An objection that the spec no longer holds, its premise gone, goes to the human: they correct it here, or stop the build and take the spec back to `/overload:task`.
 
 ## Per chunk
@@ -67,5 +67,5 @@ The spec is what the human approved: you change it to tick a chunk and, at the c
 
 1. Write the correction in the spec, and its reason in *Decisions*, a ruling of the human marked as theirs, with their words.
 2. Run the `overload:code-explorer` agent with the correction, the spec's path, its inputs and the config's `rules`; keep its map (`journal.sh keep map <path>`): the map of the spec's task went with its merge.
-3. Run the `overload:spec-reviewer` agent with the spec's path, the command that shows the correction (`git diff HEAD -- <spec>`), the map's path (the journal's `map`), the spec's inputs, its decision records, and the config's `rules`. For each objection: fix the spec, or reject it with a reason under *Open findings*. An accepted blocking one calls for another round; at most three, then `shared/escalate.md`.
+3. Run the `overload:spec-reviewer` agent with the spec's path, the command that shows the correction (`git diff HEAD -- <spec>`), the map's path (the journal's `map`), the spec's inputs, its decision records, the plan's path for an item's spec, and the config's `rules`. For each objection: fix the spec, or reject it with a reason under *Open findings*; one that a later item needs is a revision, which the rules of every task say where to note. An accepted blocking one calls for another round; at most three, then `shared/escalate.md`.
 4. Tell the human the correction and the reviewer's verdict in a few lines, then stop and wait. Log their words. On their go, the chunk goes on from the step the correction sends it to; the correction is committed with the chunk.

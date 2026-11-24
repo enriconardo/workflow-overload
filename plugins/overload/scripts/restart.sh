@@ -14,10 +14,10 @@ set -euo pipefail
 # findings (they speak of code that is gone), its candidates and its log
 # kept, the reason logged; puts back the inputs, and the first config and
 # backlog when main lacks them; drops the verified trees and the branch's
-# records, keeping the explorer's map. It prints what it discarded: the
-# commits, the attempt's tip, which `git reflog <branch>` keeps, and the
-# stash. The journal names neither, so that the spec does not start from
-# the attempt.
+# records, keeping the explorer's map and the plan's item it works. It
+# prints what it discarded: the commits, the attempt's tip, which `git
+# reflog <branch>` keeps, and the stash. The journal names neither, so that
+# the spec does not start from the attempt.
 
 # shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"

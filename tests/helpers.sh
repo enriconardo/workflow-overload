@@ -103,6 +103,23 @@ PY
   git add -A && git commit -qm "chore(repo): fake runner"
 }
 
+# verified_commit <line>: a line added to the README, verified and committed.
+verified_commit() {
+  echo "$1" >>README.md
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  bash "$SCRIPTS/commit.sh" "$(message "docs(readme): $1")" >/dev/null
+}
+
+# slow_check: a check_integrate, green unless the file slow-red exists.
+slow_check() {
+  cat >slow.sh <<'EOF'
+echo "slow tests"
+if [[ -f slow-red ]]; then echo "Failed: slow-red exists"; exit 1; fi
+EOF
+  set_config check_integrate 'bash slow.sh'
+  git add -A && git commit -qm "chore(repo): slow tests"
+}
+
 open_l_task() {
   bash "$SCRIPTS/branch.sh" L "${1:-feature/greet/default-name}" "$(intent)" >/dev/null
 }
