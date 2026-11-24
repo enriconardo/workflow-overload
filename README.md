@@ -1,14 +1,14 @@
 # Workflow Overload
 
-A development workflow for [Claude Code](https://claude.com/claude-code), packaged as the plugin `overload` of the marketplace `workflow-overload`. It takes a request to a verified merge, spends agents and checks in proportion to the task, and starts only when you type `/overload:task`.
+A development workflow for [Claude Code](https://claude.com/claude-code), packaged as the plugin `overload` of the marketplace `workflow-overload`. It takes a request to a verified merge, spends agents and checks in proportion to the task, and starts only when you type `/overload:task` or `/overload:build`.
 
 ## What this is and why it exists
 
 An agent left alone on a change writes the code, writes the tests that confirm it, reviews its own work and commits whatever it last saw pass. Each of those steps hides the defects of the one before: tests written after the code confirm what it does today, bugs included; a review by the author sees what the author meant, not what they wrote; a long session carries its drift toward the human's first idea into every later step.
 
-Workflow Overload splits those roles. The main agent holds the intent and talks with you; agents with a clean context explore, write tests from the spec without reading the code under change, implement, and review; scripts do every mechanical check, so a commit takes only the tree a green check just saw. A small change goes through a short path (S) with one review; anything that a consumer sees, or that spans areas, goes through a long one (L) with a reviewed spec, chunks written test-first, and a review per chunk. You decide the tier, the result and what the task leaves behind.
+Workflow Overload splits those roles. The main agent holds the intent and talks with you; agents with a clean context explore, write tests from the spec without reading the code under change, implement, and review; scripts do every mechanical check, so a commit takes only the tree a green check just saw. A small change goes through a short path (S) with one review; anything that a consumer sees, or that spans areas, goes through a long one (L): a reviewed spec that you approve and that lands on main first, then its build, in a session of its own, in chunks written test-first, each with its review. You decide the tier, the result and what the task leaves behind.
 
-It is a plugin with two commands, `/overload:setup` to configure a project once and `/overload:task` to work on a request: without them, a session works as it would without the plugin.
+It is a plugin with three commands: `/overload:setup` configures a project once, `/overload:task` works on a request, up to the code of a small change or the approved spec of a large one, and `/overload:build` builds an approved spec. Without them, a session works as it would without the plugin.
 
 ### Principles
 
@@ -16,7 +16,7 @@ It is a plugin with two commands, `/overload:setup` to configure a project once 
 - **The main agent holds the intent and stays light.** Exploring, probing, implementing an L chunk and reviewing go to agents, which return only their result. On a plainly small change it reads the files it changes itself, since it would read them anyway.
 - **Mechanical checks are scripts.** Verify is green or red, a commit takes only the tree verify just checked, and a test-first suite must fail for the right reason before any code is written.
 - **The human decides where it matters**: the tier, the result, the lessons and backlog items to keep, and every loop that does not converge in three rounds.
-- **The workflow starts only with `/overload:task`.** The model cannot invoke the skills, the agents declare themselves internal, and the hooks stay silent on a branch without a task.
+- **The workflow starts only with `/overload:task` or `/overload:build`.** The model cannot invoke the skills, the agents declare themselves internal, and the hooks stay silent on a branch without a task.
 - **The project keeps its own conventions.** Its commands, branch names and commit messages live in its config and rule files; the plugin owns only when a check runs and the process around it.
 
 ## Quick start
@@ -50,7 +50,7 @@ You need Claude Code, `bash`, `git` and `python3` (3.8 or later, standard librar
 
    It restates the request, asks what is unclear, and proposes S. On your confirmation it opens a branch, makes the change, verifies, commits, runs the final review, and stops at a checkpoint with a summary. Give the go: it merges into main with `--no-ff` and deletes the branch.
 
-That is the whole loop. A larger request goes the same way, through the L path. If a session ends halfway, `/overload:task` on the task's branch resumes it from its journal.
+That is the whole loop. A larger request goes through the L path in two tasks: `/overload:task` writes its spec, which merges into main once you approve it; then `/overload:build <spec>`, best in a new session, builds it on a branch of its own and merges the code. If a session ends halfway, the command that opened the task, typed without arguments on its branch, resumes it from its journal.
 
 ## Configuration and usage
 
@@ -59,10 +59,11 @@ That is the whole loop. A larger request goes the same way, through the L path. 
 | Command | What it does |
 | --- | --- |
 | `/overload:setup [guidance]` | Proposes `.workflow/config` and the conventions your rule files lack; you settle it. Then verify must be green on main, a second agent measures `red_types` with throwaway tests, and it commits on your go. No branch, no journal. |
-| `/overload:task <request>` | Opens a task: brainstorming, then the S or the L path. Name the documents that go with the request (a brief, a mockup, a sample format): they land in `.workflow/inputs/`. |
-| `/overload:task` | Resumes the task of the current branch from its journal, after an interruption or a `/clear`. |
+| `/overload:task <request>` | Opens a task: brainstorming, then the S path, or the spec of an L up to its approval and its merge into main. Name the documents that go with the request (a brief, a mockup, a sample format): they land in `.workflow/inputs/`. |
+| `/overload:build <spec>` | Builds a spec approved on main, chunk by chunk, on a branch of its own, then merges it. It checks first whether main changed the files the spec rests on since its approval. |
+| `/overload:task`, `/overload:build` | On a task's branch, the command that opened the task resumes it from its journal, after an interruption or a `/clear`. On main, `/overload:build` lists the specs to build and chooses none. |
 
-Inside a task, the scripts that open the branch, update the journal, verify, commit, handle the suite and take in a moved main run without a permission prompt; `integrate.sh` asks each time, on top of your go at the checkpoint. While a task is open, a hook refuses a `git commit` or `git merge` typed directly. On a branch with an open task, a new session is told the task waits for `/overload:task`, and a compacted one is told to reread the journal.
+Inside a task, the scripts that open the branch, update the journal, verify, commit, handle the suite and take in a moved main run without a permission prompt; `integrate.sh` asks each time, on top of your go at the checkpoint. While a task is open, a hook refuses a `git commit` or `git merge` typed directly. On a branch with an open task, a new session is told the task waits for its command, `/overload:task` or `/overload:build`, and a compacted one is told to reread the journal.
 
 ### `.workflow/config`
 
@@ -156,7 +157,7 @@ Branch names and commit messages follow the project's rules (its CLAUDE.md, its 
 | `.workflow/config` | main | the project's settings |
 | `.workflow/backlog.md` | main | the items you approved at a checkpoint |
 | `.workflow/journal.md` | the task's branch | phase, intent, candidates, open findings; dropped at the merge |
-| `.workflow/specs/` | main | the L specs, ticked chunk by chunk |
+| `.workflow/specs/` | main | the L specs: approved by a task, ticked chunk by chunk by their build, done at its merge |
 | `.workflow/inputs/<slug>/` | main | the documents given with a request, named as the spec or task that uses them |
 | `.workflow/reference/` | the working tree, briefly | the test-author's throwaway model of a type-level case; deleted before its suite is recorded |
 | `.git/overload/` | the clone | the verified tree, the output of the last verify and red check and the red check's report, and the files a task keeps for a later session (the explorer's map), in a folder per branch removed at its merge |
@@ -167,15 +168,18 @@ Branch names and commit messages follow the project's rules (its CLAUDE.md, its 
 ```
 /overload:task <request>
   └─ brainstorming ── triage: S or L, you confirm
-       ├─ S: branch → implement → verify → commit ─────────────────────────┐
-       └─ L: branch → spec → probe → spec review → split → checkpoint 1    │
-              └─ per chunk: stubs → tests → red check → implement          │
-                            → verify → step review → commit ───────────────┤
-                                                                           ▼
-       close: slow tests → final review → lessons → checkpoint → integrate
+       ├─ S: branch → implement → verify → commit
+       │       → close: slow tests → final review → lessons → checkpoint → integrate
+       └─ L: branch → spec → probe → spec review → split → lessons → checkpoint
+               → commit the approved spec → close: sync, check → integrate
+                                                               │ the spec on main
+/overload:build <spec>                                          ▼
+  └─ branch → expiry check → per chunk: stubs → tests → red check → implement
+                                        → verify → step review → commit
+       → close: slow tests → final review → lessons → checkpoint → integrate
 ```
 
-Every step is a phase recorded in the branch's journal, so a task survives an interruption, a `/clear` or a compaction: `/overload:task` reads the journal and resumes where it stopped. Where a script's outcome decides the next step (a green verify, a valid red, a commit), the script moves the phase itself, and a red never moves it.
+Every step is a phase recorded in the branch's journal, so a task survives an interruption, a `/clear` or a compaction: the command that opened it reads the journal and resumes where it stopped. Where a script's outcome decides the next step (a green verify, a valid red, a commit), the script moves the phase itself, and a red never moves it.
 
 ### Brainstorming and triage
 
@@ -199,19 +203,26 @@ No spec, one reviewer, one checkpoint; the journal's intent stands in for the sp
 3. **Commit** with `commit.sh`, which refuses any tree but the verified one.
 4. **Close**, below.
 
-A task that turns out bigger goes to the L path on your go: its commits stay, uncommitted work goes in a stash, and the spec describes the whole change, its chunks only what is left.
+A task that turns out bigger goes to the L path on your go, and starts again from main: its code did not go through the L path's tests first, and the spec must come from the problem, not from a sketched solution. The main agent logs in the journal the facts the attempt found; `restart.sh` recreates the branch from main with that journal, as an L task at its spec, puts the uncommitted work in a stash, and prints what it discarded: the attempt's commits stay reachable in `git reflog <branch>`, but the journal names none of it.
 
-### The L path: planning
+### The L path: the spec
 
-1. **Spec**, written by the main agent, which held the discussion: why, what, decisions with their alternatives, test cases, the docs that change with the behavior, chunks. A decision that outlives the task also gets a decision record.
+An L task ends with its spec approved on main; `/overload:build` builds it.
+
+1. **Spec**, written by the main agent, which held the discussion: why, what, decisions with their alternatives, test cases, the docs that change with the behavior, chunks. What the build needs from the discussion, your decisions and rulings with your words, goes in the spec: the journal does not reach the build. Its frontmatter's `depends_on` names the files it rests on. A decision that outlives the task also gets a decision record.
 2. **Probe** (`prober`), only for external facts the spec rests on (versions, APIs, a dependency's behavior), in a temporary folder outside the repository.
 3. **Spec review** (`spec-reviewer`): correctness, and a critique of the premises: was the problem seen, what is the strongest alternative, what is missing. It gets the spec and the code map, never a summary of the discussion, and does not read the journal.
 4. **Split** (`spec-splitter`), above about 6–7 files or 10–15 test cases: the fewest chunks, each green alone, each test-first, of tests only, or neither.
-5. **Checkpoint 1**: you approve the plan, and the spec is committed. This is the moment for `/clear` and `/overload:task`: the next session resumes from the journal and the spec with a small context.
+5. **Lessons and checkpoint**, the task's only checkpoint: you approve the spec and pick the lessons and backlog items to keep.
+6. **Merge**: the spec is committed as `status: approved`. A task of docs only (the spec, its inputs and decision records, the backlog) closes without `check_integrate` and without the final review, which the spec review and your approval stand for: it takes in a moved main, runs `check`, writes what you picked, and merges. It ends by naming `/overload:build <spec>`, best after a `/clear`: the build needs none of this session's context.
 
-### The L path: chunks
+### The L path: the build
 
-Each chunk ends in one green commit, written by agents that did not write the spec.
+`/overload:build <spec>` opens a branch from main for a spec approved there with a chunk left to build. Its journal points to the spec, which holds the intent.
+
+**Expiry.** The spec was judged on the code as it was at its approval, the merge that brought it to main. When main changed since then a file of its `depends_on`, of the config's `rules`, or the config, the build starts with a new review: `code-explorer` maps the change, and `spec-reviewer` judges whether the spec still holds; a correction it calls for goes through you. When main moved elsewhere, you are told, with the dependencies the spec names in words, which no script sees change.
+
+Then each chunk ends in one green commit, written by agents that did not write the spec.
 
 1. **Stubs** (`step-implementer` in stub mode), when the chunk changes existing signatures or adds dependencies.
 2. **Tests** (`step-test-author`), from the spec, never reading the code under change; it records its suite with `suite.sh`, outside every branch.
@@ -220,23 +231,26 @@ Each chunk ends in one green commit, written by agents that did not write the sp
 5. **Verify**, `check` and every suite recorded on the branch, then the **step review** (`step-reviewer`): the code does what the chunk asks, and the tests cover it.
 6. **Commit** the chunk, its tests, its code and its tick in the spec.
 
+A spec found wrong halfway stops the chunk: any change to it but a tick (a chunk's type, a ruling on a case it left open, a chunk added at the checkpoint) is a correction, reviewed by `spec-reviewer` on its diff, and waits for your go. A spec whose premise is gone goes back to `/overload:task`.
+
 ### Close
 
-Both paths end the same way.
+Every task ends the same way: an S, the spec task of an L, a build. A spec task of docs only runs steps 1, 5 and 6 alone, with `check` and no `check_integrate`: its lessons went to the spec's checkpoint. In a build, `step-implementer` writes the fixes, each from a test that reproduces it; elsewhere the main agent does.
 
 1. **Sync and integration check**: when main moved, `sync.sh` merges it into the branch without committing; `verify.sh --integrate` then runs `check` and `check_integrate`, the slow local tests. A red is fixed on the branch like any other, and the merge is committed with its fixes; a red that main shows alone, or a conflict, comes to you.
 2. **Final review** (`code-reviewer`) of the whole range against the intent or the spec. Only six cases block: a bug a plausible caller meets, a security defect, a requirement missed or out of scope, a missing or vacuous test, a broken convention no tool checks, a misleading doc. Findings below confidence 80 are counted, not reported. Fixes are commits of their own, and a new round reviews only what changed.
 3. **Lessons** (`lesson-critic`): rules proposed only for problems that got past the step meant to catch them, judged against the rules they would join before you see them.
 4. **Checkpoint**: a summary of the change, the last verify, the findings that need your judgment, the backlog candidates and the lessons. You give the go and pick what to keep, or ask for changes.
-5. **Integrate** (`integrate.sh`): brings main up to its upstream, refuses a branch that does not hold it (back to the sync) or where `check_integrate` has not run since, merges with `--no-ff` without the journal, and deletes the branch and its suite.
+5. **Lessons and backlog**: the ones you picked are written and committed on their own; a build sets its spec's `status: done`.
+6. **Integrate** (`integrate.sh`): brings main up to its upstream, refuses a branch that does not hold it (back to the sync) or where `check_integrate` has not run since, checks the spec is as its command leaves it (approved with a chunk to build after a task, done with every chunk ticked after a build), merges with `--no-ff` without the journal, and deletes the branch and its suite.
 
 ### Escalation
 
-A loop that reaches its third round without converging, a stuck step, a finding that needs judgment, or a conflict when taking in main stops and comes to you, with what was tried and three choices: **retry** one more round, **skip** and record the problem (never on a red verify), or **stop**, leaving the branch and its journal for a later `/overload:task`.
+A loop that reaches its third round without converging, a stuck step, a finding that needs judgment, or a conflict when taking in main stops and comes to you, with what was tried and three choices: **retry** one more round, **skip** and record the problem (never on a red verify), or **stop**, leaving the branch and its journal for a later session of the command that opened it.
 
 ### The agents
 
-All are internal to the two skills and called as `overload:<name>`.
+All are internal to the skills and called as `overload:<name>`.
 
 | Agent | Model | Role |
 | --- | --- | --- |
@@ -244,7 +258,7 @@ All are internal to the two skills and called as `overload:<name>`.
 | `setup-red-probe` | sonnet | measures `red_types` with throwaway tests |
 | `code-explorer` | sonnet | maps the code a request touches and saves the map; changes nothing in the repository |
 | `prober` | sonnet | checks external facts in a throwaway environment |
-| `spec-reviewer` | opus | reviews an L spec and challenges its premises; read-only |
+| `spec-reviewer` | opus | reviews an L spec and challenges its premises, and in a build an expired spec or a correction; read-only |
 | `spec-splitter` | sonnet | splits a spec into the fewest green chunks; read-only |
 | `step-test-author` | opus | writes a chunk's tests from the spec, before the code |
 | `step-implementer` | sonnet | writes a chunk's code until its tests pass |
@@ -262,11 +276,13 @@ Workflow Overload is maintained by one person and integrates by local merge, wit
 .claude-plugin/marketplace.json   the marketplace: one plugin, ./plugins/overload
 plugins/overload/                 what an install copies
   .claude-plugin/plugin.json      name, version
-  skills/task/SKILL.md            /overload:task, opens or resumes a task
+  skills/task/SKILL.md            /overload:task, opens or resumes a task: an S, or an L's spec
   skills/task/phases/             the task skill's own phases, one file each
+  skills/build/SKILL.md           /overload:build, builds a spec approved on main
+  skills/build/phases/            the build skill's own phases
   skills/setup/SKILL.md           /overload:setup, writes .workflow/config
   shared/                         the rules and phases every task command shares
-  agents/                         the agents, all internal to the two skills
+  agents/                         the agents, all internal to the skills
   hooks/hooks.json                hooks, silent without a journal
   scripts/                        bash for the steps, python3 for parsing
 tests/                            tests of the scripts, outside the install
@@ -275,7 +291,7 @@ docs/                             design and probes
 
 ### Rules of the plugin
 
-- **Only the human starts the workflow.** Every skill has `disable-model-invocation`, only `/overload:task` opens a task, no agent's description invites delegation, no hook that acts on a branch without `.workflow/journal.md`.
+- **Only the human starts the workflow.** Every skill has `disable-model-invocation`, only `/overload:task` opens a task from a request and `/overload:build` only from a spec approved on main, no agent's description invites delegation, no hook that acts on a branch without `.workflow/journal.md`.
 - **Scripts need only bash, git and python3** (3.8+, standard library), and find their files from `BASH_SOURCE`, since the model's Bash has no `CLAUDE_PLUGIN_ROOT`.
 - **A new config key** goes in `lib.sh`'s `CONFIG_KEYS` with its default in `config_default`, in the key list of `agents/setup-explorer.md`, and in this README's *Configuration*; a test refuses a phase or an agent that names a key `lib.sh` does not know.
 - **Phases and agents are instructions to a model**: imperative, short, one place per rule.
@@ -299,7 +315,7 @@ CI runs them on every push. A change to a script starts with a test in `tests/sc
 
 ## Roadmap
 
-Setup, of a new repository too, brainstorming, triage, the S path, the L path, resume and integration by local merge all work today. Next, each to be designed before it is built (details in [the backlog](.workflow/backlog.md)):
+Setup, of a new repository too, brainstorming, triage, the S path, the L path as a spec task and its build, resume and integration by local merge all work today. Next, each to be designed before it is built (details in [the backlog](.workflow/backlog.md)):
 
 - **Integration by pull or merge request** on GitHub, GitLab and Bitbucket, for projects whose main branch takes no local merge.
 - **A level above the task**, a roadmap or epic that carries architecture and order across tasks, for building a whole application.
