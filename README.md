@@ -61,6 +61,8 @@ That is the whole loop. A larger request goes through the L path in two tasks: `
 | `/overload:setup [guidance]` | Proposes `.workflow/config` and the conventions your rule files lack; you settle it. Then verify must be green on main, a second agent measures `red_types` with throwaway tests, and it commits on your go. No branch, no journal. |
 | `/overload:task <request>` | Opens a task: brainstorming, then the S path, the spec of an L, or a plan, up to its approval and its merge into main. Name the documents that go with the request (a brief, a mockup, a sample format): they land in `.workflow/inputs/`. |
 | `/overload:task <plan> [<n>]` | Opens item `n` of the open plan, as an S task or the spec of an L, when nothing else of the plan is open and the items it depends on are done. Without `n`, shows the next item and the command that works it. |
+| `/overload:task <plan> <the change>` | Revises the open plan, or drops it, in a task of its own with its checkpoint. |
+| `/overload:task <spec> <why>` | Drops a spec approved on main and not built, in a task of its own with its checkpoint. |
 | `/overload:build <spec>` | Builds a spec approved on main, chunk by chunk, on a branch of its own, then merges it. It checks first whether main changed the files the spec rests on since its approval. |
 | `/overload:task`, `/overload:build` | On a task's branch, the command that opened the task resumes it from its journal, after an interruption or a `/clear`. On main, `/overload:build` lists the specs to build and chooses none; the status both read names the open plan's next item. |
 
@@ -158,8 +160,8 @@ Branch names and commit messages follow the project's rules (its CLAUDE.md, its 
 | `.workflow/config` | main | the project's settings |
 | `.workflow/backlog.md` | main | the items you approved at a checkpoint |
 | `.workflow/journal.md` | the task's branch | phase, intent, candidates, open findings; dropped at the merge |
-| `.workflow/specs/` | main | the L specs: approved by a task, ticked chunk by chunk by their build, done at its merge |
-| `.workflow/plans/` | main | the plans: approved by a task, an item ticked by the task that ends it; one open at a time |
+| `.workflow/specs/` | main | the L specs: approved by a task, ticked chunk by chunk by their build, done at its merge, or dropped by a task with the reason |
+| `.workflow/plans/` | main | the plans: approved and revised by a task, an item ticked by the task that ends it, or dropped by a task with the reason; one open at a time |
 | `.workflow/inputs/<slug>/` | main | the documents given with a request, named as the spec or task that uses them |
 | `.workflow/reference/` | the working tree, briefly | the test-author's throwaway model of a type-level case; deleted before its suite is recorded |
 | `.git/overload/` | the clone | the verified tree, the output of the last verify and red check and the red check's report, and the files a task keeps for a later session (the explorer's map), in a folder per branch removed at its merge; which branch works an item of the plan, until its merge |
@@ -180,6 +182,10 @@ Branch names and commit messages follow the project's rules (its CLAUDE.md, its 
 /overload:task <plan> <n>                           ▼
   └─ the item's brainstorming ── its tier, you confirm ── S or L, as above,
        one item at a time; the task that ends it ticks it
+/overload:task <plan> <the change>, /overload:task <spec> <why>
+  └─ revision: branch → the plan revised → plan review → lessons → checkpoint
+     drop: branch → dropped, with the reason → lessons → checkpoint
+       → commit → close: sync, check → integrate
                                                                │ the spec on main
 /overload:build <spec>                                          ▼
   └─ branch → expiry check → per chunk: stubs → tests → red check → implement
@@ -221,8 +227,8 @@ An L task ends with its spec approved on main; `/overload:build` builds it.
 2. **Probe** (`prober`), only for external facts the spec rests on (versions, APIs, a dependency's behavior), in a temporary folder outside the repository.
 3. **Spec review** (`spec-reviewer`): correctness, and a critique of the premises: was the problem seen, what is the strongest alternative, what is missing. It gets the spec and the code map, never a summary of the discussion, and does not read the journal.
 4. **Split** (`spec-splitter`), above about 6–7 files or 10–15 test cases: the fewest chunks, each green alone, each test-first, of tests only, or neither.
-5. **Lessons and checkpoint**, the task's only checkpoint: you approve the spec and pick the lessons and backlog items to keep.
-6. **Merge**: the spec is committed as `status: approved`. A task of docs only (the spec, its inputs and decision records, the backlog) closes without `check_integrate` and without the final review, which the spec review and your approval stand for: it takes in a moved main, runs `check`, writes what you picked, and merges. It ends by naming `/overload:build <spec>`, best after a `/clear`: the build needs none of this session's context.
+5. **Lessons and checkpoint**, the task's only checkpoint: you approve the spec and pick the lessons and backlog items to keep. A spec split into more than about 5 chunks is too large for one build: the checkpoint proposes to turn it into a plan, unless a plan is open, and for an item's spec into a revision of the plan that splits the item. On your go, `restart.sh --plan` keeps the spec's draft out of the tree, for the plan to start from, and the task goes on as a plan task.
+6. **Merge**: the spec is committed as `status: approved`. A task of docs only (specs, plans, their inputs, rules files, the backlog) closes without `check_integrate` and without the final review, which the spec review and your approval stand for: it takes in a moved main, runs `check`, writes what you picked, and merges. It ends by naming `/overload:build <spec>`, best after a `/clear`: the build needs none of this session's context.
 
 ### A plan and its items
 
@@ -236,6 +242,15 @@ A change with several groups of independent decisions, or several areas a consum
 `plan.sh` checks its format: every requirement covered, closed and, when it needs one, tried by a step. `plan-reviewer` judges what a script cannot: whether each item leaves main green and coherent, the order, an item too large, a decision deferred that conditions every item, the decisions and documents against the plan. You approve it at the task's only checkpoint, and it merges like a spec, without the final review.
 
 Then `/overload:task <plan> <n>` opens an item: its brainstorming starts from the item's intent and asks only what the plan leaves open, and the plan's estimate is the tier it proposes. An S item is a task like any other; an L item's spec names its plan and item, its reviewer reads the plan, and its build watches the plan for changes since the spec's approval. The task that ends an item, the S or the build, ticks it in the plan in its last commit, and refines the acceptance steps its change affects; what it finds that changes later items goes to its checkpoint as a revision, never into the plan by itself. `integrate.sh` refuses an item's task that changes another item, or leaves its own unticked.
+
+### Changing a plan or a spec on main
+
+A plan or a spec on main is a decision, and changes only through a task with its own checkpoint. `/overload:task <plan> <the change>` revises the open plan or drops it; `/overload:task <spec> <why>` drops a spec approved and not built (a spec changes otherwise in its build, as a correction, or is dropped and written anew).
+
+- **A revision** goes through the plan's steps, its reviewer judging the revision against the rest of the plan and what the ticked items built. It changes only items not ticked and not open on a branch, which keep their numbers; a new item, a split item's new part included, takes the next free number. An item it removes takes its approved spec to `dropped` in the same task; one it changes keeps it, and its build reviews it against the revised plan first, or drops it, as you choose.
+- **A drop** sets `status: dropped`, with the reason under `## Dropped`, and marks the decision records it cites as withdrawn or superseded, as the project's convention says. A plan dropped drops the approved specs of its items with it; what its ticked items built stays. A drop waits while an item of the plan is open on a branch. A spec dropped reopens its item, when it has one.
+
+`integrate.sh` checks each of these: a revision that changes a ticked item or one a branch works, or ticks one; a drop without its reason, or that changes the plan's items; an approved spec left behind for an item removed or dropped; any other spec or plan changed.
 
 ### The L path: the build
 
@@ -256,14 +271,14 @@ A spec found wrong halfway stops the chunk: any change to it but a tick (a chunk
 
 ### Close
 
-Every task ends the same way: an S, the spec task of an L, a plan task, a build. A spec or plan task of docs only runs steps 1, 5 and 6 alone, with `check` and no `check_integrate`: its lessons went to its checkpoint. In a build, `step-implementer` writes the fixes, each from a test that reproduces it; elsewhere the main agent does.
+Every task ends the same way: an S, the spec task of an L, a plan task, a change of a plan or spec, a build. A task that decides on main (a spec, a plan, a change) of docs only runs steps 1, 5 and 6 alone, with `check` and no `check_integrate`: its lessons went to its checkpoint. In a build, `step-implementer` writes the fixes, each from a test that reproduces it; elsewhere the main agent does.
 
 1. **Sync and integration check**: when main moved, `sync.sh` merges it into the branch without committing; `verify.sh --integrate` then runs `check` and `check_integrate`, the slow local tests. A red is fixed on the branch like any other, and the merge is committed with its fixes; a red that main shows alone, or a conflict, comes to you.
 2. **Final review** (`code-reviewer`) of the whole range against the intent or the spec. Only six cases block: a bug a plausible caller meets, a security defect, a requirement missed or out of scope, a missing or vacuous test, a broken convention no tool checks, a misleading doc. Findings below confidence 80 are counted, not reported. Fixes are commits of their own, and a new round reviews only what changed.
 3. **Lessons** (`lesson-critic`): rules proposed only for problems that got past the step meant to catch them, judged against the rules they would join before you see them.
 4. **Checkpoint**: a summary of the change, the last verify, the findings that need your judgment, the backlog candidates and the lessons. You give the go and pick what to keep, or ask for changes.
 5. **Lessons and backlog**: the ones you picked are written and committed on their own; a build sets its spec's `status: done`, and the task that ends an item ticks it.
-6. **Integrate** (`integrate.sh`): brings main up to its upstream, refuses a branch that does not hold it (back to the sync) or where `check_integrate` has not run since, checks the spec is as its command leaves it (approved with a chunk to build after a task, done with every chunk ticked after a build) and the plan as its task leaves it (approved with nothing ticked; for an item, only its own line changed, ticked once the item ends), merges with `--no-ff` without the journal, and deletes the branch and its suite.
+6. **Integrate** (`integrate.sh`): brings main up to its upstream, refuses a branch that does not hold it (back to the sync) or where `check_integrate` has not run since, checks the spec is as its command leaves it (approved with a chunk to build after a task, done with every chunk ticked after a build) and the plan as its task leaves it (approved with nothing ticked; for an item, only its own line changed, ticked once the item ends), and a change as the section above says, merges with `--no-ff` without the journal, and deletes the branch and its suite.
 
 ### Escalation
 
@@ -337,7 +352,7 @@ CI runs them on every push. A change to a script starts with a test in `tests/sc
 
 ## Roadmap
 
-Setup, of a new repository too, brainstorming, triage, the S path, the L path as a spec task and its build, a plan worked item by item, resume and integration by local merge all work today. Next, each to be designed before it is built (details in [the backlog](.workflow/backlog.md)):
+Setup, of a new repository too, brainstorming, triage, the S path, the L path as a spec task and its build, a plan worked item by item, revised or dropped, a spec dropped, resume and integration by local merge all work today. Next, each to be designed before it is built (details in [the backlog](.workflow/backlog.md)):
 
 - **Integration by pull or merge request** on GitHub, GitLab and Bitbucket, for projects whose main branch takes no local merge.
 - **A level above the plan**, a roadmap of phases, each a plan, for building a whole application.
