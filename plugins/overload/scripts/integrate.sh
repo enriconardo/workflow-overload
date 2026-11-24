@@ -13,11 +13,16 @@ set -euo pipefail
 # format, no item ticked, and no other plan open on main. A task on an item
 # of the plan changes no other item, which only a revision does, and leaves
 # its item ticked, but for the task of an L item's spec, whose build ticks
-# it. A change of a decision main holds (the journal's `change`) changes
+# it. An acceptance (/overload:build <plan>) leaves every step of the plan
+# with its outcome, passed or failed, and the plan done when every step
+# passed, approved otherwise; it changes no item, and every item is ticked,
+# a revision merged meanwhile included; it changes no spec, and no plan but
+# its own. A change of a decision main holds (the journal's `change`) changes
 # that plan or spec as its tier allows: a revision (P) changes no item
 # ticked, ticks none, and changes none a branch works; a drop (D) leaves
-# the document dropped with its reason and its plan's items as they are.
-# Either drops, with its reason, the approved spec of each item it removes
+# the document dropped with its reason and its plan's items as they are; a
+# revision waits while the plan's acceptance is open on a branch. Either
+# drops, with its reason, the approved spec of each item it removes
 # or drops, and changes no other spec or plan. A refusal leaves main as it
 # was.
 #
@@ -78,7 +83,29 @@ fi
 # The plan as its task leaves it, and an item's task within its item.
 plan="$(journal_get plan)"
 item="$(journal_get item)"
-if [[ -n "$plan" ]]; then
+if is_acceptance; then
+  [[ -f "$plan" ]] || die "the journal's plan '$plan' does not exist."
+  steps="$(python3 "$OVERLOAD_SCRIPTS/spec.py" steps "$plan" 2>&1)" || die "$plan is out of format:
+$steps"
+  was="$(mktemp)"
+  trap 'rm -f "$was"' EXIT
+  git show "refs/heads/$main:$plan" >"$was" 2>/dev/null || die "$main has no $plan: the acceptance's plan is gone."
+  # Every item is ticked on main: any change to one is refused.
+  changes="$(python3 "$OVERLOAD_SCRIPTS/spec.py" revision "$was" "$plan" 2>&1)" || changes="${changes//spec.py: $plan: /}"
+  [[ -z "$changes" ]] || die "the acceptance changes the items of $plan, which only a revision does, through /overload:task $plan:
+$changes"
+  open="$(python3 "$OVERLOAD_SCRIPTS/spec.py" items "$plan" | awk -F'\t' '$2 != "done" { print $1; exit }')"
+  [[ -z "$open" ]] || die "item $open of $plan is not ticked: the acceptance runs once every item is."
+  open="$(awk -F'\t' '$2 == "open" { print $1; exit }' <<<"$steps")"
+  [[ -z "$open" ]] || die "acceptance step $open of $plan has no outcome: tick it, or add — failed: <what>."
+  if ! grep -q $'\tfailed\t' <<<"$steps"; then
+    [[ "$(python3 "$OVERLOAD_SCRIPTS/spec.py" status "$plan")" == "done" ]] ||
+      die "every acceptance step of $plan passed: set 'status: done', verify and commit, then integrate."
+  fi
+  while IFS= read -r file; do
+    [[ "$file" == "$plan" ]] || die "the acceptance changes $file: it changes no spec, and no plan but its own."
+  done < <(git diff --name-only --no-renames "refs/heads/$main" HEAD -- .workflow/plans/ .workflow/specs/)
+elif [[ -n "$plan" ]]; then
   [[ -f "$plan" ]] || die "the journal's plan '$plan' does not exist."
   items="$(python3 "$OVERLOAD_SCRIPTS/spec.py" items "$plan" 2>&1)" || die "$plan is out of format:
 $items"
@@ -142,10 +169,14 @@ if [[ -n "$change" ]]; then
         [[ -z "$changes" ]] || die "dropping $change changes its item $(cut -f1 <<<"$changes" | paste -sd, - | sed 's/,/, /g'): a drop leaves the items as they are."
         if other="$(item_open_elsewhere "$change")"; then
           IFS=$'\t' read -r other_branch other_item _ <<<"$other"
-          die "item $other_item of $change is open on branch $other_branch: stop that task, or end it, before the drop."
+          die "$(work_name "$other_item") of $change is open on branch $other_branch: stop that task, or end it, before the drop."
         fi
         dropped_items="all"
       else
+        while IFS=$'\t' read -r other_branch of other_item _; do
+          [[ "$of" == "$change" && "$other_item" == acceptance && "$other_branch" != "$branch" ]] &&
+            die "the acceptance of $change is open on branch $other_branch: a revision waits for it to end."
+        done < <(item_records)
         items="$(python3 "$OVERLOAD_SCRIPTS/spec.py" items "$change")"
         while IFS=$'\t' read -r n kind; do
           [[ -n "$n" ]] || continue
