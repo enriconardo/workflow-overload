@@ -4,7 +4,7 @@ A change too large for one spec becomes a plan: a sequence of tasks, its items, 
 
 ## 1. Plan — phase `p/plan`
 
-You write it, for the reason you write a spec: you hold the discussion with the human. Start from the explorer's map; if the brainstorming logged none, run the `overload:code-explorer` agent now, as `phases/brainstorm.md` says, and keep its file: `journal.sh keep map <path>`. Write the plan at `.workflow/plans/<YYYY-MM-DD>-<description>.md`, or, with inputs (the journal's *Inputs*), at `.workflow/plans/<slug>.md`, named as their folder, and record its path: `journal.sh set plan <path>`. The inputs stay the source: each point of an input becomes a requirement, or is named in *Out of scope*.
+You write it, for the reason you write a spec: you hold the discussion with the human. Start from the explorer's map; if the brainstorming logged none, run the `overload:code-explorer` agent now, as `phases/brainstorm.md` says, and keep its file: `journal.sh keep map <path>`. Write the plan at `.workflow/plans/<YYYY-MM-DD>-<description>.md`, or, with inputs (the journal's *Inputs*), at `.workflow/plans/<slug>.md`, named as their folder, and record its path: `journal.sh set plan <path>`. The inputs stay the source: each point of an input becomes a requirement, or is named in *Out of scope*. A task turned from a spec too large (the log's kept `spec`) starts from that draft: its behaviors, test cases and decisions become requirements, items and cross-cutting decisions, and its inputs stay the task's.
 
 ```
 ---

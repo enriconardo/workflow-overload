@@ -62,7 +62,7 @@ test_branch_opens_task_with_journal() {
 test_branch_refuses_bad_names_and_states() {
   expect_fail "not a valid branch name" bash "$SCRIPTS/branch.sh" S "docs/bad name" "$(intent)"
   expect_fail "is the main branch" bash "$SCRIPTS/branch.sh" S main "$(intent)"
-  expect_fail "tier is S, L or P" bash "$SCRIPTS/branch.sh" M docs/readme "$(intent)"
+  expect_fail "tier is S, L, P (a plan) or D (a drop)" bash "$SCRIPTS/branch.sh" M docs/readme "$(intent)"
   expect_fail "Usage" bash "$SCRIPTS/branch.sh" S docs readme "$(intent)"
   echo change >>README.md
   expect_fail "uncommitted changes" bash "$SCRIPTS/branch.sh" S docs/readme "$(intent)"
@@ -860,7 +860,7 @@ test_branch_refuses_a_build_of_a_spec_not_ready() {
 }
 
 # A spec task of docs only: the spec, its inputs, a decision record it adds
-# to a folder of `rules`, the backlog.
+# to a folder of `rules`, the backlog; a rules file in any change.
 docs_spec_task() {
   slow_check
   mkdir -p docs/adr
@@ -897,7 +897,7 @@ test_verify_integrate_closes_a_spec_task_of_docs_only_without_check_integrate() 
 
 test_a_spec_task_that_changes_more_than_docs_has_the_whole_close() {
   docs_spec_task
-  echo "# more rules" >>CLAUDE.md
+  echo "export const greet = 1" >a.ts
   bash "$SCRIPTS/verify.sh" >/dev/null
   bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): spec')" >/dev/null
   out="$(bash "$SCRIPTS/verify.sh" --integrate)"
@@ -915,13 +915,14 @@ test_a_spec_task_that_changes_more_than_docs_has_the_whole_close() {
   [[ "$out" == *"phase: close/review"* ]] || fail "$out"
 }
 
-test_a_decision_record_changed_rather_than_added_is_no_doc_of_the_spec() {
+test_a_rules_file_changed_or_removed_is_a_doc_of_the_spec_task() {
   docs_spec_task
   echo "superseded" >>docs/adr/0000-template.md
+  echo "# a rule" >>CLAUDE.md
   bash "$SCRIPTS/verify.sh" >/dev/null
   bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): spec')" >/dev/null
   out="$(bash "$SCRIPTS/verify.sh" --integrate)"
-  [[ "$out" == *"phase: close/review"* ]] || fail "$out"
+  [[ "$out" == *"docs only"*"phase: close/write"* ]] || fail "$out"
 }
 
 test_commit_of_a_sync_moves_a_spec_task_of_docs_only_to_the_write() {

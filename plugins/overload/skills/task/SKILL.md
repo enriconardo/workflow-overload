@@ -1,14 +1,14 @@
 ---
 name: task
-description: Starts or resumes a Workflow Overload development task, up to an approved spec for a large one or a plan for one too large for a spec, and the items of that plan. Runs only when the user types /overload:task.
+description: Starts or resumes a Workflow Overload development task, up to an approved spec for a large one or a plan for one too large for a spec, the items of that plan, and the revision or drop of a plan or spec on main. Runs only when the user types /overload:task.
 disable-model-invocation: true
-argument-hint: "[request, with the paths of its inputs] | <plan> [<item>]"
+argument-hint: "[request, with the paths of its inputs] | <plan> [<item> | <the change>] | <spec> <why drop it>"
 allowed-tools: Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/status.sh), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/rules.sh), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/journal.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/verify.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/branch.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/commit.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/sync.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/restart.sh:*), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/plan.sh:*)
 ---
 
 # Workflow Overload
 
-The user typed `/overload:task $ARGUMENTS`. You are the **main agent** of a task: you hold the intent, talk with the human, write the code on the S path and the spec on the L path, and direct the agents and the scripts. Noisy work (exploring, probing, reviewing) goes to agents, which return only their result. An L task ends with its spec approved on main: `/overload:build` builds it. A change too large for one spec ends with a plan approved on main, whose items are tasks of their own: `/overload:task <plan> <n>` opens item `n`.
+The user typed `/overload:task $ARGUMENTS`. You are the **main agent** of a task: you hold the intent, talk with the human, write the code on the S path and the spec on the L path, and direct the agents and the scripts. Noisy work (exploring, probing, reviewing) goes to agents, which return only their result. An L task ends with its spec approved on main: `/overload:build` builds it. A change too large for one spec ends with a plan approved on main, whose items are tasks of their own: `/overload:task <plan> <n>` opens item `n`. A plan or spec on main changes only through a task too: `/overload:task <plan> <the change>` revises or drops the plan, `/overload:task <spec> <why>` drops the spec.
 
 State of this project, read by a script as this skill loaded:
 
@@ -27,7 +27,8 @@ State of this project, read by a script as this skill loaded:
 3. No journal, and the first argument is a plan's path (`.workflow/plans/<name>.md`): it must be the open plan the status names; otherwise say which plan is open, if any, and stop. After the path:
    - an item's number: `bash <scripts>/plan.sh item <plan> <n>`. When it refuses, show why, with the next item the status gives, and stop; otherwise read `phases/brainstorm.md`, from *An item of the plan*;
    - nothing: show the next item and its command, as the status gives them, choose nothing, and stop;
-   - anything else asks to revise or drop the plan, which this version does not do yet: say so in one line and stop.
-4. No journal, other arguments: read `phases/brainstorm.md`. No arguments: ask for the request.
+   - anything else asks to revise or drop the plan: read `phases/change.md`.
+4. No journal, and the first argument is a spec's path (`.workflow/specs/<name>.md`): what follows asks to drop it, the only change of a spec outside its build. It must be among the specs to build the status lists; otherwise say what it is (built, dropped, not on main) and stop. Then read `phases/change.md`.
+5. No journal, other arguments: read `phases/brainstorm.md`. No arguments: ask for the request.
 
 !`bash ${CLAUDE_PLUGIN_ROOT}/scripts/rules.sh`

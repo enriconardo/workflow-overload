@@ -322,6 +322,11 @@ class PlanTest(unittest.TestCase):
         done = re.sub(r"- \[ \]", "- [x]", plan_with(" — failed: it showed after a reload only", "", plan_with("status: approved", "status: done")))
         self.assertEqual(problems(done), [])
 
+    def test_a_dropped_plan_says_why(self):
+        dropped = plan_with("status: approved", "status: dropped")
+        self.assertEqual(problems(dropped), ["a dropped plan says why under ## Dropped"])
+        self.assertEqual(problems(dropped + "\n## Dropped\nThe lists go to another product.\n"), [])
+
     def test_every_problem_is_reported_at_once(self):
         found = problems(plan_with("depends on 4, 5", "depends on 9", plan_with("verify: measure", "verify: guess")))
         self.assertEqual(len(found), 2, found)
@@ -537,9 +542,17 @@ class PlanMainTest(unittest.TestCase):
                 )
         self.assertEqual(run("opens", ".workflow/plans/lists.md", "5", "--started", "5")[0], 0)
 
+    def test_dropped_prints_the_reason_or_why_there_is_none(self):
+        write(self.work, "d.md", "---\nstatus: dropped\n---\n# x\n\n## Dropped\nNot needed:\nthe API does it.\n\n## Notes\nx\n")
+        self.assertEqual(run("dropped", "d.md"), (0, "Not needed: the API does it.\n", ""))
+        write(self.work, "e.md", "---\nstatus: dropped\n---\n# x\n\n## Dropped\n\n")
+        self.assertEqual(run("dropped", "e.md"), (1, "", "spec.py: e.md: no reason under ## Dropped\n"))
+        write(self.work, "f.md", "---\nstatus: approved\n---\n# x\n\n## Dropped\nNot needed.\n")
+        self.assertEqual(run("dropped", "f.md"), (1, "", "spec.py: f.md: status is approved, not dropped\n"))
+
     def test_a_command_with_the_wrong_arguments_prints_the_usage(self):
         for args in [(), ("plan",), ("check",), ("items",), ("next",), ("opens", "a.md"), ("items", "a.md", "--started"),
-                     ("revision", "a.md"), ("status", "a.md", "b.md")]:
+                     ("revision", "a.md"), ("status", "a.md", "b.md"), ("dropped",)]:
             with self.subTest(args):
                 code, _, err = run(*args)
                 self.assertEqual(code, 2)

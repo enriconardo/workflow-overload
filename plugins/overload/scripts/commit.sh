@@ -14,11 +14,13 @@ set -euo pipefail
 # The commit moves the phase, in the journal it commits: from s/implement to
 # close/check when it changes more than the config; from close/check to
 # close/review when its tree is the one verify.sh --integrate checked, or to
-# close/write on a spec or plan task of docs only (lib.sh's docs_only); from
-# l/checkpoint to close/check when it holds the spec approved with a chunk
-# to build, which ends a spec task; from p/checkpoint to close/check when it
-# holds the plan approved, in format, with no item ticked, which ends a plan
-# task; from any step of l/chunk-<n> to the next
+# close/write on a task of docs only that decides on main (lib.sh's
+# docs_only); from l/checkpoint to close/check when it holds the spec
+# approved with a chunk to build, which ends a spec task; from p/checkpoint
+# to close/check when it holds the plan approved, in format, with no item
+# ticked, which ends a plan task, or ticked as main had them, on a revision;
+# from d/checkpoint to close/check when it holds the dropped spec or plan
+# with its reason; from any step of l/chunk-<n> to the next
 # open chunk's first step, or close/check, when it ticks chunk <n> and no
 # other.
 
@@ -100,8 +102,18 @@ case "$phase" in
       stays="the commit holds no plan with 'status: approved'."
     elif ! items="$(python3 "$OVERLOAD_SCRIPTS/spec.py" items "$plan" 2>&1)"; then
       stays="$items"
-    elif ticked="$(awk -F'\t' '$2 == "done" { print $1; exit }' <<<"$items")" && [[ -n "$ticked" ]]; then
+    elif [[ -z "$(journal_get change)" ]] && ticked="$(awk -F'\t' '$2 == "done" { print $1; exit }' <<<"$items")" && [[ -n "$ticked" ]]; then
       stays="item $ticked is ticked: a plan reaches main with no item ticked."
+    else
+      next=close/check
+    fi
+    ;;
+  d/checkpoint)
+    change="$(journal_get change)"
+    if [[ -z "$change" || ! -f "$change" ]]; then
+      stays="the journal names no spec or plan to drop that exists."
+    elif ! reason="$(python3 "$OVERLOAD_SCRIPTS/spec.py" dropped "$change" 2>&1)"; then
+      stays="${reason#spec.py: "$change": }."
     else
       next=close/check
     fi
