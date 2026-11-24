@@ -14,9 +14,11 @@ set -euo pipefail
 # The commit moves the phase, in the journal it commits: from s/implement to
 # close/check when it changes more than the config; from close/check to
 # close/review when its tree is the one verify.sh --integrate checked, or to
-# close/write on a spec task of docs only (lib.sh's docs_only); from
+# close/write on a spec or plan task of docs only (lib.sh's docs_only); from
 # l/checkpoint to close/check when it holds the spec approved with a chunk
-# to build, which ends a spec task; from any step of l/chunk-<n> to the next
+# to build, which ends a spec task; from p/checkpoint to close/check when it
+# holds the plan approved, in format, with no item ticked, which ends a plan
+# task; from any step of l/chunk-<n> to the next
 # open chunk's first step, or close/check, when it ticks chunk <n> and no
 # other.
 
@@ -90,6 +92,18 @@ case "$phase" in
       fi
     else
       stays="the commit holds no spec with 'status: approved'."
+    fi
+    ;;
+  p/checkpoint)
+    plan="$(journal_get plan)"
+    if [[ -z "$plan" || ! -f "$plan" || "$(python3 "$OVERLOAD_SCRIPTS/spec.py" status "$plan")" != approved ]]; then
+      stays="the commit holds no plan with 'status: approved'."
+    elif ! items="$(python3 "$OVERLOAD_SCRIPTS/spec.py" items "$plan" 2>&1)"; then
+      stays="$items"
+    elif ticked="$(awk -F'\t' '$2 == "done" { print $1; exit }' <<<"$items")" && [[ -n "$ticked" ]]; then
+      stays="item $ticked is ticked: a plan reaches main with no item ticked."
+    else
+      next=close/check
     fi
     ;;
   l/chunk-*/*)

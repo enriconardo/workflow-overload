@@ -62,7 +62,7 @@ test_branch_opens_task_with_journal() {
 test_branch_refuses_bad_names_and_states() {
   expect_fail "not a valid branch name" bash "$SCRIPTS/branch.sh" S "docs/bad name" "$(intent)"
   expect_fail "is the main branch" bash "$SCRIPTS/branch.sh" S main "$(intent)"
-  expect_fail "tier is S or L" bash "$SCRIPTS/branch.sh" M docs/readme "$(intent)"
+  expect_fail "tier is S, L or P" bash "$SCRIPTS/branch.sh" M docs/readme "$(intent)"
   expect_fail "Usage" bash "$SCRIPTS/branch.sh" S docs readme "$(intent)"
   echo change >>README.md
   expect_fail "uncommitted changes" bash "$SCRIPTS/branch.sh" S docs/readme "$(intent)"
@@ -342,12 +342,6 @@ test_commit_refuses_main_and_branches_without_journal() {
   expect_fail "runs on a task's branch" bash "$SCRIPTS/commit.sh" "$(message 'docs(readme): x')"
 }
 
-verified_commit() {
-  echo "$1" >>README.md
-  bash "$SCRIPTS/verify.sh" >/dev/null
-  bash "$SCRIPTS/commit.sh" "$(message "docs(readme): $1")" >/dev/null
-}
-
 test_integrate_merges_without_journal() {
   open_task
   verified_commit "more"
@@ -407,15 +401,6 @@ test_integrate_refused_commit_leaves_main_intact() {
   expect_eq "$(git branch --show-current)" "docs/readme/describe-project"
   [[ -f .workflow/journal.md ]] || fail "journal lost"
   [[ -z "$(git status --porcelain)" ]] || fail "dirty: $(git status --porcelain)"
-}
-
-slow_check() {
-  cat >slow.sh <<'EOF'
-echo "slow tests"
-if [[ -f slow-red ]]; then echo "Failed: slow-red exists"; exit 1; fi
-EOF
-  set_config check_integrate 'bash slow.sh'
-  git add -A && git commit -qm "chore(repo): slow tests"
 }
 
 test_verify_integrate_runs_check_integrate_after_check() {

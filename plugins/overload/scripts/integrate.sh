@@ -9,7 +9,11 @@ set -euo pipefail
 # without the journal, whose result is the branch's verified tree, and
 # deletes the branch and its records. A branch with a spec holds it as its
 # command leaves it: approved with a chunk to build after /overload:task,
-# done after /overload:build. A refusal leaves main as it was.
+# done after /overload:build. A plan task brings its plan approved, in
+# format, no item ticked, and no other plan open on main. A task on an item
+# of the plan changes no other item, which only a revision does, and leaves
+# its item ticked, but for the task of an L item's spec, whose build ticks
+# it. A refusal leaves main as it was.
 #
 #   integrate.sh
 
@@ -65,6 +69,46 @@ $(grep '^- \[ \]' "$spec")"
   fi
 fi
 
+# The plan as its task leaves it, and an item's task within its item.
+plan="$(journal_get plan)"
+item="$(journal_get item)"
+if [[ -n "$plan" ]]; then
+  [[ -f "$plan" ]] || die "the journal's plan '$plan' does not exist."
+  items="$(python3 "$OVERLOAD_SCRIPTS/spec.py" items "$plan" 2>&1)" || die "$plan is out of format:
+$items"
+  plan_status="$(python3 "$OVERLOAD_SCRIPTS/spec.py" status "$plan")"
+  [[ "$plan_status" == approved ]] || die "$plan is not 'status: approved' but '${plan_status:-none}': the human approves it at the checkpoint, then it is committed."
+  if [[ -z "$item" ]]; then
+    ticked="$(awk -F'\t' '$2 == "done" { print $1; exit }' <<<"$items")"
+    [[ -z "$ticked" ]] || die "item $ticked of $plan is ticked: a plan reaches main with no item ticked."
+    other="$(open_plans | grep -vxF -- "$plan" | head -n 1 || true)"
+    [[ -z "$other" ]] || die "a plan is open on main already, $other: one plan at a time."
+  else
+    was="$(mktemp)"
+    if ! git show "refs/heads/$main:$plan" >"$was" 2>/dev/null; then
+      rm -f "$was"
+      die "$main has no $plan: the item's plan is gone."
+    fi
+    if ! changes="$(python3 "$OVERLOAD_SCRIPTS/spec.py" revision "$was" "$plan" 2>&1)"; then
+      rm -f "$was"
+      die "the task changes $plan as no revision may: $changes"
+    fi
+    rm -f "$was"
+    others="$(awk -F'\t' -v n="$item" '$1 != n { printf "%s%s", sep, $1; sep = ", " }' <<<"$changes")"
+    [[ -z "$others" ]] || die "the task changes item $others of $plan: a revision of the plan goes through /overload:task $plan."
+    state="$(awk -F'\t' -v n="$item" '$1 == n { print $2 }' <<<"$items")"
+    if [[ -n "$spec" && "$(journal_get command)" != build ]]; then
+      linked="$(python3 "$OVERLOAD_SCRIPTS/spec.py" link "$spec" 2>&1)" || die "$linked"
+      IFS=$'\t' read -r linked_plan linked_item <<<"$linked"
+      [[ "$linked_plan" == "$plan" && "$linked_item" == "$item" ]] ||
+        die "$spec names item ${linked_item:-none} of ${linked_plan:-no plan}, not the task's: plan: $plan and item: $item."
+      [[ "$state" != "done" ]] || die "item $item of $plan is ticked: the build of its spec ticks it."
+    else
+      [[ "$state" == "done" ]] || die "item $item of $plan is not ticked: the task's last commit ticks it."
+    fi
+  fi
+fi
+
 # The journal is tracked on the branch: a local edit to it would block the
 # switch, and the merge drops the file anyway.
 git checkout --quiet -- "$JOURNAL_FILE" 2>/dev/null || true
@@ -99,4 +143,5 @@ for ref in $(git for-each-ref --format='%(refname)' "refs/overload/suite/$branch
 done
 rm -f "$verified" "$integrated"
 rm -rf "$(state_dir)/kept/$branch" "$(green_lists "$branch")"
+rm -f "$(item_records_dir)/$branch"
 git log -1 --format="integrated '$branch' into '$main' as %h %s"

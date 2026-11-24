@@ -5,7 +5,7 @@ set -euo pipefail
 # and writes the journal with the tier, the command that runs the task and
 # the intent.
 #
-#   branch.sh <tier> <name> <intent-file> [--map <file>] [--inputs <slug> <file>...]
+#   branch.sh <tier> <name> <intent-file> [--item <plan> <n>] [--map <file>] [--inputs <slug> <file>...]
 #   branch.sh --build <name> <spec>
 #
 # The first form opens a task of /overload:task after the triage; the second
@@ -17,9 +17,18 @@ set -euo pipefail
 # is l/expiry, and the build reviews the spec against those changes first.
 # The journal records the approval as `approved`, and logs what main changed.
 #
-# <tier> is S or L; <name> is the branch's whole name, which the model writes
-# following the project's rules: no part of it is read, so only git and the
-# project's commit-msg hook judge it. <intent-file> holds the intent the
+# <tier> is S, L, or P for a plan: one plan is open at a time, so a plan
+# task waits until main holds none approved. --item opens S or L on an item
+# of the open plan, which the journal names as `plan` and `item`: the plan
+# approved on main, the item not ticked, its spec not approved yet, its
+# dependencies ticked, no other item started. A build of an item's spec
+# names them too, and the plan joins the files whose change expires the
+# spec. Either records under the state folder that its branch works the
+# item, until integrate.sh merges it: one item at a time.
+#
+# <name> is the branch's whole name, which the model writes following the
+# project's rules: no part of it is read, so only git and the project's
+# commit-msg hook judge it. <intent-file> holds the intent the
 # brainstorming wrote (problem, goal, constraints, decisions), copied into
 # the journal. The inputs the human gave (a brief, a mockup, a sample) are
 # copied into .workflow/inputs/<slug>/, which the journal's *Inputs* lists:
@@ -34,7 +43,7 @@ in_project
 require_config
 
 usage() {
-  echo "Usage: branch.sh <S|L> <name> <intent-file> [--map <file>] [--inputs <slug> <file>...] | branch.sh --build <name> <spec>" >&2
+  echo "Usage: branch.sh <S|L|P> <name> <intent-file> [--item <plan> <n>] [--map <file>] [--inputs <slug> <file>...] | branch.sh --build <name> <spec>" >&2
   exit 2
 }
 (($# >= 3)) || usage
@@ -48,7 +57,12 @@ else
 fi
 branch="$2" intent="$3"
 shift 3
-map="" slug="" inputs=()
+map="" slug="" inputs=() plan="" item=""
+if [[ "${1:-}" == --item ]]; then
+  [[ $# -ge 3 && "$tier" != P ]] || usage
+  plan="$2" item="$3"
+  shift 3
+fi
 if [[ "${1:-}" == --map ]]; then
   (($# >= 2)) || usage
   map="$2"
@@ -61,7 +75,7 @@ if (($#)); then
 fi
 INPUTS_DIR=".workflow/inputs"
 
-[[ "$tier" == S || "$tier" == L ]] || die "the tier is S or L, not '$tier'."
+[[ "$tier" == S || "$tier" == L || "$tier" == P ]] || die "the tier is S, L or P (a plan), not '$tier'."
 [[ "$command" == build || -s "$intent" ]] || die "the intent file '$intent' is missing or empty."
 [[ -z "$map" || -f "$map" ]] || die "the map '$map' is not a file."
 if [[ -n "$slug" ]]; then
@@ -117,8 +131,16 @@ fi
 
 # A build starts from the spec as main holds it: approved, with a chunk
 # left to build.
-phase=s/implement
-[[ "$tier" == S ]] || phase=l/spec
+case "$tier" in
+  S) phase=s/implement ;;
+  L) phase=l/spec ;;
+  P) phase=p/plan ;;
+esac
+if [[ "$tier" == P ]]; then
+  open="$(open_plans | head -n 1)"
+  [[ -z "$open" ]] || die "a plan is open already, $open: one plan at a time. Its next item is in /overload:task's status."
+fi
+[[ -z "$item" ]] || title="$(item_can_open "$plan" "$item")"
 if [[ "$command" == build ]]; then
   git cat-file -e "HEAD:$spec" 2>/dev/null || die "'$spec' is not a file on $main: /overload:build builds a spec that a task approved and integrated."
   status="$(git show "HEAD:$spec" | python3 "$OVERLOAD_SCRIPTS/spec.py" status -)"
@@ -130,10 +152,20 @@ if [[ "$command" == build ]]; then
   # the merge of the task that approved it.
   approved="$(git log --first-parent -1 --format=%h HEAD -- "$spec")"
   head="$(git rev-parse --short HEAD)"
+  linked="$(git show "HEAD:$spec" | python3 "$OVERLOAD_SCRIPTS/spec.py" link - 2>&1)" || die "$spec: ${linked#spec.py: -: }"
+  if [[ -n "$linked" ]]; then
+    IFS=$'\t' read -r plan item <<<"$linked"
+    plan_in_head "$plan"
+    if other="$(item_open_elsewhere "$plan")"; then
+      IFS=$'\t' read -r other_branch other_item _ <<<"$other"
+      die "item $other_item of $plan is open on branch $other_branch: one item at a time."
+    fi
+  fi
   mapfile -t watched < <(git show "HEAD:$spec" | python3 "$OVERLOAD_SCRIPTS/spec.py" depends -)
-  ((${#watched[@]})) || note="the spec names no depends_on: only the rules and the config were checked."
+  ((${#watched[@]})) || note="the spec names no depends_on: only the rules${plan:+, the plan} and the config were checked."
   mapfile -t -O "${#watched[@]}" watched < <(rules_entries)
   watched+=("$CONFIG_FILE")
+  [[ -z "$plan" ]] || watched+=("$plan")
   mapfile -t changed < <(git diff --name-only --no-renames "$approved" HEAD -- "${watched[@]}")
   if ((${#changed[@]})); then
     phase=l/expiry
@@ -171,6 +203,8 @@ mkdir -p "$(dirname "$JOURNAL_FILE")"
   echo "verify_red_streak: 0"
   [[ -z "$spec" ]] || echo "spec: $spec"
   [[ -z "$spec" ]] || echo "approved: $approved"
+  [[ -z "$plan" ]] || echo "plan: $plan"
+  [[ -z "$item" ]] || echo "item: $item"
   echo
   echo "## Intent"
   echo
@@ -200,7 +234,16 @@ mkdir -p "$(dirname "$JOURNAL_FILE")"
 } >"$JOURNAL_FILE"
 
 [[ -z "$map" ]] || bash "$OVERLOAD_SCRIPTS/journal.sh" keep map "$map" >/dev/null
+[[ -z "$item" ]] || record_item "$plan" "$item" "$command"
 
 echo "On '$branch', tier $tier; the journal is $JOURNAL_FILE."
+if [[ -n "$item" ]]; then
+  if [[ -n "${title:-}" ]]; then
+    IFS=$'\t' read -r _ estimated name <<<"$title"
+    echo "It works item $item of $plan, $name, estimated $estimated."
+  else
+    echo "It builds item $item of $plan."
+  fi
+fi
 [[ -z "$note" ]] || echo "$note"
 [[ -z "$log" ]] || echo "${log#expiry: }; phase $phase."

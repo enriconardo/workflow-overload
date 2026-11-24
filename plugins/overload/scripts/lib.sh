@@ -314,27 +314,30 @@ rules_entries() {
   return 0
 }
 
-# docs_only <tree>: succeeds when the task is a spec task of /overload:task
-# (a spec in the journal, not a build) whose changes from its base to <tree>
-# are the spec's docs only: the spec, the inputs, a decision record it adds
-# to a folder of `rules`, the backlog. Such a task closes without
-# `check_integrate` and without the final review: the spec reviewer judged
-# the spec and its decision records, the human approved them at the spec's
-# checkpoint. The journal is never part of the change.
+# docs_only <tree>: succeeds when the task is a spec or plan task of
+# /overload:task (a spec in the journal, or a plan and no item; not a build)
+# whose changes from its base to <tree> are its docs only: the spec, the
+# plan (an item's spec corrects the item's tier there), the inputs, a
+# decision record it adds to a folder of `rules`, the backlog. Such a task
+# closes without `check_integrate` and without the final review: the spec or
+# plan reviewer judged it and its decision records, the human approved them
+# at its checkpoint. The journal is never part of the change.
 docs_only() {
-  local tree="$1" spec base backlog entry state file
+  local tree="$1" spec plan base backlog entry state file
   local -a folders=()
   [[ "$(journal_get command)" != build ]] || return 1
   spec="$(journal_get spec)"
+  plan="$(journal_get plan)"
   base="$(journal_get base)"
-  [[ -n "$spec" && -n "$base" ]] || return 1
+  [[ -n "$spec" || (-n "$plan" && -z "$(journal_get item)") ]] || return 1
+  [[ -n "$base" ]] || return 1
   backlog="$(cfg backlog)"
   while IFS= read -r entry; do
     entry="${entry%/}"
     [[ -d "$entry" ]] && folders+=("$entry/")
   done < <(rules_entries)
   while IFS=$'\t' read -r state file; do
-    [[ "$file" == "$spec" || "$file" == "$backlog" || "$file" == "$JOURNAL_FILE" || "$file" == .workflow/inputs/* ]] && continue
+    [[ "$file" == "${spec:-/}" || "$file" == "${plan:-/}" || "$file" == "$backlog" || "$file" == "$JOURNAL_FILE" || "$file" == .workflow/inputs/* ]] && continue
     if [[ "$state" == A ]]; then
       for entry in ${folders[@]+"${folders[@]}"}; do
         [[ "$file" == "$entry"* ]] && continue 2
@@ -396,3 +399,86 @@ suite_refs() {
   # not those of fix/x/y-other.
   git for-each-ref --format='%(refname)' "refs/overload/suite/$1" | sort -V
 }
+
+# The plans: .workflow/plans/<name>.md, beside the specs. One is open at a
+# time: approved on main, until its acceptance makes it done or a task drops
+# it. An item of the open plan is worked by one task at a time, recorded
+# under the state folder while its branch lives: the plan, on main, cannot
+# tell an item whose branch is open from one nobody started.
+
+# The plans and specs main's working tree tracks, a path per line.
+tracked_plans() { git ls-files -- '.workflow/plans/*.md'; }
+tracked_specs() { git ls-files -- '.workflow/specs/*.md'; }
+
+# open_plans: the tracked plans with 'status: approved', a path per line.
+open_plans() {
+  local plan
+  while IFS= read -r plan; do
+    [[ -n "$plan" && "$(python3 "$OVERLOAD_SCRIPTS/spec.py" status "$plan")" == approved ]] && printf '%s\n' "$plan"
+  done < <(tracked_plans)
+  return 0
+}
+
+item_records_dir() {
+  printf '%s/items\n' "$(state_dir)"
+}
+
+# record_item <plan> <n> <command>: this branch works item <n> of <plan>.
+record_item() {
+  local file
+  file="$(item_records_dir)/$(current_branch)"
+  mkdir -p "$(dirname "$file")"
+  printf '%s\t%s\t%s\n' "$1" "$2" "$3" >"$file"
+}
+
+# item_records: `<branch> <plan> <n> <command>` for each branch that works
+# an item and still exists: a record whose branch is gone counts no more.
+item_records() {
+  local dir file branch
+  dir="$(item_records_dir)"
+  [[ -d "$dir" ]] || return 0
+  while IFS= read -r file; do
+    branch="${file#"$dir"/}"
+    git show-ref --verify --quiet "refs/heads/$branch" || continue
+    printf '%s\t%s\n' "$branch" "$(cat "$file")"
+  done < <(find "$dir" -type f | sort)
+}
+
+# item_open_elsewhere <plan>: the first record of the plan on a branch other
+# than this one, as `<branch> <n> <command>`; fails when there is none.
+item_open_elsewhere() {
+  local branch plan n command current
+  current="$(current_branch)"
+  while IFS=$'\t' read -r branch plan n command; do
+    if [[ "$plan" == "$1" && "$branch" != "$current" ]]; then
+      printf '%s\t%s\t%s\n' "$branch" "$n" "$command"
+      return 0
+    fi
+  done < <(item_records)
+  return 1
+}
+
+# plan_in_head <plan>: dies unless HEAD holds the plan approved.
+plan_in_head() {
+  local status
+  git cat-file -e "HEAD:$1" 2>/dev/null || die "$1 is not a file on $(cfg main): a task approves a plan, and its merge brings it there."
+  status="$(git show "HEAD:$1" | python3 "$OVERLOAD_SCRIPTS/spec.py" status -)"
+  [[ "$status" == approved ]] || die "$1 is not 'status: approved' but '${status:-none}': only the open plan's items are worked."
+}
+
+# item_can_open <plan> <n>: prints `<n> <S|L> <title>` when a task can open
+# the item of the plan, on main; dies with why it cannot.
+item_can_open() {
+  local plan="$1" n="$2" other line branch n_other
+  local -a specs=()
+  plan_in_head "$plan"
+  if other="$(item_open_elsewhere "$plan")"; then
+    IFS=$'\t' read -r branch n_other _ <<<"$other"
+    die "item $n_other of $plan is open on branch $branch: one item at a time."
+  fi
+  mapfile -t specs < <(tracked_specs)
+  line="$(python3 "$OVERLOAD_SCRIPTS/spec.py" opens "$plan" "$n" ${specs[@]+"${specs[@]}"} 2>&1)" ||
+    die "${line#spec.py: }"
+  printf '%s\n' "$line"
+}
+
