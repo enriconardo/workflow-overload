@@ -371,7 +371,7 @@ class LinkTest(unittest.TestCase):
             "---\nstatus: approved\n---\n",
         ]
         self.assertEqual(
-            spec.item_states(spec.plan(PLAN), ".workflow/plans/lists.md", specs),
+            spec.item_states(spec.plan(PLAN), ".workflow/plans/lists.md", [("s%d.md" % n, text) for n, text in enumerate(specs)]),
             {1: "done", 2: "done", 3: "started", 4: "started", 5: "open", 6: "open"},
         )
 
@@ -463,7 +463,7 @@ class PlanMainTest(unittest.TestCase):
         write(self.work, "s.md", "---\nitem: 3\n---\n")
         code, out, err = run("items", ".workflow/plans/lists.md", "s.md")
         self.assertEqual((code, out), (1, ""))
-        self.assertIn("s.md: a spec of a plan's item names both", err)
+        self.assertIn("spec.py: s.md: a spec of a plan's item names both", err)
 
     def test_steps_prints_each_step_with_its_outcome(self):
         self.assertEqual(
@@ -489,8 +489,57 @@ class PlanMainTest(unittest.TestCase):
         code, _, err = run("revision", ".workflow/plans/lists.md", "new.md")
         self.assertEqual((code, err), (1, "spec.py: new.md: item 6 depends on item 9, which the plan lacks\n"))
 
+    def test_items_takes_an_item_started_on_a_branch(self):
+        code, out, _ = run("items", ".workflow/plans/lists.md", "--started", "5")
+        self.assertEqual((code, out.splitlines()[4]), (0, "5\tstarted\tS\t2\tMarkdown export"))
+
+    def test_next_is_the_started_item_with_its_spec(self):
+        write(self.work, ".workflow/specs/pages.md", item_spec("approved", 3))
+        self.assertEqual(
+            run("next", ".workflow/plans/lists.md", ".workflow/specs/pages.md"),
+            (0, "3\tstarted\tL\t.workflow/specs/pages.md\tPages (home and list)\n", ""),
+        )
+        self.assertEqual(
+            run("next", ".workflow/plans/lists.md", "--started", "5"),
+            (0, "5\tstarted\tS\t-\tMarkdown export\n", ""),
+        )
+
+    def test_next_is_else_the_first_open_item_whose_dependencies_are_ticked(self):
+        self.assertEqual(run("next", ".workflow/plans/lists.md"), (0, "3\topen\tL\t-\tPages (home and list)\n", ""))
+        write(self.work, ".workflow/plans/lists.md", plan_with("- [ ] 3. Pages", "- [x] 3. Pages"))
+        self.assertEqual(run("next", ".workflow/plans/lists.md"), (0, "4\topen\tL\t-\tLive updates\n", ""))
+
+    def test_next_says_acceptance_once_every_item_is_ticked(self):
+        write(self.work, ".workflow/plans/lists.md", re.sub(r"(?m)^- \[ \] (\d)\.", r"- [x] \1.", PLAN))
+        self.assertEqual(run("next", ".workflow/plans/lists.md"), (0, "acceptance\n", ""))
+
+    def test_opens_prints_an_item_that_can_open(self):
+        self.assertEqual(run("opens", ".workflow/plans/lists.md", "5"), (0, "5\tS\tMarkdown export\n", ""))
+        self.assertEqual(run("opens", ".workflow/plans/lists.md", "3"), (0, "3\tL\tPages (home and list)\n", ""))
+
+    def test_opens_refuses_an_item_that_cannot(self):
+        write(self.work, ".workflow/specs/pages.md", item_spec("approved", 3))
+        cases = [
+            (("9",), "item 9 is not in the plan"),
+            (("2",), "item 2 is ticked already"),
+            (("4",), "item 4 depends on item 3, not ticked yet"),
+            (("6",), "item 6 depends on items 4, 5, not ticked yet"),
+            (("3", ".workflow/specs/pages.md"), "item 3 has its spec approved, .workflow/specs/pages.md: /overload:build builds it"),
+            (("5", ".workflow/specs/pages.md"), "item 3 is started and not ticked: one item at a time"),
+            (("5", "--started", "3"), "item 3 is started and not ticked: one item at a time"),
+            (("x",), "x is not an item's number"),
+        ]
+        for args, problem in cases:
+            with self.subTest(args):
+                self.assertEqual(
+                    run("opens", ".workflow/plans/lists.md", *args),
+                    (1, "", "spec.py: .workflow/plans/lists.md: %s\n" % problem),
+                )
+        self.assertEqual(run("opens", ".workflow/plans/lists.md", "5", "--started", "5")[0], 0)
+
     def test_a_command_with_the_wrong_arguments_prints_the_usage(self):
-        for args in [(), ("plan",), ("check",), ("items",), ("revision", "a.md"), ("status", "a.md", "b.md")]:
+        for args in [(), ("plan",), ("check",), ("items",), ("next",), ("opens", "a.md"), ("items", "a.md", "--started"),
+                     ("revision", "a.md"), ("status", "a.md", "b.md")]:
             with self.subTest(args):
                 code, _, err = run(*args)
                 self.assertEqual(code, 2)

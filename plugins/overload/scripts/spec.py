@@ -15,11 +15,23 @@
                               read as <path> unreadable: <why>
   spec.py check <plan>        the plan's counts, or each way it is out of
                               format, a line each
-  spec.py items <plan> [<spec>...]
+  spec.py items <plan> [--started <n>]... [<spec>...]
                               a line per item: <n> <open|started|done> <S|L>
                               <the items it depends on, or -> <title>; started
                               when one of the specs, approved or done, names
-                              it in its link
+                              it in its link, or when --started names it: a
+                              branch works it
+  spec.py next <plan> [--started <n>]... [<spec>...]
+                              the item to work next, as <n> <started|open>
+                              <S|L> <the spec that names it, or -> <title>:
+                              the item started and not ticked, else the first
+                              open one whose dependencies are ticked; or
+                              `acceptance` once every item is ticked
+  spec.py opens <plan> <n> [--started <n>]... [<spec>...]
+                              the item, as <n> <S|L> <title>, when a task can
+                              open it: not ticked, its spec not approved yet,
+                              its dependencies ticked, no other item started;
+                              else why not
   spec.py steps <plan>        a line per acceptance step: <k> <open|passed|
                               failed> <the requirements it checks, or ->
   spec.py revision <old> <new>
@@ -394,17 +406,68 @@ def plan(text):
     return found
 
 
-def item_states(found, path, specs):
-    """Each item's state: done when ticked, started when one of the specs
-    (texts), approved or done, names it, open otherwise."""
-    started = set()
-    for text in specs:
-        named = link(text)
+def item_specs(path, specs):
+    """Each item of the plan at the path that one of the specs, (path, text)
+    pairs, approved or done, names in its link: number -> the spec's path."""
+    named_by = {}
+    for spec_path, text in specs:
+        try:
+            named = link(text)
+        except SpecError as error:
+            error.where = spec_path
+            raise
         if named and named[0] == os.path.normpath(path) and status(text) in ("approved", "done"):
-            started.add(named[1])
+            named_by.setdefault(named[1], spec_path)
+    return named_by
+
+
+def item_states(found, path, specs, started=()):
+    """Each item's state: done when ticked, started when one of the specs,
+    (path, text) pairs, approved or done, names it or `started` holds its
+    number, open otherwise."""
+    started = set(started) | set(item_specs(path, specs))
     return {
         item.number: "done" if item.done else "started" if item.number in started else "open" for item in found.items
     }
+
+
+def next_item(found, path, specs, started=()):
+    """The item to work next, (item, its spec's path or None, started), or
+    None once every item is ticked. specs: (path, text) pairs."""
+    named_by = item_specs(path, specs)
+    states = item_states(found, path, specs, started)
+    done = {item.number for item in found.items if item.done}
+    for item in found.items:
+        if states[item.number] == "started":
+            return item, named_by.get(item.number), True
+    for item in found.items:
+        if not item.done and all(other in done for other in item.depends):
+            return item, None, False
+    return None
+
+
+def opens(found, path, number, specs, started=()):
+    """The item a task can open, or SpecError with why not."""
+    by_number = {item.number: item for item in found.items}
+    if number not in by_number:
+        raise SpecError("item %d is not in the plan" % number)
+    item = by_number[number]
+    if item.done:
+        raise SpecError("item %d is ticked already" % number)
+    named_by = item_specs(path, specs)
+    if number in named_by:
+        raise SpecError("item %d has its spec approved, %s: /overload:build builds it" % (number, named_by[number]))
+    states = item_states(found, path, specs, started)
+    for other in found.items:
+        if other.number != number and states[other.number] == "started":
+            raise SpecError("item %d is started and not ticked: one item at a time" % other.number)
+    waiting = [other for other in item.depends if not by_number[other].done]
+    if waiting:
+        raise SpecError(
+            "item %d depends on item%s %s, not ticked yet"
+            % (number, "s" if len(waiting) > 1 else "", ", ".join(map(str, waiting)))
+        )
+    return item
 
 
 def revision(old, new):
@@ -467,6 +530,32 @@ def plan_at(path, text):
         raise
 
 
+def with_states(command, found, args):
+    """The lines of items, next or opens, on the plan found at args[0]."""
+    path, number = args[0], None
+    if command == "opens":
+        if not args[1].isdigit():
+            raise SpecError("%s is not an item's number" % args[1])
+        number, args = int(args[1]), args[:1] + args[2:]
+    started, paths = started_and_specs(args[1:])
+    specs = [(spec_path, read(spec_path)) for spec_path in paths]
+    if command == "items":
+        states = item_states(found, path, specs, started)
+        return [
+            "%d\t%s\t%s\t%s\t%s"
+            % (item.number, states[item.number], item.tier, ",".join(map(str, item.depends)) or "-", item.title)
+            for item in found.items
+        ]
+    if command == "opens":
+        item = opens(found, path, number, specs, started)
+        return ["%d\t%s\t%s" % (item.number, item.tier, item.title)]
+    upcoming = next_item(found, path, specs, started)
+    if upcoming is None:
+        return ["acceptance"]
+    item, spec_path, is_started = upcoming
+    return ["%d\t%s\t%s\t%s\t%s" % (item.number, "started" if is_started else "open", item.tier, spec_path or "-", item.title)]
+
+
 def run(command, args):
     """The command's output lines."""
     if command == "ready":
@@ -485,6 +574,12 @@ def run(command, args):
             for chunk in chunks(text)
         ]
     found = plan_at(args[0], text)
+    if command in WITH_STATES:
+        try:
+            return with_states(command, found, args)
+        except SpecError as error:
+            error.where = error.where or args[0]
+            raise
     if command == "revision":
         try:
             return ["%d\t%s" % change for change in revision(found, plan_at(args[1], read(args[1])))]
@@ -502,32 +597,54 @@ def run(command, args):
                 sum(step.done for step in found.steps),
             )
         ]
-    if command == "items":
-        states = item_states(found, args[0], [read(spec) for spec in args[1:]])
-        return [
-            "%d\t%s\t%s\t%s\t%s"
-            % (item.number, states[item.number], item.tier, ",".join(map(str, item.depends)) or "-", item.title)
-            for item in found.items
-        ]
     return [
         "%d\t%s\t%s" % (step.number, "passed" if step.done else "failed" if step.failed else "open", ",".join(step.ids) or "-")
         for step in found.steps
     ]
 
 
+def started_and_specs(args):
+    """The numbers after --started, and the other arguments, the specs."""
+    started, paths = [], []
+    while args:
+        if args[0] == "--started":
+            if len(args) < 2 or not args[1].isdigit():
+                raise ValueError("--started takes an item's number")
+            started.append(int(args[1]))
+            args = args[2:]
+        else:
+            paths.append(args[0])
+            args = args[1:]
+    return started, paths
+
+
 ARGUMENTS = {"status": 1, "chunks": 1, "depends": 1, "link": 1, "check": 1, "steps": 1, "revision": 2}
+# The commands that take an item's states: their least count of arguments.
+WITH_STATES = {"items": 1, "next": 1, "opens": 2}
 USAGE = (
     "Usage: spec.py status <doc> | chunks <spec> | depends <spec> | link <spec> | ready <spec>... "
-    "| check <plan> | items <plan> [<spec>...] | steps <plan> | revision <old> <new>"
+    "| check <plan> | items|next <plan> [--started <n>]... [<spec>...] "
+    "| opens <plan> <n> [--started <n>]... [<spec>...] | steps <plan> | revision <old> <new>"
 )
+
+
+def well_formed(command, args):
+    if command == "ready":
+        return True
+    if command in WITH_STATES:
+        if len(args) < WITH_STATES[command]:
+            return False
+        try:
+            started_and_specs(args[WITH_STATES[command]:])
+        except ValueError:
+            return False
+        return True
+    return ARGUMENTS.get(command) == len(args)
 
 
 def main(argv):
     command = argv[0] if argv else ""
-    count = len(argv) - 1
-    if not (
-        command == "ready" or (command == "items" and count >= 1) or ARGUMENTS.get(command) == count
-    ):
+    if not well_formed(command, argv[1:]):
         print(USAGE, file=sys.stderr)
         return 2
     try:
