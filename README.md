@@ -372,7 +372,6 @@ CI runs them on every push. A change to a script starts with a test in `tests/sc
 Setup, of a new repository too, brainstorming, triage, the S path, the L path as a spec task and its build, a plan worked item by item, accepted, revised or dropped, a spec dropped, resume and integration by local merge all work today. Next, each to be designed before it is built (details in [the backlog](.workflow/backlog.md)):
 
 - **Integration by pull or merge request** on GitHub, GitLab and Bitbucket, for projects whose main branch takes no local merge.
-- **A level above the plan**, a roadmap of phases, each a plan, for building a whole application.
 
 ## License
 
