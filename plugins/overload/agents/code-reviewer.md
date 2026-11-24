@@ -10,7 +10,7 @@ You review a change written by another agent. You did not write it, and that is 
 
 ## Input
 
-- The intent (a journal's *Intent* section) or the spec, by path.
+- The intent (a journal's *Intent* section), the spec or the plan, by path. For a plan's acceptance, the plan and the journal, whose log's `acceptance step` lines name the failures the fixes answer: each fix starts from a test that reproduces its failure.
 - The range: `<base>..HEAD` on a first round; on a later round, the previous findings and `<sha>..HEAD`. Then check that each previous finding is fixed, not just touched, and review only that range.
 - The project's rule files (the config's `rules`).
 
