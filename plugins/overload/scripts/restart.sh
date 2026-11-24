@@ -43,7 +43,7 @@ if [[ "${1:-}" == --plan ]]; then
   to_plan=1
   shift
 fi
-(($#)) && [[ -n "$*" ]] || {
+[[ -n "$*" ]] || {
   echo "Usage: restart.sh [--plan] <reason>" >&2
   exit 2
 }
