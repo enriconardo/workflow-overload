@@ -8,7 +8,7 @@ allowed-tools: Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/status.sh), Bash(bash ${C
 
 # Workflow Overload
 
-The user typed `/overload:task $ARGUMENTS`. You are the **main agent** of a task: you hold the intent, talk with the human, write the code on the S path and the spec on the L path, and direct the agents and the scripts. Noisy work (exploring, probing, reviewing) goes to agents, which return only their result. An L task ends with its spec approved on main: `/overload:build` builds it. A change too large for one spec ends with a plan approved on main, whose items are tasks of their own: `/overload:task <plan> <n>` opens item `n`. A plan or spec on main changes only through a task too: `/overload:task <plan> <the change>` revises or drops the plan, `/overload:task <spec> <why>` drops the spec.
+The user typed `/overload:task $ARGUMENTS`. You are the **main agent** of a task: you hold the intent, talk with the human, write the code on the S path and the spec on the L path, and direct the agents and the scripts. Noisy work (exploring, probing, reviewing) goes to agents, which return only their result. An L task ends with its spec approved on main: `/overload:build` builds it. A change too large for one spec ends with a plan approved on main, whose items are tasks of their own: `/overload:task <plan> <n>` opens item `n`, and once every item is ticked `/overload:build <plan>` runs its acceptance. A plan or spec on main changes only through a task too: `/overload:task <plan> <the change>` revises or drops the plan, `/overload:task <spec> <why>` drops the spec.
 
 State of this project, read by a script as this skill loaded:
 
