@@ -314,37 +314,34 @@ rules_entries() {
   return 0
 }
 
-# docs_only <tree>: succeeds when the task is a spec or plan task of
-# /overload:task (a spec in the journal, or a plan and no item; not a build)
-# whose changes from its base to <tree> are its docs only: the spec, the
-# plan (an item's spec corrects the item's tier there), the inputs, a
-# decision record it adds to a folder of `rules`, the backlog. Such a task
-# closes without `check_integrate` and without the final review: the spec or
-# plan reviewer judged it and its decision records, the human approved them
-# at its checkpoint. The journal is never part of the change.
+# docs_only <tree>: succeeds when the task is one of /overload:task that
+# decides on main (a spec in the journal; a plan and no item; a change of
+# a plan or spec main holds) and its changes from its base to <tree> are
+# documents only: specs, plans, their inputs, the backlog, the files of the
+# config's `rules` (a decision record added, marked superseded, a rule), in
+# any change. Such a task closes without `check_integrate` and without the
+# final review: its reviewer judged the spec or plan and its decision
+# records, the human approved them, or the drop, at its checkpoint. The
+# journal is never part of the change.
 docs_only() {
-  local tree="$1" spec plan base backlog entry state file
-  local -a folders=()
+  local tree="$1" base backlog entry file
+  local -a rules=()
   [[ "$(journal_get command)" != build ]] || return 1
-  spec="$(journal_get spec)"
-  plan="$(journal_get plan)"
+  [[ -n "$(journal_get spec)" || -n "$(journal_get change)" || (-n "$(journal_get plan)" && -z "$(journal_get item)") ]] || return 1
   base="$(journal_get base)"
-  [[ -n "$spec" || (-n "$plan" && -z "$(journal_get item)") ]] || return 1
   [[ -n "$base" ]] || return 1
   backlog="$(cfg backlog)"
-  while IFS= read -r entry; do
-    entry="${entry%/}"
-    [[ -d "$entry" ]] && folders+=("$entry/")
-  done < <(rules_entries)
-  while IFS=$'\t' read -r state file; do
-    [[ "$file" == "${spec:-/}" || "$file" == "${plan:-/}" || "$file" == "$backlog" || "$file" == "$JOURNAL_FILE" || "$file" == .workflow/inputs/* ]] && continue
-    if [[ "$state" == A ]]; then
-      for entry in ${folders[@]+"${folders[@]}"}; do
-        [[ "$file" == "$entry"* ]] && continue 2
-      done
-    fi
+  mapfile -t rules < <(rules_entries)
+  while IFS= read -r file; do
+    case "$file" in
+      "$JOURNAL_FILE" | "$backlog" | .workflow/specs/* | .workflow/plans/* | .workflow/inputs/*) continue ;;
+    esac
+    for entry in ${rules[@]+"${rules[@]}"}; do
+      entry="${entry%/}"
+      [[ "$file" == "$entry" || "$file" == "$entry"/* ]] && continue 2
+    done
     return 1
-  done < <(git diff --name-status --no-renames "$base" "$tree")
+  done < <(git diff --name-only --no-renames "$base" "$tree")
   return 0
 }
 
@@ -463,7 +460,7 @@ plan_in_head() {
   local status
   git cat-file -e "HEAD:$1" 2>/dev/null || die "$1 is not a file on $(cfg main): a task approves a plan, and its merge brings it there."
   status="$(git show "HEAD:$1" | python3 "$OVERLOAD_SCRIPTS/spec.py" status -)"
-  [[ "$status" == approved ]] || die "$1 is not 'status: approved' but '${status:-none}': only the open plan's items are worked."
+  [[ "$status" == approved ]] || die "$1 is not 'status: approved' but '${status:-none}': only the open plan has items to work, or changes."
 }
 
 # item_can_open <plan> <n>: prints `<n> <S|L> <title>` when a task can open

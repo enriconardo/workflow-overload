@@ -18,8 +18,8 @@ set -euo pipefail
 # --integrate runs the config's `check_integrate` too, after a green check:
 # the slow but local tests, once per task before the final review and again
 # after a sync with main. Green, it records the branch and main's commit for
-# integrate.sh. A spec or plan task of docs only (lib.sh's docs_only) runs
-# `check` alone: the slow tests have nothing of it to test.
+# integrate.sh. A task of docs only that decides on main (lib.sh's
+# docs_only) runs `check` alone: the slow tests have nothing of it to test.
 #
 # The full output goes to a file; the terminal gets its last lines on red
 # (80 by default) and a single line on green, so that the caller needs no
@@ -31,8 +31,8 @@ set -euo pipefail
 # l/chunk-<n>/implement or /verify, or /test on a chunk of tests only, to
 # /review or /commit; with --integrate, from close/check to close/review
 # when the tree is HEAD's and no merge is under way, or to close/write on a
-# spec or plan task of docs only, whose lessons and backlog went to its
-# checkpoint and which has no final review.
+# task of docs only that decides on main, whose lessons and backlog went to
+# its checkpoint and which has no final review.
 
 # shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -76,7 +76,7 @@ docs=0
 ((integrate && task)) && docs_only "$tree" && docs=1
 [[ -n "$command" ]] || notes+="; the config has no 'check' command, nothing checked"
 if ((docs)); then
-  notes+="; docs only (the spec or plan, its inputs and decision records, the backlog): no check_integrate, no final review"
+  notes+="; docs only (specs, plans, their inputs, rules files, the backlog): no check_integrate, no final review"
   slow=""
 elif ((integrate)) && [[ -z "$slow" ]]; then
   notes+="; the config has no 'check_integrate', nothing more to run"

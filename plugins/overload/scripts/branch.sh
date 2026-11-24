@@ -5,7 +5,7 @@ set -euo pipefail
 # and writes the journal with the tier, the command that runs the task and
 # the intent.
 #
-#   branch.sh <tier> <name> <intent-file> [--item <plan> <n>] [--map <file>] [--inputs <slug> <file>...]
+#   branch.sh <tier> <name> <intent-file> [--item <plan> <n> | --change <doc>] [--map <file>] [--inputs <slug> <file>...]
 #   branch.sh --build <name> <spec>
 #
 # The first form opens a task of /overload:task after the triage; the second
@@ -17,8 +17,13 @@ set -euo pipefail
 # is l/expiry, and the build reviews the spec against those changes first.
 # The journal records the approval as `approved`, and logs what main changed.
 #
-# <tier> is S, L, or P for a plan: one plan is open at a time, so a plan
-# task waits until main holds none approved. --item opens S or L on an item
+# <tier> is S, L, P for a plan, or D for a drop: one plan is open at a
+# time, so a plan task waits until main holds none approved. --change names
+# a decision main holds that the task changes, which the journal records as
+# `change`: with P, the open plan, which the task revises (the journal names
+# it as `plan` too); with D, the open plan or a spec approved and not built,
+# which the task drops. A drop waits while an item of its plan is open on a
+# branch: that task stops or ends first. --item opens S or L on an item
 # of the open plan, which the journal names as `plan` and `item`: the plan
 # approved on main, the item not ticked, its spec not approved yet, its
 # dependencies ticked, no other item started. A build of an item's spec
@@ -43,7 +48,7 @@ in_project
 require_config
 
 usage() {
-  echo "Usage: branch.sh <S|L|P> <name> <intent-file> [--item <plan> <n>] [--map <file>] [--inputs <slug> <file>...] | branch.sh --build <name> <spec>" >&2
+  echo "Usage: branch.sh <S|L|P|D> <name> <intent-file> [--item <plan> <n> | --change <doc>] [--map <file>] [--inputs <slug> <file>...] | branch.sh --build <name> <spec>" >&2
   exit 2
 }
 (($# >= 3)) || usage
@@ -57,11 +62,15 @@ else
 fi
 branch="$2" intent="$3"
 shift 3
-map="" slug="" inputs=() plan="" item=""
+map="" slug="" inputs=() plan="" item="" change="" changed_plan=""
 if [[ "${1:-}" == --item ]]; then
-  [[ $# -ge 3 && "$tier" != P ]] || usage
+  [[ $# -ge 3 && ("$tier" == S || "$tier" == L) ]] || usage
   plan="$2" item="$3"
   shift 3
+elif [[ "${1:-}" == --change ]]; then
+  [[ $# -ge 2 && ("$tier" == P || "$tier" == D) ]] || usage
+  change="$2"
+  shift 2
 fi
 if [[ "${1:-}" == --map ]]; then
   (($# >= 2)) || usage
@@ -75,7 +84,8 @@ if (($#)); then
 fi
 INPUTS_DIR=".workflow/inputs"
 
-[[ "$tier" == S || "$tier" == L || "$tier" == P ]] || die "the tier is S, L or P (a plan), not '$tier'."
+[[ "$tier" == S || "$tier" == L || "$tier" == P || "$tier" == D ]] || die "the tier is S, L, P (a plan) or D (a drop), not '$tier'."
+[[ "$tier" != D || -n "$change" ]] || die "tier D drops a plan or a spec: name it with --change <doc>."
 [[ "$command" == build || -s "$intent" ]] || die "the intent file '$intent' is missing or empty."
 [[ -z "$map" || -f "$map" ]] || die "the map '$map' is not a file."
 if [[ -n "$slug" ]]; then
@@ -135,10 +145,36 @@ case "$tier" in
   S) phase=s/implement ;;
   L) phase=l/spec ;;
   P) phase=p/plan ;;
+  D) phase=d/drop ;;
 esac
-if [[ "$tier" == P ]]; then
+if [[ "$tier" == P && -z "$change" ]]; then
   open="$(open_plans | head -n 1)"
   [[ -z "$open" ]] || die "a plan is open already, $open: one plan at a time. Its next item is in /overload:task's status."
+fi
+# A decision main holds: the open plan, revised or dropped, or a spec
+# approved and not built, dropped.
+if [[ -n "$change" ]]; then
+  change="${change#./}"
+  case "$change" in
+    .workflow/plans/*.md)
+      plan_in_head "$change"
+      changed_plan="$change"
+      [[ "$tier" == D ]] || plan="$change"
+      ;;
+    .workflow/specs/*.md)
+      [[ "$tier" == D ]] || die "a spec approved on main changes only by its drop (tier D): a correction goes through its build."
+      git cat-file -e "HEAD:$change" 2>/dev/null || die "$change is not a file on $main."
+      status="$(git show "HEAD:$change" | python3 "$OVERLOAD_SCRIPTS/spec.py" status -)"
+      [[ "$status" == approved ]] || die "$change is not 'status: approved' but '${status:-none}': only a spec approved and not built is dropped."
+      linked="$(git show "HEAD:$change" | python3 "$OVERLOAD_SCRIPTS/spec.py" link - 2>&1)" || die "$change: ${linked#spec.py: -: }"
+      changed_plan="${linked%%$'\t'*}"
+      ;;
+    *) die "'$change' is neither a plan (.workflow/plans/<name>.md) nor a spec (.workflow/specs/<name>.md) that main holds." ;;
+  esac
+  if [[ "$tier" == D && -n "$changed_plan" ]] && other="$(item_open_elsewhere "$changed_plan")"; then
+    IFS=$'\t' read -r other_branch other_item _ <<<"$other"
+    die "item $other_item of $changed_plan is open on branch $other_branch: stop that task, or end it, before the drop."
+  fi
 fi
 [[ -z "$item" ]] || title="$(item_can_open "$plan" "$item")"
 if [[ "$command" == build ]]; then
@@ -205,6 +241,7 @@ mkdir -p "$(dirname "$JOURNAL_FILE")"
   [[ -z "$spec" ]] || echo "approved: $approved"
   [[ -z "$plan" ]] || echo "plan: $plan"
   [[ -z "$item" ]] || echo "item: $item"
+  [[ -z "$change" ]] || echo "change: $change"
   echo
   echo "## Intent"
   echo
@@ -245,5 +282,6 @@ if [[ -n "$item" ]]; then
     echo "It builds item $item of $plan."
   fi
 fi
+[[ -z "$change" ]] || echo "It changes $change."
 [[ -z "$note" ]] || echo "$note"
 [[ -z "$log" ]] || echo "${log#expiry: }; phase $phase."
