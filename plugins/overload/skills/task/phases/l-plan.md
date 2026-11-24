@@ -76,7 +76,9 @@ As `shared/close.md` step 3 says, on this task's planning: the spec's checkpoint
 
 One message to the human, the task's only checkpoint: what changes according to the spec, how it splits into chunks and their types, the decision record if any, and a decision left without one because `rules` holds no folder of them (`/overload:setup` proposes one), the facts the prober checked, the spec reviewer's objections still open and those you rejected, each with its title and reason, the spec's *Plan revisions*, the risks and the questions; then, as `shared/close.md` step 4 says, the backlog candidates, the lessons the critic kept, and the defects of the workflow. Then stop and wait.
 
-The human approves the spec and picks the lessons and backlog items to keep, or sends the spec back for corrections (to 1, then 3), or the requirements back to the brainstorming. Log their words.
+**More than about 5 chunks**: the spec is too large for one build, and the checkpoint proposes, before anything else, to turn it into a plan. A spec of no plan becomes a plan, unless a plan is open (the status's *open plan*): then it stays a spec, and the human hears why. An item's spec becomes a revision of its plan, which splits the item: never a plan in the plan.
+
+The human approves the spec and picks the lessons and backlog items to keep, or sends the spec back for corrections (to 1, then 3), or the requirements back to the brainstorming, or has it turned into a plan: `bash <scripts>/restart.sh --plan "<reason>"`. It keeps the spec's draft for you to start from, out of the tree, and sets the task to the plan's first phase; go on with `phases/plan.md` from 1, and on an item, with the differences of *A revision* in `phases/change.md`. Log their words.
 
 ## 8. Commit the spec
 
