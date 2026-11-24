@@ -29,7 +29,7 @@ State of this project, read by a script as this skill loaded:
 ## Open the build
 
 1. Read the spec in full: what it asks, its decisions, its chunks. Its `inputs` are the human's documents: the agents that need them read them.
-2. `bash <scripts>/branch.sh --build <name> <spec>`, from main; the name follows *Names and messages* in the rules of every task. It refuses a spec that main does not hold approved with a chunk left to build. The journal names the spec and its approval, and its phase is that chunk's first step, or `l/expiry` when main changed the files the spec rests on since its approval.
+2. `bash <scripts>/branch.sh --build <name> <spec>`, from main; the name follows *Names and messages* in the rules of every task. It refuses a spec that main does not hold approved with a chunk left to build. The journal names the spec and its approval, and its phase is that chunk's first step, or `l/expiry` when main changed the files the spec rests on since its approval. A spec of a plan's item (its `plan` and `item`) builds that item: the journal names both, the plan is among the files the expiry watches, and the script refuses while another item of the plan is open on a branch.
 3. When it says main moved since the approval, none of the spec's files changed: tell the human in one line, with the dependencies the spec's *Decisions* name in words, which no script sees change.
 4. Go on with `phases/l-chunk.md`, from *Expiry* on `l/expiry`.
 

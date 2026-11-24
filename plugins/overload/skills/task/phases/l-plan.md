@@ -12,6 +12,8 @@ status: draft
 branch: <branch>
 inputs: <the inputs' paths, or none>
 depends_on: <the files the spec rests on, comma-separated>
+plan: <for an item of a plan: the plan's path; no line otherwise>
+item: <for an item of a plan: its number; no line otherwise>
 ---
 
 # <What changes, in a line>
@@ -31,9 +33,14 @@ The cases that prove the behavior, each one line: input, expected result.
 ## Docs
 The files that describe this behavior and change with it (a README, API docs, a guide), or none.
 
+## Plan revisions
+For an item of a plan only: each change the reviews found that later items need, a line each, or none. The build's checkpoint proposes them.
+
 ## Chunks
 - [ ] 1. <title> (test-first | no test-first | tests only): the files, the test cases it covers[; signatures: the existing declarations whose signature changes][; dependencies: the packages it adds][; inputs: those its code must match as they are]
 ```
+
+**The spec of a plan's item** (the journal's `plan` and `item`) builds that item and no more. It cites by ID the requirements the item covers, in *What* and *Test cases*; for a requirement the item closes, a test case proves it across the items, which the test-author writes before the code like any other. Its *Docs* names the plan when the item changes how one of its acceptance steps is run.
 
 **What the build needs from the journal** goes in the spec before each spec review round, so that the reviewer judges it too: the human's decisions and rulings that bear on the code, in *Decisions*, marked as theirs with their words; a ruling on one chunk, in that chunk's line.
 
@@ -49,9 +56,9 @@ Versions, APIs, a dependency's behavior. Run the `overload:prober` agent with th
 
 ## 3. Spec review — phase `l/spec-review`
 
-Run the `overload:spec-reviewer` agent with the spec's path, the map's path (the journal's `map`), the inputs' paths, the decision records the spec writes, and the config's `rules`. Never a summary of the discussion. Log the round: `journal.sh log "spec review round <n>: <k> blocking"`.
+Run the `overload:spec-reviewer` agent with the spec's path, the map's path (the journal's `map`), the inputs' paths, the decision records the spec writes, the plan's path for an item of a plan, and the config's `rules`. Never a summary of the discussion. Log the round: `journal.sh log "spec review round <n>: <k> blocking"`.
 
-For each objection: accept it and fix the spec, or reject it with a reason, which goes under *Open findings*. A new question about external facts goes back to 2; a question only the human can answer goes to them now. The loop ends when the reviewer's last round raises no blocking objection you accept. A minor one you fix, or reject, without another round; an accepted blocking one fixes the spec and calls for another round. At most three rounds, then `shared/escalate.md`; past the third, every round ends there again while a blocking objection stays open.
+For each objection: accept it and fix the spec, or reject it with a reason, which goes under *Open findings*. One that a later item of the plan needs, accepted, goes in *Plan revisions*. A new question about external facts goes back to 2; a question only the human can answer goes to them now. The loop ends when the reviewer's last round raises no blocking objection you accept. A minor one you fix, or reject, without another round; an accepted blocking one fixes the spec and calls for another round. At most three rounds, then `shared/escalate.md`; past the third, every round ends there again while a blocking objection stays open.
 
 ## 4. Threshold
 
@@ -67,10 +74,10 @@ As `shared/close.md` step 3 says, on this task's planning: the spec's checkpoint
 
 ## 7. Summary and checkpoint — phase `l/checkpoint`
 
-One message to the human, the task's only checkpoint: what changes according to the spec, how it splits into chunks and their types, the decision record if any, and a decision left without one because `rules` holds no folder of them (`/overload:setup` proposes one), the facts the prober checked, the spec reviewer's objections still open and those you rejected, each with its title and reason, the risks and the questions; then, as `shared/close.md` step 4 says, the backlog candidates, the lessons the critic kept, and the defects of the workflow. Then stop and wait.
+One message to the human, the task's only checkpoint: what changes according to the spec, how it splits into chunks and their types, the decision record if any, and a decision left without one because `rules` holds no folder of them (`/overload:setup` proposes one), the facts the prober checked, the spec reviewer's objections still open and those you rejected, each with its title and reason, the spec's *Plan revisions*, the risks and the questions; then, as `shared/close.md` step 4 says, the backlog candidates, the lessons the critic kept, and the defects of the workflow. Then stop and wait.
 
 The human approves the spec and picks the lessons and backlog items to keep, or sends the spec back for corrections (to 1, then 3), or the requirements back to the brainstorming. Log their words.
 
 ## 8. Commit the spec
 
-Set `status: approved`, then verify and commit the spec, its decision record and its inputs. The commit moves the phase to `close/check`: go on with `shared/close.md` from 1. On a task of docs only, its verify moves the phase on to the writing of the lessons and backlog items the human picked, with no final review; a task that holds more has the whole close.
+Set `status: approved`, then verify and commit the spec, its decision record and its inputs. On an item whose tier the human changed from the plan's estimate, at its triage or by turning L, the same commit corrects the estimate in the item's line of the plan, and nothing else there. The commit moves the phase to `close/check`: go on with `shared/close.md` from 1. On a task of docs only, its verify moves the phase on to the writing of the lessons and backlog items the human picked, with no final review; a task that holds more has the whole close.
