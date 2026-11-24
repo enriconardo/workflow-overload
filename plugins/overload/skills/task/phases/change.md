@@ -14,7 +14,7 @@ Write the intent to a file outside the repository: what changes and why, with th
 bash <scripts>/branch.sh <P|D> <name> <intent-file> --change <doc> [--map <file>] [--inputs <slug> <file>...]
 ```
 
-`P` revises the open plan; `D` drops the open plan or the spec. The script refuses a document main does not hold approved, a spec with `P`, and a drop while an item of the plan is open on a branch: that task stops or ends first. New inputs of a revision go in a folder of the plan's name.
+`P` revises the open plan; `D` drops the open plan or the spec. The script refuses a document main does not hold approved, a spec with `P`, a drop while an item of the plan is open on a branch, and either while the plan's acceptance is: that task stops or ends first. New inputs of a revision go in a folder of the plan's name.
 
 ## A revision — tier P
 
@@ -22,6 +22,7 @@ bash <scripts>/branch.sh <P|D> <name> <intent-file> --change <doc> [--map <file>
 
 - **What it may change.** Items not ticked and not open on a branch, whose number they keep; a new item, a split item's new part included, takes the next free number, one after the other; requirements, acceptance steps and cross-cutting decisions, the items that cover them changed with them. A ticked item stays as it is, and so does a requirement it closed, unless an item added proves it again. The status stays `approved`, and no item is ticked.
 - **An item whose spec main holds approved** (the status's *next* names it): a removed item takes its spec to `dropped`, as *A drop* below says, in this task. A changed one keeps its spec, which its build reviews against the revised plan before any chunk (its expiry), or drops it: the human chooses at the checkpoint, and the plan's line says nothing of it.
+- **After an acceptance that failed** (its steps marked `— failed:`): the revision adds the items the failures call for, each covering the requirements its step checks; the marks stay as the acceptance left them, and the next `/overload:build <plan>` runs every step again.
 - **The plan reviewer** gets also the revision, `git diff <base> -- <plan>` with `base` from the journal, and the paths of the specs on main of the items it changes.
 - **The checkpoint** shows the revision first: each item added, removed or changed, with what changes and why; the specs dropped, and those kept for their build's review.
 - **After the merge**, the status names the next item, which may have changed.

@@ -14,9 +14,13 @@ set -euo pipefail
 # The commit moves the phase, in the journal it commits: from s/implement to
 # close/check when it changes more than the config; from close/check to
 # close/review when its tree is the one verify.sh --integrate checked, or to
-# close/write on a task of docs only that decides on main (lib.sh's
-# docs_only); from l/checkpoint to close/check when it holds the spec
-# approved with a chunk to build, which ends a spec task; from p/checkpoint
+# close/write on a task of docs only that decides on main, or to
+# close/lessons on an acceptance without fixes (lib.sh's close_next); from
+# a/run to close/check when it changes the acceptance's plan alone, every
+# step with its outcome and the plan done when each passed, the steps'
+# outcome that ends an acceptance; a fix commit leaves a/run as it is; from
+# l/checkpoint to close/check when it holds the spec approved with a chunk
+# to build, which ends a spec task; from p/checkpoint
 # to close/check when it holds the plan approved, in format, with no item
 # ticked, which ends a plan task, or ticked as main had them, on a revision;
 # from d/checkpoint to close/check when it holds the dropped spec or plan
@@ -76,10 +80,25 @@ case "$phase" in
   close/check)
     read -r checked checked_on _ 2>/dev/null <"$(integrated_file)" || checked="" checked_on=""
     if [[ "$checked" == "$verified_tree" && "$checked_on" == "$(current_branch)" ]]; then
-      next=close/review
-      ! docs_only "$verified_tree" || next=close/write
+      next="$(close_next "$verified_tree")"
     else
       stays="verify.sh --integrate did not check this tree."
+    fi
+    ;;
+  a/run)
+    plan="$(journal_get plan)"
+    if [[ -z "$(git diff --cached --name-only HEAD -- "$plan")" ]]; then
+      : # a fix, which leaves the steps to run
+    elif [[ -n "$(git diff --cached --name-only --no-renames HEAD -- . ":(exclude)$plan" ":(exclude)$JOURNAL_FILE")" ]]; then
+      stays="the outcome of the acceptance is committed on its own, after its fixes."
+    elif ! steps="$(python3 "$OVERLOAD_SCRIPTS/spec.py" steps "$plan" 2>&1)"; then
+      stays="${steps//$'\n'/; }"
+    elif open="$(awk -F'\t' '$2 == "open" { print $1; exit }' <<<"$steps")" && [[ -n "$open" ]]; then
+      stays="acceptance step $open has no outcome: tick it, or add — failed: <what>."
+    elif ! grep -q $'\tfailed\t' <<<"$steps" && [[ "$(python3 "$OVERLOAD_SCRIPTS/spec.py" status "$plan")" != "done" ]]; then
+      stays="every acceptance step passed: the plan is 'status: done'."
+    else
+      next=close/check
     fi
     ;;
   l/checkpoint)

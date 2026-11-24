@@ -345,6 +345,40 @@ docs_only() {
   return 0
 }
 
+# is_acceptance: the task is a plan's acceptance, /overload:build <plan>: a
+# build with a plan and no spec.
+is_acceptance() {
+  [[ "$(journal_get command)" == build && -z "$(journal_get spec)" && -n "$(journal_get plan)" ]]
+}
+
+# acceptance_without_fixes <tree>: succeeds on an acceptance whose changes
+# from its base to <tree> are its plan alone, the steps' outcome: no code to
+# review, though check_integrate still runs on the code the items built.
+acceptance_without_fixes() {
+  local base file plan
+  is_acceptance || return 1
+  base="$(journal_get base)" plan="$(journal_get plan)"
+  [[ -n "$base" ]] || return 1
+  while IFS= read -r file; do
+    [[ "$file" == "$JOURNAL_FILE" || "$file" == "$plan" ]] || return 1
+  done < <(git diff --name-only --no-renames "$base" "$1")
+  return 0
+}
+
+# close_next <tree>: the step after a green `verify.sh --integrate` on the
+# tree: close/write for a task of docs only that decides on main, whose
+# lessons and backlog went to its checkpoint; close/lessons for an
+# acceptance without fixes; close/review otherwise.
+close_next() {
+  if docs_only "$1"; then
+    echo close/write
+  elif acceptance_without_fixes "$1"; then
+    echo close/lessons
+  else
+    echo close/review
+  fi
+}
+
 # Phases set by the scripts: running a script is the decision, so its
 # outcome moves the phase, only from the phases its header names, and only
 # when what it checked is what the next phase needs. A red never moves it;
@@ -401,7 +435,8 @@ suite_refs() {
 # time: approved on main, until its acceptance makes it done or a task drops
 # it. An item of the open plan is worked by one task at a time, recorded
 # under the state folder while its branch lives: the plan, on main, cannot
-# tell an item whose branch is open from one nobody started.
+# tell an item whose branch is open from one nobody started. Its acceptance
+# is recorded the same way, as the work `acceptance`.
 
 # The plans and specs main's working tree tracks, a path per line.
 tracked_plans() { git ls-files -- '.workflow/plans/*.md'; }
@@ -420,7 +455,8 @@ item_records_dir() {
   printf '%s/items\n' "$(state_dir)"
 }
 
-# record_item <plan> <n> <command>: this branch works item <n> of <plan>.
+# record_item <plan> <n|acceptance> <command>: this branch works item <n>
+# of <plan>, or its acceptance.
 record_item() {
   local file
   file="$(item_records_dir)/$(current_branch)"
@@ -428,8 +464,9 @@ record_item() {
   printf '%s\t%s\t%s\n' "$1" "$2" "$3" >"$file"
 }
 
-# item_records: `<branch> <plan> <n> <command>` for each branch that works
-# an item and still exists: a record whose branch is gone counts no more.
+# item_records: `<branch> <plan> <n|acceptance> <command>` for each branch
+# that works an item, or the acceptance, and still exists: a record whose
+# branch is gone counts no more.
 item_records() {
   local dir file branch
   dir="$(item_records_dir)"
@@ -441,8 +478,14 @@ item_records() {
   done < <(find "$dir" -type f | sort)
 }
 
+# work_name <n|acceptance>: a record's work, for a message.
+work_name() {
+  if [[ "$1" == acceptance ]]; then echo "the acceptance"; else echo "item $1"; fi
+}
+
 # item_open_elsewhere <plan>: the first record of the plan on a branch other
-# than this one, as `<branch> <n> <command>`; fails when there is none.
+# than this one, as `<branch> <n|acceptance> <command>`; fails when there is
+# none.
 item_open_elsewhere() {
   local branch plan n command current
   current="$(current_branch)"
@@ -471,7 +514,7 @@ item_can_open() {
   plan_in_head "$plan"
   if other="$(item_open_elsewhere "$plan")"; then
     IFS=$'\t' read -r branch n_other _ <<<"$other"
-    die "item $n_other of $plan is open on branch $branch: one item at a time."
+    die "$(work_name "$n_other") of $plan is open on branch $branch: one item at a time."
   fi
   mapfile -t specs < <(tracked_specs)
   line="$(python3 "$OVERLOAD_SCRIPTS/spec.py" opens "$plan" "$n" ${specs[@]+"${specs[@]}"} 2>&1)" ||

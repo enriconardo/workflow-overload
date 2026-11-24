@@ -564,3 +564,210 @@ test_restart_to_a_plan_takes_only_a_spec_task_before_its_approval() {
   expect_fail "phase close/check" bash "$SCRIPTS/restart.sh" --plan "why"
   expect_fail "Usage" bash "$SCRIPTS/restart.sh" --plan
 }
+
+# The acceptance: /overload:build <plan>, once every item is ticked.
+
+ACCEPTANCE=test/greet/acceptance
+
+# plan_built_on_main: the plan on main, both its items ticked.
+plan_built_on_main() {
+  plan_on_main
+  tick_item 1
+  tick_item 2
+  git commit -qam "feat(greet): both items"
+}
+
+open_acceptance() {
+  bash "$SCRIPTS/branch.sh" --build "${1:-$ACCEPTANCE}" "$PLAN"
+}
+
+# step_outcome <passed|failed> [<status>]: the outcome of the plan's one
+# step, and the plan's status (done by default when it passed).
+step_outcome() {
+  local status="${2:-}"
+  sed -i.bak 's/^- \[[ x]\] GREET-02: \(.*hello, world\.\).*$/- [ ] GREET-02: \1/' "$PLAN" && rm "$PLAN.bak"
+  if [[ "$1" == passed ]]; then
+    sed -i.bak 's/^- \[ \] GREET-02:/- [x] GREET-02:/' "$PLAN" && rm "$PLAN.bak"
+    status="${status:-done}"
+  else
+    sed -i.bak 's/hello, world\.$/hello, world. — failed: it says hello, undefined./' "$PLAN" && rm "$PLAN.bak"
+    status="${status:-approved}"
+  fi
+  sed -i.bak "s/^status: .*/status: $status/" "$PLAN" && rm "$PLAN.bak"
+}
+
+# leave_open: back on main, the branch and its record kept, as a task left
+# open in another session.
+leave_open() {
+  rm -f .workflow/journal.md
+  git switch -q -f main
+}
+
+test_branch_opens_the_acceptance_once_every_item_is_ticked() {
+  expect_fail "$PLAN is not a file on main" open_acceptance
+  plan_on_main
+  expect_fail "item 1 of $PLAN is not ticked: the acceptance runs once every item is" open_acceptance
+  tick_item 1
+  tick_item 2
+  git commit -qam "feat(greet): both items"
+  out="$(open_acceptance)"
+  [[ "$out" == *"tier A"*"It runs the acceptance of $PLAN."* ]] || fail "$out"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get tier)" A
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get command)" build
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get phase)" a/run
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get plan)" "$PLAN"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get spec)" ""
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get item)" ""
+  expect_eq "$(cat ".git/overload/items/$ACCEPTANCE")" "$PLAN	acceptance	build"
+  leave_open
+  expect_fail "the acceptance of $PLAN is open on branch $ACCEPTANCE" open_acceptance test/greet/again
+  expect_fail "the acceptance of $PLAN is open on branch $ACCEPTANCE: it ends first" change_task P docs/greet/revise "$PLAN"
+  expect_fail "the acceptance of $PLAN is open on branch $ACCEPTANCE: stop that task" change_task D docs/greet/drop "$PLAN"
+  git branch -q -D "$ACCEPTANCE"
+  sed -i.bak 's/^status: approved/status: done/; s/^- \[ \] GREET-02:/- [x] GREET-02:/' "$PLAN" && rm "$PLAN.bak"
+  git commit -qam "docs(greet): accepted"
+  expect_fail "$PLAN is not 'status: approved' but 'done'" open_acceptance
+}
+
+test_commit_ends_the_acceptance_with_its_outcome_on_its_own() {
+  plan_built_on_main
+  open_acceptance >/dev/null
+  out="$(verified_commit "Fix.")" || fail "$out"
+  expect_eq "$(bash "$SCRIPTS/journal.sh" get phase)" a/run
+  sed -i.bak 's/run greet without a name/run greet with no name/' "$PLAN" && rm "$PLAN.bak"
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  out="$(bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): step')")"
+  [[ "$out" == *"phase stays a/run: acceptance step 1 has no outcome"* ]] || fail "$out"
+  step_outcome passed approved
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  out="$(bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): passed')")"
+  [[ "$out" == *"phase stays a/run: every acceptance step passed: the plan is 'status: done'"* ]] || fail "$out"
+  step_outcome failed "done"
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  out="$(bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): failed')")"
+  [[ "$out" == *"phase stays a/run"*"a done plan has every item ticked and every step passed"* ]] || fail "$out"
+  step_outcome failed
+  echo "Another fix." >>README.md
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  out="$(bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): both')")"
+  [[ "$out" == *"phase stays a/run: the outcome of the acceptance is committed on its own, after its fixes"* ]] || fail "$out"
+  step_outcome passed
+  bash "$SCRIPTS/verify.sh" >/dev/null
+  out="$(bash "$SCRIPTS/commit.sh" "$(message 'docs(greet): accepted')")"
+  [[ "$out" == *"phase: close/check"* ]] || fail "$out"
+}
+
+test_an_acceptance_without_fixes_runs_check_integrate_and_no_final_review() {
+  slow_check
+  plan_built_on_main
+  open_acceptance >/dev/null
+  step_outcome passed
+  verified_change 'docs(greet): accepted'
+  echo slow-red >>.git/info/exclude
+  touch slow-red
+  expect_fail "red" bash "$SCRIPTS/verify.sh" --integrate
+  rm slow-red
+  out="$(bash "$SCRIPTS/verify.sh" --integrate)"
+  [[ "$out" == *"check_integrate"*"no fixes: no final review"*"phase: close/lessons"* ]] || fail "$out"
+  [[ "$out" != *"docs only"* ]] || fail "$out"
+  out="$(integrate_now)"
+  [[ "$out" == *"integrated '$ACCEPTANCE'"* ]] || fail "$out"
+  expect_eq "$(git show "main:$PLAN" | sed -n 2p)" "status: done"
+  [[ ! -e ".git/overload/items/$ACCEPTANCE" ]] || fail "the acceptance's record outlives its branch"
+  [[ "$(bash "$SCRIPTS/status.sh")" == *"- open plan: none"* ]] || fail "$(bash "$SCRIPTS/status.sh")"
+}
+
+test_an_acceptance_with_fixes_goes_to_the_final_review() {
+  plan_built_on_main
+  open_acceptance >/dev/null
+  verified_commit "Fix."
+  step_outcome passed
+  verified_change 'docs(greet): accepted'
+  out="$(bash "$SCRIPTS/verify.sh" --integrate)"
+  [[ "$out" == *"phase: close/review"* ]] || fail "$out"
+}
+
+test_integrate_takes_an_acceptance_with_every_step_run_and_its_items_as_they_are() {
+  plan_built_on_main
+  open_acceptance >/dev/null
+  sed -i.bak 's/run greet without a name/run greet with no name/' "$PLAN" && rm "$PLAN.bak"
+  verified_change 'docs(greet): step'
+  expect_fail "acceptance step 1 of $PLAN has no outcome: tick it, or add — failed: <what>" integrate_now
+  step_outcome passed approved
+  verified_change 'docs(greet): passed'
+  expect_fail "every acceptance step of $PLAN passed: set 'status: done'" integrate_now
+  step_outcome failed
+  sed -i.bak 's/^- \[x\] 2\./- [ ] 2./' "$PLAN" && rm "$PLAN.bak"
+  verified_change 'docs(greet): untick'
+  expect_fail "the acceptance changes the items of $PLAN, which only a revision does, through /overload:task $PLAN:
+item 2 is ticked and the revision changes it" integrate_now
+  tick_item 2
+  spec_on_main_here
+  verified_change 'docs(greet): failed'
+  expect_fail "the acceptance changes .workflow/specs/s.md: it changes no spec, and no plan but its own" integrate_now
+  git rm -q .workflow/specs/s.md
+  verified_change 'docs(greet): no spec'
+  out="$(integrate_now)"
+  [[ "$out" == *"integrated"* ]] || fail "$out"
+  expect_eq "$(git show "main:$PLAN" | sed -n 2p)" "status: approved"
+  out="$(bash "$SCRIPTS/status.sh")"
+  [[ "$out" == *"  - every item ticked, its acceptance failed at step 1 → /overload:task $PLAN <the change> adds the items that fix it; then /overload:build $PLAN runs it again"* ]] || fail "$out"
+}
+
+# spec_on_main_here: a spec of no plan in the working tree.
+spec_on_main_here() {
+  mkdir -p .workflow/specs
+  printf -- '---\nstatus: approved\n---\n\n# Greet\n\n## Chunks\n- [ ] 1. Greet (test-first): a.ts\n' >.workflow/specs/s.md
+}
+
+test_integrate_refuses_an_acceptance_once_main_adds_an_item() {
+  plan_built_on_main
+  open_acceptance >/dev/null
+  step_outcome failed
+  verified_change 'docs(greet): failed'
+  git switch -q main
+  echo "- [ ] 3. Polish (S estimated): polish; depends on —" >>"$WORK/item"
+  sed -i.bak "/^- \[x\] 2\./r $WORK/item" "$PLAN" && rm "$PLAN.bak"
+  git commit -qam "docs(greet): item 3"
+  git switch -q "$ACCEPTANCE"
+  bash "$SCRIPTS/sync.sh" >/dev/null || true
+  verified_change "Merge branch 'main'"
+  expect_fail "item 3 of $PLAN is not ticked: the acceptance runs once every item is" integrate_now
+}
+
+test_integrate_refuses_a_revision_while_the_acceptance_is_open() {
+  plan_built_on_main
+  change_task P docs/greet/revise "$PLAN" >/dev/null
+  sed -i.bak 's/run greet without a name/run greet with no name/' "$PLAN" && rm "$PLAN.bak"
+  at_checkpoint p/checkpoint >/dev/null
+  git switch -q main
+  open_acceptance >/dev/null
+  leave_open
+  git switch -q docs/greet/revise
+  expect_fail "the acceptance of $PLAN is open on branch $ACCEPTANCE: a revision waits for it to end" integrate_now
+}
+
+test_status_shows_the_acceptance_open_on_its_branch() {
+  plan_built_on_main
+  open_acceptance >/dev/null
+  out="$(bash "$SCRIPTS/status.sh")"
+  [[ "$out" == *"- plan: $PLAN, 2 requirements, 2 items (2 ticked), 1 acceptance steps (0 passed)"* ]] || fail "$out"
+  leave_open
+  out="$(bash "$SCRIPTS/status.sh")"
+  [[ "$out" == *"  - every item ticked, its acceptance open on branch $ACCEPTANCE, where /overload:build resumes it"* ]] || fail "$out"
+}
+
+test_plan_merge_finds_the_merge_on_main_that_ticked_an_item() {
+  plan_on_main
+  git switch -q -c feature/greet/name
+  tick_item 1
+  git commit -qam "feat(greet): name"
+  git switch -q main
+  git merge -q --no-ff -m "Merge branch 'feature/greet/name'" feature/greet/name
+  sha="$(git rev-parse --short HEAD)"
+  echo more >>README.md
+  git commit -qam "docs(readme): more"
+  expect_eq "$(bash "$SCRIPTS/plan.sh" merge "$PLAN" 1)" "$sha Merge branch 'feature/greet/name'"
+  expect_fail "item 2 of $PLAN is not ticked on main" bash "$SCRIPTS/plan.sh" merge "$PLAN" 2
+  expect_fail "item 9 of $PLAN is not ticked on main" bash "$SCRIPTS/plan.sh" merge "$PLAN" 9
+}

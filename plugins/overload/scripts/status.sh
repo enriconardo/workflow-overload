@@ -4,7 +4,9 @@ set -uo pipefail
 # What the skills read before they decide what to do: the config, the
 # branch, the journal's header and whether the tree is verified; on main,
 # the specs to build and the open plan with its next item and the command
-# that works it. Never fails, so that a skill always loads.
+# that works it, or its acceptance once every item is ticked: open on a
+# branch, failed at some steps, or to run. Never fails, so that a skill
+# always loads.
 
 # shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -12,7 +14,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 # plan_lines <plan>: the plan's counts or problems, and on main its next
 # item with the command that works it.
 plan_lines() {
-  local plan="$1" counts branch of n command next state tier spec title
+  local plan="$1" counts branch of n command next state tier spec title failed
   local -a args=()
   if ! counts="$(python3 "$OVERLOAD_SCRIPTS/spec.py" check "$plan" 2>&1)"; then
     echo "$plan, refused:"
@@ -22,7 +24,7 @@ plan_lines() {
   echo "$plan, $counts"
   [[ "$(current_branch)" == "$(cfg main)" ]] || return 0
   while IFS=$'\t' read -r branch of n command; do
-    [[ "$of" == "$plan" ]] && args+=(--started "$n")
+    [[ "$of" == "$plan" && "$n" != acceptance ]] && args+=(--started "$n")
   done < <(item_records)
   mapfile -t -O "${#args[@]}" args < <(tracked_specs)
   next="$(python3 "$OVERLOAD_SCRIPTS/spec.py" next "$plan" ${args[@]+"${args[@]}"} 2>&1)" || {
@@ -30,7 +32,18 @@ plan_lines() {
     return 0
   }
   if [[ "$next" == acceptance ]]; then
-    echo "  - every item ticked → its acceptance: /overload:build $plan"
+    while IFS=$'\t' read -r branch of n command; do
+      if [[ "$of" == "$plan" && "$n" == acceptance ]]; then
+        echo "  - every item ticked, its acceptance open on branch $branch, where /overload:build resumes it"
+        return 0
+      fi
+    done < <(item_records)
+    failed="$(python3 "$OVERLOAD_SCRIPTS/spec.py" steps "$plan" | awk -F'\t' '$2 == "failed" { printf "%s%s", sep, $1; sep = ", " }')"
+    if [[ -n "$failed" ]]; then
+      echo "  - every item ticked, its acceptance failed at step $failed → /overload:task $plan <the change> adds the items that fix it; then /overload:build $plan runs it again"
+    else
+      echo "  - every item ticked → its acceptance: /overload:build $plan"
+    fi
     return 0
   fi
   IFS=$'\t' read -r n state tier spec title <<<"$next"
@@ -39,8 +52,8 @@ plan_lines() {
     echo " → /overload:task $plan $n"
     return 0
   fi
-  while IFS=$'\t' read -r branch of _ command; do
-    if [[ "$of" == "$plan" ]]; then
+  while IFS=$'\t' read -r branch of n command; do
+    if [[ "$of" == "$plan" && "$n" != acceptance ]]; then
       echo ": open on branch $branch, where /overload:$command resumes it"
       return 0
     fi

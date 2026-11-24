@@ -1,25 +1,25 @@
 # Close
 
-Every task ends here: an S task, the spec task of an L, a plan task, a change of a plan or spec, a build: the slow tests, one final review, one round of lessons, the human's go, the merge. On S, and on a task that decides on main (a spec, a plan, a change), you fix what the review finds; in a build the `overload:step-implementer` does, from a test that reproduces the finding. A task that decides on main, of docs only (specs, plans, their inputs, rules files, the backlog), has neither the slow tests nor the final review: its reviewer judged the spec or plan and its decision records, the human approved it at its checkpoint, which was its only one.
+Every task ends here: an S task, the spec task of an L, a plan task, a change of a plan or spec, a build, a plan's acceptance: the slow tests, one final review, one round of lessons, the human's go, the merge. On S, on a task that decides on main (a spec, a plan, a change), and in an acceptance, you fix what the review finds; in a build of a spec the `overload:step-implementer` does, from a test that reproduces the finding. A task that decides on main, of docs only (specs, plans, their inputs, rules files, the backlog), has neither the slow tests nor the final review: its reviewer judged the spec or plan and its decision records, the human approved it at its checkpoint, which was its only one. An acceptance without fixes runs the slow tests and has no final review: it brings no code.
 
 ## 1. Sync and integration check — phase `close/check`
 
 1. `bash <scripts>/sync.sh`: when main moved since the branch started or last took it in, it merges main into the branch without committing, and the journal's `base` becomes main's commit. A conflict goes to `shared/escalate.md`; on the human's go, resolve it on the branch. A merge already under way (an interrupted session): finish it, from 2.
-2. `bash <scripts>/verify.sh --integrate`: `check`, then the config's `check_integrate`, the tests too slow for every commit. With no `check_integrate` it runs `check` alone. Red: fix it (you, or the step-implementer in a build, from a test that reproduces it when the failing test does not already) and verify with `--integrate` again; the script stops you at the third red in a row (`shared/escalate.md`). After a sync, a red may come from main rather than the branch: run the same command on main alone, in a worktree under a folder made with `mktemp -d` (`git worktree add --detach <dir> <main>`, removed afterwards). Red there too, it is another task's regression: `shared/escalate.md`, and the human decides.
-3. Commit: the merge, with its fixes, as one commit (`Merge branch '<main>' into <branch>`, unless the project's rules say otherwise); otherwise each fix on its own. A green `verify.sh --integrate` on a committed tree, or the commit of the tree it checked, moves the phase to `close/review`; on a task that decides on main, of docs only, which the script tells from the branch's diff and says so, to `close/write` (5).
+2. `bash <scripts>/verify.sh --integrate`: `check`, then the config's `check_integrate`, the tests too slow for every commit. With no `check_integrate` it runs `check` alone. Red: fix it (you, or the step-implementer in a build of a spec, from a test that reproduces it when the failing test does not already) and verify with `--integrate` again; the script stops you at the third red in a row (`shared/escalate.md`). After a sync, a red may come from main rather than the branch: run the same command on main alone, in a worktree under a folder made with `mktemp -d` (`git worktree add --detach <dir> <main>`, removed afterwards). Red there too, it is another task's regression: `shared/escalate.md`, and the human decides.
+3. Commit: the merge, with its fixes, as one commit (`Merge branch '<main>' into <branch>`, unless the project's rules say otherwise); otherwise each fix on its own. A green `verify.sh --integrate` on a committed tree, or the commit of the tree it checked, moves the phase to `close/review`; on a task that decides on main, of docs only, which the script tells from the branch's diff and says so, to `close/write` (5); on an acceptance without fixes, to `close/lessons` (3).
 
 ## 2. Final review — phase `close/review`
 
 Run the `overload:code-reviewer` agent with:
 
-- the intent, the spec or the plan: with a spec (the journal's `spec`), its path; on a plan task (the journal's `plan`, and no `item`), the plan's; otherwise the journal's path and its section *Intent*;
+- the intent, the spec or the plan: with a spec (the journal's `spec`), its path; on a plan task (the journal's `plan`, and no `item`), the plan's, and in an acceptance also the journal's path, whose log's `acceptance step` lines name the failures the fixes answer; otherwise the journal's path and its section *Intent*;
 - the range: first round `<base>..HEAD`, with `base` from the journal; a later round, the previous findings and `<sha>..HEAD`, `sha` being the HEAD the previous round reviewed;
 - the config's `rules`;
-- in a build, the command that shows how the recorded suites changed after the test-author handed them over: `bash <scripts>/suite.sh diff`. When the spec has one chunk, also the step reviewer's mandate: the tests cover the chunk, and none is vacuous.
+- in a build of a spec, the command that shows how the recorded suites changed after the test-author handed them over: `bash <scripts>/suite.sh diff`. When the spec has one chunk, also the step reviewer's mandate: the tests cover the chunk, and none is vacuous.
 
 At every round, log the round with the HEAD it reviewed (`journal.sh log "review round <n> on <sha>: <k> blocking"`). For each finding:
 
-- **blocking, one right answer**: fixed (by you, or by the step-implementer in a build), starting from a test that reproduces it when it is a bug; verify; commit the fixes on their own; then a new round on the new range;
+- **blocking, one right answer**: fixed (by you, or by the step-implementer in a build of a spec), starting from a test that reproduces it when it is a bug; verify; commit the fixes on their own; then a new round on the new range;
 - **blocking, needs judgment**: under *Open findings*, for the checkpoint;
 - **not blocking**: under *Backlog candidates*, with its source (`code-reviewer`).
 
@@ -35,7 +35,7 @@ Write the proposals to a file outside the repository, one per lesson: its text a
 
 One message to the human:
 
-- what changes and why, in a few lines, and the diff's stat (`git diff --stat <base>..HEAD`); in a build, the chunks as the spec ticks them;
+- what changes and why, in a few lines, and the diff's stat (`git diff --stat <base>..HEAD`); in a build, the chunks as the spec ticks them; in an acceptance, each step's outcome, the fixes with the step each answers, and the failures left for a revision of the plan;
 - the last verify's result, and `check_integrate`'s;
 - the findings that need their judgment, and those you rejected, with the reason;
 - the backlog candidates, each with its source, after you compared them with the config's `backlog` file (an empty one has no items): a candidate that matches an item says so, already there or already dropped, with the item's date and reason;
@@ -43,7 +43,7 @@ One message to the human:
 - the defects of the workflow itself that the task met, each in one line;
 - on an item of the plan, the revisions the task found (the log's `revision:` lines) and, in a build, the spec's *Plan revisions*, each in one line: a revision of the plan, which goes through `/overload:task <plan> <the change>` after this merge, if the human wants it.
 
-Then stop and wait. The human gives the go and picks the lessons and backlog items to keep, or asks for changes: on S you are back in `s/implement`; on a spec task the spec goes back to `phases/l-plan.md` from 1, on a plan task or a revision the plan to `phases/plan.md` from 1, on a drop to `phases/change.md`, *A drop*, from 1; in a build the changes are one more chunk, a correction of the spec (`phases/l-chunk.md`, *A spec correction*), which goes through that file from its first step, then this file again from 1. Set the phase accordingly. Log their words.
+Then stop and wait. The human gives the go and picks the lessons and backlog items to keep, or asks for changes: on S you are back in `s/implement`; on a spec task the spec goes back to `phases/l-plan.md` from 1, on a plan task or a revision the plan to `phases/plan.md` from 1, on a drop to `phases/change.md`, *A drop*, from 1; in an acceptance, a step to run again or a fix to make goes back to `phases/acceptance.md` from 1, phase `a/run`; in a build of a spec the changes are one more chunk, a correction of the spec (`phases/l-chunk.md`, *A spec correction*), which goes through that file from its first step, then this file again from 1. Set the phase accordingly. Log their words.
 
 ## 5. Lessons and backlog — phase `close/write`
 
@@ -53,4 +53,4 @@ In a build, set the spec's `status: done` in the last of these commits, or in a 
 
 ## 6. Integrate — phase `close/integrate`
 
-`bash <scripts>/integrate.sh`. It asks the human's permission; it merges with `--no-ff`, drops the journal and deletes the branch and its suite. It refuses a branch that does not hold main, after bringing main up to its upstream, and one where `check_integrate` has not run green since main last moved: run step 1 again, then integrate. Any other refusal leaves main as it was: go to `shared/escalate.md`. Then tell the human it is merged, in one line, with the merge's subject. After a spec task, add that `/overload:build <spec>` builds it, best in a new session (`/clear` first): the build starts from the spec, and needs none of this session's context. After a plan task, a change of a plan or spec, or a task that ends an item, add the plan's next item and its command, if a plan is open, which `bash <scripts>/status.sh` now prints on main, to run best after a `/clear` too.
+`bash <scripts>/integrate.sh`. It asks the human's permission; it merges with `--no-ff`, drops the journal and deletes the branch and its suite. It refuses a branch that does not hold main, after bringing main up to its upstream, and one where `check_integrate` has not run green since main last moved: run step 1 again, then integrate. Any other refusal leaves main as it was: go to `shared/escalate.md`. Then tell the human it is merged, in one line, with the merge's subject. After a spec task, add that `/overload:build <spec>` builds it, best in a new session (`/clear` first): the build starts from the spec, and needs none of this session's context. After a plan task, a change of a plan or spec, or a task that ends an item, add the plan's next item and its command, if a plan is open, which `bash <scripts>/status.sh` now prints on main, to run best after a `/clear` too. After an acceptance, say the plan is done; or, with a step failed, that `/overload:task <plan> <the change>` revises it with the items the failures call for, and that `/overload:build <plan>` runs every step again once they are ticked.

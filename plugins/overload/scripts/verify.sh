@@ -20,6 +20,8 @@ set -euo pipefail
 # after a sync with main. Green, it records the branch and main's commit for
 # integrate.sh. A task of docs only that decides on main (lib.sh's
 # docs_only) runs `check` alone: the slow tests have nothing of it to test.
+# An acceptance runs check_integrate even without fixes: its steps ran on
+# the code the items built, which main may have moved since.
 #
 # The full output goes to a file; the terminal gets its last lines on red
 # (80 by default) and a single line on green, so that the caller needs no
@@ -32,7 +34,9 @@ set -euo pipefail
 # /review or /commit; with --integrate, from close/check to close/review
 # when the tree is HEAD's and no merge is under way, or to close/write on a
 # task of docs only that decides on main, whose lessons and backlog went to
-# its checkpoint and which has no final review.
+# its checkpoint and which has no final review, or to close/lessons on an
+# acceptance without fixes, which has no code to review (lib.sh's
+# close_next).
 
 # shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -81,6 +85,7 @@ if ((docs)); then
 elif ((integrate)) && [[ -z "$slow" ]]; then
   notes+="; the config has no 'check_integrate', nothing more to run"
 fi
+((integrate && task)) && acceptance_without_fixes "$tree" && notes+="; an acceptance with no fixes: no final review"
 
 # The phase after a green run: an L chunk's implementation (or its tests,
 # on a chunk of tests only) goes to the step review when the spec has more
@@ -93,7 +98,7 @@ green_phase() {
   phase="$(journal_get phase)"
   if [[ "$phase" == close/check ]]; then
     if ((integrate)) && [[ "$tree" == "$(commit_tree_hash HEAD)" && ! -f "$(git rev-parse --git-path MERGE_HEAD)" ]]; then
-      if ((docs)); then phase_to close/write; else phase_to close/review; fi
+      phase_to "$(close_next "$tree")"
     fi
     return 0
   fi

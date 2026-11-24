@@ -6,12 +6,16 @@ set -euo pipefail
 # the intent.
 #
 #   branch.sh <tier> <name> <intent-file> [--item <plan> <n> | --change <doc>] [--map <file>] [--inputs <slug> <file>...]
-#   branch.sh --build <name> <spec>
+#   branch.sh --build <name> <spec|plan>
 #
 # The first form opens a task of /overload:task after the triage; the second
-# a task of /overload:build, from a spec approved on main with a chunk left
-# to build: its journal names the spec, which holds the intent, and its phase
-# is that chunk's first step. Unless the spec expired: the files it rests on
+# a task of /overload:build. With a plan, the open plan once every item is
+# ticked, it opens the plan's acceptance: tier A, phase a/run, the journal
+# names the plan, and the branch is recorded as working the plan's
+# acceptance, so that no revision or drop of the plan opens meanwhile. With
+# a spec, approved on main with a chunk left to build, its journal names
+# the spec, which holds the intent, and its phase is that chunk's first
+# step. Unless the spec expired: the files it rests on
 # (its frontmatter's depends_on, the config's rules, the config) changed on
 # main since the commit that brought it there, its approval. Then the phase
 # is l/expiry, and the build reviews the spec against those changes first.
@@ -22,9 +26,10 @@ set -euo pipefail
 # a decision main holds that the task changes, which the journal records as
 # `change`: with P, the open plan, which the task revises (the journal names
 # it as `plan` too); with D, the open plan or a spec approved and not built,
-# which the task drops. A drop waits while an item of its plan is open on a
-# branch: that task stops or ends first. --item opens S or L on an item
-# of the open plan, which the journal names as `plan` and `item`: the plan
+# which the task drops. A drop waits while an item of its plan, or its
+# acceptance, is open on a branch: that task stops or ends first; a revision
+# waits for the acceptance alone. --item opens S or L on an item of the
+# open plan, which the journal names as `plan` and `item`: the plan
 # approved on main, the item not ticked, its spec not approved yet, its
 # dependencies ticked, no other item started. A build of an item's spec
 # names them too, and the plan joins the files whose change expires the
@@ -48,14 +53,18 @@ in_project
 require_config
 
 usage() {
-  echo "Usage: branch.sh <S|L|P|D> <name> <intent-file> [--item <plan> <n> | --change <doc>] [--map <file>] [--inputs <slug> <file>...] | branch.sh --build <name> <spec>" >&2
+  echo "Usage: branch.sh <S|L|P|D> <name> <intent-file> [--item <plan> <n> | --change <doc>] [--map <file>] [--inputs <slug> <file>...] | branch.sh --build <name> <spec|plan>" >&2
   exit 2
 }
 (($# >= 3)) || usage
 command=task spec="" approved="" note="" log=""
+acceptance=""
 if [[ "$1" == --build ]]; then
   (($# == 3)) || usage
-  command=build tier=L branch="$2" spec="$3"
+  command=build tier=L branch="$2" spec="${3#./}"
+  if [[ "$spec" == .workflow/plans/*.md ]]; then
+    tier=A acceptance="$spec" spec=""
+  fi
   set -- "$tier" "$branch" ""
 else
   tier="$1"
@@ -84,7 +93,7 @@ if (($#)); then
 fi
 INPUTS_DIR=".workflow/inputs"
 
-[[ "$tier" == S || "$tier" == L || "$tier" == P || "$tier" == D ]] || die "the tier is S, L, P (a plan) or D (a drop), not '$tier'."
+[[ "$tier" == S || "$tier" == L || "$tier" == P || "$tier" == D || -n "$acceptance" ]] || die "the tier is S, L, P (a plan) or D (a drop), not '$tier'."
 [[ "$tier" != D || -n "$change" ]] || die "tier D drops a plan or a spec: name it with --change <doc>."
 [[ "$command" == build || -s "$intent" ]] || die "the intent file '$intent' is missing or empty."
 [[ -z "$map" || -f "$map" ]] || die "the map '$map' is not a file."
@@ -146,6 +155,7 @@ case "$tier" in
   L) phase=l/spec ;;
   P) phase=p/plan ;;
   D) phase=d/drop ;;
+  A) phase=a/run ;;
 esac
 if [[ "$tier" == P && -z "$change" ]]; then
   open="$(open_plans | head -n 1)"
@@ -171,13 +181,28 @@ if [[ -n "$change" ]]; then
       ;;
     *) die "'$change' is neither a plan (.workflow/plans/<name>.md) nor a spec (.workflow/specs/<name>.md) that main holds." ;;
   esac
-  if [[ "$tier" == D && -n "$changed_plan" ]] && other="$(item_open_elsewhere "$changed_plan")"; then
+  if [[ -n "$changed_plan" ]] && other="$(item_open_elsewhere "$changed_plan")"; then
     IFS=$'\t' read -r other_branch other_item _ <<<"$other"
-    die "item $other_item of $changed_plan is open on branch $other_branch: stop that task, or end it, before the drop."
+    if [[ "$tier" == D ]]; then
+      die "$(work_name "$other_item") of $changed_plan is open on branch $other_branch: stop that task, or end it, before the drop."
+    elif [[ "$other_item" == acceptance ]]; then
+      die "the acceptance of $changed_plan is open on branch $other_branch: it ends first, and a revision then adds the items its failed steps call for."
+    fi
   fi
 fi
 [[ -z "$item" ]] || title="$(item_can_open "$plan" "$item")"
-if [[ "$command" == build ]]; then
+# An acceptance: the open plan, every item ticked, nothing else of it open.
+if [[ -n "$acceptance" ]]; then
+  plan="$acceptance"
+  plan_in_head "$plan"
+  items="$(git show "HEAD:$plan" | python3 "$OVERLOAD_SCRIPTS/spec.py" items - 2>&1)" || die "$plan: ${items#spec.py: -: }"
+  open="$(awk -F'\t' '$2 != "done" { print $1; exit }' <<<"$items")"
+  [[ -z "$open" ]] || die "item $open of $plan is not ticked: the acceptance runs once every item is."
+  if other="$(item_open_elsewhere "$plan")"; then
+    IFS=$'\t' read -r other_branch other_item _ <<<"$other"
+    die "$(work_name "$other_item") of $plan is open on branch $other_branch: one at a time."
+  fi
+elif [[ "$command" == build ]]; then
   git cat-file -e "HEAD:$spec" 2>/dev/null || die "'$spec' is not a file on $main: /overload:build builds a spec that a task approved and integrated."
   status="$(git show "HEAD:$spec" | python3 "$OVERLOAD_SCRIPTS/spec.py" status -)"
   [[ "$status" == approved ]] || die "$spec is not 'status: approved' but '${status:-none}': /overload:task approves a spec."
@@ -194,7 +219,7 @@ if [[ "$command" == build ]]; then
     plan_in_head "$plan"
     if other="$(item_open_elsewhere "$plan")"; then
       IFS=$'\t' read -r other_branch other_item _ <<<"$other"
-      die "item $other_item of $plan is open on branch $other_branch: one item at a time."
+      die "$(work_name "$other_item") of $plan is open on branch $other_branch: one item at a time."
     fi
   fi
   mapfile -t watched < <(git show "HEAD:$spec" | python3 "$OVERLOAD_SCRIPTS/spec.py" depends -)
@@ -247,6 +272,8 @@ mkdir -p "$(dirname "$JOURNAL_FILE")"
   echo
   if [[ -n "$spec" ]]; then
     echo "Build the approved spec $spec: its *Why*, *What* and *Decisions* hold the intent."
+  elif [[ -n "$acceptance" ]]; then
+    echo "Run the acceptance of the plan $plan: every step of its *Acceptance*, from the first, on the code its items built."
   else
     # Its headings go below the journal's sections, which the scripts read.
     sed -E 's/^(#+ )/##\1/' "$intent"
@@ -272,6 +299,7 @@ mkdir -p "$(dirname "$JOURNAL_FILE")"
 
 [[ -z "$map" ]] || bash "$OVERLOAD_SCRIPTS/journal.sh" keep map "$map" >/dev/null
 [[ -z "$item" ]] || record_item "$plan" "$item" "$command"
+[[ -z "$acceptance" ]] || record_item "$plan" acceptance build
 
 echo "On '$branch', tier $tier; the journal is $JOURNAL_FILE."
 if [[ -n "$item" ]]; then
@@ -283,5 +311,6 @@ if [[ -n "$item" ]]; then
   fi
 fi
 [[ -z "$change" ]] || echo "It changes $change."
+[[ -z "$acceptance" ]] || echo "It runs the acceptance of $plan."
 [[ -z "$note" ]] || echo "$note"
 [[ -z "$log" ]] || echo "${log#expiry: }; phase $phase."
