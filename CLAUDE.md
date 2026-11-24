@@ -10,7 +10,7 @@ plugins/overload/                 what an install copies
   .claude-plugin/plugin.json      name, version
   skills/task/SKILL.md            /overload:task, opens or resumes a task: an S, or an L's spec
   skills/task/phases/             the task skill's own phases, one file each
-  skills/build/SKILL.md           /overload:build, builds a spec approved on main
+  skills/build/SKILL.md           /overload:build, builds a spec approved on main, or runs a plan's acceptance
   skills/build/phases/            the build skill's own phases
   skills/setup/SKILL.md           /overload:setup, writes .workflow/config
   shared/                         the rules and phases every task command shares
@@ -23,7 +23,7 @@ docs/                             design and probes
 
 ## Rules of the plugin
 
-- **The workflow starts only with `/overload:task` or `/overload:build`.** Every skill has `disable-model-invocation: true` (without it the model could load one on its own); only `task` opens a task from a request, `build` only from a spec approved on main, and `setup` opens none; never an agent whose description invites delegation, never a hook that acts on a branch without `.workflow/journal.md`.
+- **The workflow starts only with `/overload:task` or `/overload:build`.** Every skill has `disable-model-invocation: true` (without it the model could load one on its own); only `task` opens a task from a request, `build` only from a spec approved on main or a plan whose items are all ticked, and `setup` opens none; never an agent whose description invites delegation, never a hook that acts on a branch without `.workflow/journal.md`.
 - **A script finds its files from `BASH_SOURCE`**: the model's Bash has no `CLAUDE_PLUGIN_ROOT`. Only the skill's text gets `${CLAUDE_PLUGIN_ROOT}` and `${CLAUDE_SKILL_DIR}` substituted.
 - **Scripts need only bash, git and python3** (3.8+, standard library): no `jq`, no Node, no package to install. A script's output is short enough that the model never pipes it.
 - **Project specifics live in `.workflow/config`**, read by `lib.sh`'s `config_get` without evaluation; each key has a default there or a refusal. A new key goes in `lib.sh`'s `CONFIG_KEYS` (its default in `config_default`), the key list of `agents/setup-explorer.md` with what makes a good value, and the README's *Configuration*; a test refuses a phase or an agent that names a key `lib.sh` does not know.
