@@ -41,6 +41,7 @@ One message to the human:
 - the backlog candidates, each with its source, after you compared them with the config's `backlog` file (an empty one has no items): a candidate that matches an item says so, already there or already dropped, with the item's date and reason;
 - the lessons the critic kept, each with its verdict; a dropped one as a single line, so they can take it back.
 - the defects of the workflow itself that the task met, each in one line;
+- on an item of the plan, the unknowns it ticked, each with its answer, and those the plan gives it still open;
 - on an item of the plan, the revisions the task found (the log's `revision:` lines) and, in a build, the spec's *Plan revisions*, each in one line: a revision of the plan, which goes through `/overload:task <plan> <the change>` after this merge, if the human wants it.
 
 Then stop and wait. The human gives the go and picks the lessons and backlog items to keep, or asks for changes: on S you are back in `s/implement`; on a spec task the spec goes back to `phases/l-plan.md` from 1, on a plan task or a revision the plan to `phases/plan.md` from 1, on a drop to `phases/change.md`, *A drop*, from 1; in an acceptance, a step to run again or a fix to make goes back to `phases/acceptance.md` from 1, phase `a/run`; in a build of a spec the changes are one more chunk, a correction of the spec (`phases/l-chunk.md`, *A spec correction*), which goes through that file from its first step, then this file again from 1. Set the phase accordingly. Log their words.

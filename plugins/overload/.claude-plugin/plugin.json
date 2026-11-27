@@ -1,6 +1,6 @@
 {
   "name": "overload",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "A development workflow that starts only with /overload:task or /overload:build: brainstorming, an S path, a reviewed spec built in test-first chunks or a reviewed plan of such tasks with its acceptance, independent reviews and verified commits.",
   "author": { "name": "Enrico Nardo" },
   "homepage": "https://github.com/enriconardo/workflow-overload",
