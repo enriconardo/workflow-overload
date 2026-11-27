@@ -74,7 +74,7 @@ As `shared/close.md` step 3 says, on this task's planning: the spec's checkpoint
 
 ## 7. Summary and checkpoint — phase `l/checkpoint`
 
-One message to the human, the task's only checkpoint: what changes according to the spec, how it splits into chunks and their types, the decision record if any, and a decision left without one because `rules` holds no folder of them (`/overload:setup` proposes one), the facts the prober checked, the spec reviewer's objections still open and those you rejected, each with its title and reason, the spec's *Plan revisions*, the risks and the questions; then, as `shared/close.md` step 4 says, the backlog candidates, the lessons the critic kept, and the defects of the workflow. Then stop and wait.
+One message to the human, the task's only checkpoint: what changes according to the spec, how it splits into chunks and their types, the decision record if any, and a decision left without one because `rules` holds no folder of them (`/overload:setup` proposes one), the facts the prober checked, the plan's unknowns the spec task ticked, each with its answer, the spec reviewer's objections still open and those you rejected, each with its title and reason, the spec's *Plan revisions*, the risks and the questions; then, as `shared/close.md` step 4 says, the backlog candidates, the lessons the critic kept, and the defects of the workflow. Then stop and wait.
 
 **More than about 5 chunks**: the spec is too large for one build, and the checkpoint proposes, before anything else, to turn it into a plan. A spec of no plan becomes a plan, unless a plan is open (the status's *open plan*): then it stays a spec, and the human hears why. An item's spec becomes a revision of its plan, which splits the item: never a plan in the plan.
 

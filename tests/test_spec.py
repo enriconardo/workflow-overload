@@ -191,7 +191,7 @@ Accounts; deployment.
 - **D1. TypeScript on Node 24.** Alternatives: Python; Go.
 
 ## Unknowns
-- Playwright on WSL (covers nothing; depends on nothing).
+- [ ] Playwright on WSL — item 1
 
 ## Items
 - [x] 1. Skeleton (L estimated): the stack, `GET /health` (schema 0); covers OPS-02; closes OPS-02; depends on —

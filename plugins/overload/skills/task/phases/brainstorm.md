@@ -33,7 +33,7 @@ Turns the request into an understood problem and a tier the human confirms, with
 
 `/overload:task <plan> <n>`, once `plan.sh item` said it can open: the item's intent, in the plan, stands for the request, and the steps above run with these differences.
 
-1. Read the plan in full: the item, the requirements it covers and closes, the cross-cutting decisions, the documents it cites. Its inputs are the plan's (its `inputs`, in the plan's folder); the human may give new ones.
+1. Read the plan in full: the item, the requirements it covers and closes, the unknowns it is to find out, the cross-cutting decisions, the documents it cites. Its inputs are the plan's (its `inputs`, in the plan's folder); the human may give new ones.
 2. Explore with the item's intent restated as the request, and the inputs.
 3. Ask only what the plan does not say.
 4. The tier the plan estimates is the proposal; the human confirms or changes it. Never a plan: an item too large for an L becomes items of its own through a revision of the plan.
